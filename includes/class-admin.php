@@ -1208,8 +1208,12 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $post_id = (int) ($_POST['post_id'] ?? 0);
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
-        if (self::is_attachment_protected($post_id)) {
+        if (self::is_attachment_protected($post_id) || self::is_attachment_whitelisted($post_id)) {
             wp_send_json_error(__('This file is protected and cannot be trashed.', 'oli-media-cleaner'));
+        }
+
+        if (self::must_keep_attachment_files($post_id)) {
+            wp_send_json_error(self::used_media_kept_message(1));
         }
 
         $result = wp_trash_post($post_id);
@@ -1229,9 +1233,14 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $ids = array_map('intval', $_POST['ids'] ?? []);
         $trashed = 0;
         $protected = 0;
+        $used_kept = 0;
         foreach ($ids as $id) {
-            if (self::is_attachment_protected($id)) {
+            if (self::is_attachment_protected($id) || self::is_attachment_whitelisted($id)) {
                 $protected++;
+                continue;
+            }
+            if (self::must_keep_attachment_files($id)) {
+                $used_kept++;
                 continue;
             }
             if (wp_trash_post($id)) {
@@ -1250,6 +1259,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             $msg = sprintf(_n('%d protected file skipped.', '%d protected files skipped.', $protected, 'oli-media-cleaner'), $protected);
             $message = $message ? $message . ' ' . $msg : $msg;
         }
+        $message = self::append_used_media_kept_message($message, $used_kept);
 
         wp_send_json_success([
             'message' => $message ?: __('No files were trashed.', 'oli-media-cleaner'),
@@ -1258,24 +1268,94 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
     }
 
     /**
-     * Shared files, or an unknown index, or protected files must not be deleted or trashed.
+     * Whether this attachment is on the plugin whitelist.
+     *
+     * @param int $attachment_id Attachment ID.
+     * @return bool
+     */
+    public static function is_attachment_whitelisted($attachment_id) {
+        $attachment_id = (int) $attachment_id;
+        if ($attachment_id <= 0) {
+            return false;
+        }
+        $whitelist = get_option('olimc_whitelist', []);
+        if (!is_array($whitelist)) {
+            return false;
+        }
+        foreach ($whitelist as $id) {
+            if ((int) $id === $attachment_id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Admin notice when used media were refused for trash or delete.
+     *
+     * @param int $count Number of attachments kept.
+     * @return string
+     */
+    public static function used_media_kept_message($count) {
+        $count = (int) $count;
+        if ($count <= 0) {
+            return '';
+        }
+        /* translators: %d: number of media items that are still in use */
+        return sprintf(
+            _n('%d used media item was kept.', '%d used media items were kept.', $count, 'oli-media-cleaner'),
+            $count
+        );
+    }
+
+    /**
+     * Append a used-media refusal notice to an existing admin message.
+     *
+     * @param string $message Current message.
+     * @param int    $count   Number of attachments kept.
+     * @return string
+     */
+    private static function append_used_media_kept_message($message, $count) {
+        $extra = self::used_media_kept_message($count);
+        if ($extra === '') {
+            return $message;
+        }
+        return $message !== '' ? $message . ' ' . $extra : $extra;
+    }
+
+    /**
+     * Shared files, unknown index, protected files, or in-use media must not be deleted or trashed.
      *
      * @param int $post_id Attachment ID.
      * @return bool
      */
     public static function must_keep_attachment_files($post_id) {
         $post_id = (int) $post_id;
-        if ($post_id <= 0) {
-            return false;
+        $keep = false;
+
+        if ($post_id > 0) {
+            // Check protection first (cheapest check)
+            if (self::is_attachment_protected($post_id) || self::is_attachment_whitelisted($post_id)) {
+                $keep = true;
+            } else {
+                $scanner = new OLIMC_Scanner();
+                $shared = $scanner->shared_relative_upload_paths($post_id);
+                if ($shared === null || $shared !== []) {
+                    $keep = true;
+                } else {
+                    $in_use = $scanner->is_attachment_in_use_now($post_id);
+                    if ($in_use === true || $in_use === null) {
+                        $keep = true;
+                    }
+                    $scan_date = get_option('olimc_scan_date', '');
+                    if (!$keep && empty($scan_date) && $in_use !== false) {
+                        $keep = true;
+                    }
+                }
+            }
         }
 
-        // Check protection first (cheapest check)
-        if (self::is_attachment_protected($post_id)) {
-            return true;
-        }
-
-        $shared = (new OLIMC_Scanner())->shared_relative_upload_paths($post_id);
-        return $shared === null || $shared !== [];
+        return (bool) apply_filters('olimc_must_keep_attachment', $keep, $post_id);
     }
 
     /**
@@ -1398,8 +1478,12 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $post_id = (int) ($_POST['post_id'] ?? 0);
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
-        if (self::is_attachment_protected($post_id)) {
+        if (self::is_attachment_protected($post_id) || self::is_attachment_whitelisted($post_id)) {
             wp_send_json_error(__('This file is protected and cannot be deleted.', 'oli-media-cleaner'));
+        }
+
+        if (self::must_keep_attachment_files($post_id)) {
+            wp_send_json_error(self::used_media_kept_message(1));
         }
 
         $result = self::delete_attachment_preserve_shared_files($post_id);
@@ -1419,9 +1503,14 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $ids = array_map('intval', $_POST['ids'] ?? []);
         $deleted = 0;
         $protected = 0;
+        $used_kept = 0;
         foreach ($ids as $id) {
-            if (self::is_attachment_protected($id)) {
+            if (self::is_attachment_protected($id) || self::is_attachment_whitelisted($id)) {
                 $protected++;
+                continue;
+            }
+            if (self::must_keep_attachment_files($id)) {
+                $used_kept++;
                 continue;
             }
             if (self::delete_attachment_preserve_shared_files($id)) {
@@ -1440,6 +1529,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             $msg = sprintf(_n('%d protected file skipped.', '%d protected files skipped.', $protected, 'oli-media-cleaner'), $protected);
             $message = $message ? $message . ' ' . $msg : $msg;
         }
+        $message = self::append_used_media_kept_message($message, $used_kept);
 
         wp_send_json_success([
             'message' => $message ?: __('No files were deleted.', 'oli-media-cleaner'),
@@ -1601,13 +1691,19 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $batch = array_slice($scan_results, 0, $batch_size);
         $trashed = 0;
         $protected = 0;
+        $used_kept = 0;
 
         foreach ($batch as $item) {
             $id = (int)$item['id'];
-            if (self::is_attachment_protected($id)) {
+            if (self::is_attachment_protected($id) || self::is_attachment_whitelisted($id)) {
                 // Skip protected, but still remove from results so we don't try again
                 self::remove_from_scan_results($id);
                 $protected++;
+                continue;
+            }
+            if (self::must_keep_attachment_files($id)) {
+                self::remove_from_scan_results($id);
+                $used_kept++;
                 continue;
             }
             if (wp_trash_post($id)) {
@@ -1616,14 +1712,15 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             }
         }
 
-        // Remaining count excludes protected items we just removed
-        $remaining = $total - $trashed - $protected;
+        // Remaining count excludes protected / kept items we just removed
+        $remaining = $total - $trashed - $protected - $used_kept;
 
         $message = '';
         if ($protected > 0) {
             /* translators: %d: number of files */
             $message = sprintf(_n('%d protected file skipped.', '%d protected files skipped.', $protected, 'oli-media-cleaner'), $protected);
         }
+        $message = self::append_used_media_kept_message($message, $used_kept);
 
         wp_send_json_success([
             'trashed'   => $trashed,
@@ -1724,13 +1821,17 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $deletable_count = $total_trashed - $protected_count;
         
         $deleted = 0;
+        $used_kept = 0;
         $new_last_id = $last_id;
 
         foreach ($trashed_ids as $id) {
-            if (self::delete_attachment_preserve_shared_files((int) $id)) {
+            $id = (int) $id;
+            if (self::must_keep_attachment_files($id)) {
+                $used_kept++;
+            } elseif (self::delete_attachment_preserve_shared_files($id)) {
                 $deleted++;
             }
-            $new_last_id = max($new_last_id, (int) $id);
+            $new_last_id = max($new_last_id, $id);
         }
 
         // Remaining counts only deletable items
@@ -1747,6 +1848,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
                 $protected_count
             );
         }
+        $message = self::append_used_media_kept_message($message, $used_kept);
 
         wp_send_json_success([
             'deleted'   => $deleted,

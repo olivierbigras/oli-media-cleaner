@@ -5,7 +5,7 @@ Tags: media, cleanup, unused images, media cleaner, disk space
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.22
+Stable tag: 1.5.23
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,11 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 4. Scan sources information panel
 
 == Changelog ==
+
+= 1.5.23 =
+* FIX: Refuse to trash or permanently delete media that is still in use (featured image, post content, WooCommerce gallery, ACF fields, and other live references), including Media Library, WP-CLI, and plugin actions
+* FIX: Plugin trash/delete actions count refusals and show how many used media items were kept
+* NEW: `olimc_must_keep_attachment` filter and targeted `OLIMC_Scanner::is_attachment_in_use_now()` live check (no full scan)
 
 = 1.5.22 =
 * Maintenance: GitHub links updated to github.com/olivierbigras (account renamed from bigrat95). No functional change.
