@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bigrat95/oli-media-cleaner/releases"><img src="https://img.shields.io/badge/version-1.5.15-blue" alt="Version"></a>
+  <a href="https://github.com/olivierbigras/oli-media-cleaner/releases"><img src="https://img.shields.io/badge/version-1.5.15-blue" alt="Version"></a>
   <a href="https://wordpress.org/"><img src="https://img.shields.io/badge/WordPress-7.1-green" alt="WordPress"></a>
   <a href="https://php.net/"><img src="https://img.shields.io/badge/PHP-7.4%2B-purple" alt="PHP"></a>
   <a href="https://www.gnu.org/licenses/gpl-2.0.html"><img src="https://img.shields.io/badge/license-GPL--2.0--or--later-orange" alt="License"></a>
@@ -84,7 +84,7 @@ The plugin checks these sources to determine which media files are "in use":
 
 ### From GitHub
 
-1. Download the [latest release](https://github.com/bigrat95/oli-media-cleaner/releases)
+1. Download the [latest release](https://github.com/olivierbigras/oli-media-cleaner/releases)
 2. Upload the `oli-media-cleaner` folder to `/wp-content/plugins/`
 3. Activate the plugin in **Plugins > Installed Plugins**
 4. Go to **Media > Media Cleaner** in the admin sidebar
@@ -433,4 +433,4 @@ This plugin is licensed under the [GPL-2.0-or-later](https://www.gnu.org/license
 ---
 
 **Author:** [Olivier Bigras](https://olivierbigras.com)
-**GitHub:** [bigrat95/oli-media-cleaner](https://github.com/bigrat95/oli-media-cleaner)
+**GitHub:** [olivierbigras/oli-media-cleaner](https://github.com/olivierbigras/oli-media-cleaner)
