@@ -408,6 +408,12 @@ msgid_plural "%d protected files skipped."
 msgstr[0] ""
 msgstr[1] ""
 
+#. translators: %d: number of media items that are still in use
+msgid "%d used media item was kept."
+msgid_plural "%d used media items were kept."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "No files were trashed."
 msgstr ""
 

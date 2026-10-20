@@ -14,3 +14,6 @@ php tests/run-tests.php
 
 echo "== ACF scan + perf tests =="
 php tests/run-acf-scan-tests.php
+
+echo "== in-use-now protection tests =="
+php tests/run-in-use-now-tests.php

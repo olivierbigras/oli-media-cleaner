@@ -11,6 +11,78 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 }
 
+$GLOBALS['olimc_mock_options'] = [];
+
+if ( ! function_exists( 'get_option' ) ) {
+	/**
+	 * @param string $option  Option name.
+	 * @param mixed  $default Default.
+	 * @return mixed
+	 */
+	function get_option( $option, $default = false ) {
+		global $olimc_mock_options;
+		if ( is_array( $olimc_mock_options ) && array_key_exists( $option, $olimc_mock_options ) ) {
+			return $olimc_mock_options[ $option ];
+		}
+		return $default;
+	}
+}
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/**
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key.
+	 * @param bool   $single  Single.
+	 * @return mixed
+	 */
+	function get_post_meta( $post_id, $key, $single = false ) {
+		return $single ? '' : [];
+	}
+}
+if ( ! function_exists( 'apply_filters' ) ) {
+	/**
+	 * @param string $hook  Hook name.
+	 * @param mixed  $value Value.
+	 * @return mixed
+	 */
+	function apply_filters( $hook, $value, ...$args ) {
+		unset( $hook, $args );
+		return $value;
+	}
+}
+if ( ! function_exists( 'get_theme_mods' ) ) {
+	/**
+	 * @return array
+	 */
+	function get_theme_mods() {
+		return [];
+	}
+}
+if ( ! function_exists( 'wp_upload_dir' ) ) {
+	/**
+	 * @return array
+	 */
+	function wp_upload_dir( $time = null, $create_dir = true ) {
+		unset( $time, $create_dir );
+		return [
+			'basedir' => '/var/www/html/wp-content/uploads',
+			'baseurl' => 'https://example.com/wp-content/uploads',
+		];
+	}
+}
+if ( ! function_exists( '_n' ) ) {
+	/**
+	 * @param string $single Single.
+	 * @param string $plural Plural.
+	 * @param int    $number Count.
+	 * @param string $domain Domain.
+	 * @return string
+	 */
+	function _n( $single, $plural, $number, $domain = '' ) {
+		unset( $domain );
+		return ( (int) $number === 1 ) ? $single : $plural;
+	}
+}
+
 require_once dirname( __DIR__ ) . '/includes/class-media-usage-parser.php';
 require_once dirname( __DIR__ ) . '/includes/class-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-acf-meta-scanner.php';
@@ -38,6 +110,7 @@ class OLIMC_Fake_Wpdb {
 	public $posts    = 'posts';
 	public $postmeta = 'postmeta';
 	public $termmeta = 'termmeta';
+	public $term_taxonomy = 'term_taxonomy';
 	public $usermeta = 'usermeta';
 	public $options  = 'options';
 	public $prefix   = 'wp_';
@@ -469,6 +542,10 @@ $used_meta = serialize(
 $share_pdo = new PDO( 'sqlite::memory:' );
 $share_pdo->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 $share_pdo->exec( 'CREATE TABLE postmeta (meta_id INTEGER PRIMARY KEY, post_id INTEGER, meta_key TEXT, meta_value TEXT)' );
+$share_pdo->exec( 'CREATE TABLE posts (ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_content TEXT, post_excerpt TEXT)' );
+$share_pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id INTEGER, meta_key TEXT, meta_value TEXT)' );
+$share_pdo->exec( 'CREATE TABLE term_taxonomy (term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT, description TEXT)' );
+$share_pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 $share_insert = $share_pdo->prepare( 'INSERT INTO postmeta (meta_id, post_id, meta_key, meta_value) VALUES (?, ?, ?, ?)' );
 $backup_name = 'lang-lang-backup.jpg';
 $backup_rel  = '2026/02/' . $backup_name;

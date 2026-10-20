@@ -9,6 +9,14 @@ class OLIMC_Scanner {
     private $attachment_id_index = null;
     /** @var string[] Field keys (field_xxx) for image / file / gallery, filled while walking ACF definitions. */
     private $acf_media_field_key_buffer = [];
+    /** @var int|null Attachment ID being checked by is_attachment_in_use_now(). */
+    private $usage_check_id = null;
+    /** @var bool */
+    private $usage_check_hit = false;
+    /** @var bool */
+    private $usage_check_failed = false;
+    /** @var float */
+    private $usage_check_deadline = 0.0;
 
     /**
      * Run a full scan. Returns array of unused attachment IDs.
@@ -421,6 +429,486 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Live check: is this attachment referenced right now?
+     *
+     * Targeted prepared SQL, no full scan. Collectors run in single-ID mode.
+     *
+     * @param int $id Attachment ID.
+     * @return bool|null true if used, false if unused, null on SQL error or timeout.
+     */
+    public function is_attachment_in_use_now($id) {
+        $id = (int) $id;
+        if ($id <= 0) {
+            return false;
+        }
+
+        $previous_used = $this->used_ids;
+        $this->used_ids = [];
+        $this->usage_check_id = $id;
+        $this->usage_check_hit = false;
+        $this->usage_check_failed = false;
+        $this->usage_check_deadline = $this->single_id_check_deadline();
+
+        try {
+            $this->collect_featured_images();
+            $this->collect_post_content_images();
+            $this->collect_option_images();
+            $this->collect_woocommerce_gallery();
+            $this->collect_woocommerce_variations();
+            $this->collect_site_identity();
+            $this->collect_widget_images();
+            $this->collect_elementor_images();
+            $this->collect_acf_media_fields();
+            $this->collect_taxonomy_thumbnails();
+            $this->collect_term_description_images();
+            $this->collect_option_url_references();
+        } finally {
+            $this->usage_check_id = null;
+            $this->used_ids = $previous_used;
+        }
+
+        if ($this->usage_check_failed) {
+            return null;
+        }
+        return $this->usage_check_hit;
+    }
+
+    /**
+     * @return float
+     */
+    private function single_id_check_deadline() {
+        $max = function_exists('ini_get') ? (int) ini_get('max_execution_time') : 0;
+        if ($max <= 0) {
+            return microtime(true) + 15;
+        }
+        return microtime(true) + min(15, max(3, $max - 2));
+    }
+
+    /**
+     * @return bool False when the single-ID check should skip this source.
+     */
+    private function begin_usage_query() {
+        if ($this->usage_check_id !== null) {
+            if ($this->usage_check_hit || $this->usage_check_failed) {
+                return false;
+            }
+            if ($this->usage_check_deadline > 0 && microtime(true) >= $this->usage_check_deadline) {
+                $this->usage_check_failed = true;
+                return false;
+            }
+        }
+        global $wpdb;
+        if (isset($wpdb) && is_object($wpdb)) {
+            $wpdb->last_error = '';
+        }
+        return true;
+    }
+
+    /**
+     * Record a collector result: merge IDs, or mark the single-ID check as a hit / error.
+     *
+     * @param mixed $ids_or_hit Column of IDs, a single value, or a boolean.
+     */
+    private function finish_usage_query($ids_or_hit) {
+        global $wpdb;
+        if (isset($wpdb) && is_object($wpdb) && !empty($wpdb->last_error)) {
+            if ($this->usage_check_id !== null) {
+                $this->usage_check_failed = true;
+            }
+            return;
+        }
+        if ($this->usage_check_id !== null) {
+            if ($this->value_is_usage_hit($ids_or_hit)) {
+                $this->usage_check_hit = true;
+            }
+            return;
+        }
+        if (is_array($ids_or_hit)) {
+            $this->used_ids = array_merge($this->used_ids, $ids_or_hit);
+            return;
+        }
+        if ($ids_or_hit !== null && $ids_or_hit !== false && $ids_or_hit !== '') {
+            $this->used_ids[] = $ids_or_hit;
+        }
+    }
+
+    /**
+     * @param mixed $value Query result.
+     * @return bool
+     */
+    private function value_is_usage_hit($value) {
+        if ($value === true) {
+            return true;
+        }
+        if ($value === false || $value === null || $value === '') {
+            return false;
+        }
+        if (is_array($value)) {
+            return $value !== [];
+        }
+        return true;
+    }
+
+    /**
+     * Relative upload paths for one attachment (original + sizes + backups).
+     *
+     * @param int $id Attachment ID.
+     * @return string[]|null Null on database error.
+     */
+    private function attachment_relative_paths($id) {
+        global $wpdb;
+        $wpdb->last_error = '';
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT meta_key, meta_value FROM {$wpdb->postmeta}
+             WHERE post_id = %d AND meta_key IN (%s, %s, %s)",
+            (int) $id,
+            '_wp_attached_file',
+            '_wp_attachment_metadata',
+            '_wp_attachment_backup_sizes'
+        ));
+        if (!empty($wpdb->last_error)) {
+            return null;
+        }
+        $file = '';
+        $meta = '';
+        $backup = '';
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $key = isset($row->meta_key) ? (string) $row->meta_key : '';
+                if ($key === '_wp_attached_file') {
+                    $file = (string) $row->meta_value;
+                } elseif ($key === '_wp_attachment_metadata') {
+                    $meta = $row->meta_value;
+                } elseif ($key === '_wp_attachment_backup_sizes') {
+                    $backup = $row->meta_value;
+                }
+            }
+        }
+        return $this->relative_paths_for_attachment_row($file, $meta, $backup);
+    }
+
+    /**
+     * Precise LIKE needles for one attachment (class, block id, gallery, file paths).
+     *
+     * @param int $id Attachment ID.
+     * @return string[]|null
+     */
+    private function like_needles_for_attachment($id) {
+        $id = (int) $id;
+        $needles = [
+            'wp-image-' . $id . '"',
+            'wp-image-' . $id . ' ',
+            "wp-image-" . $id . "'",
+            '"id":' . $id . ',',
+            '"id":' . $id . '}',
+            '"id": ' . $id . ',',
+            '"id": ' . $id . '}',
+            'ids="' . $id . '"',
+            'ids="' . $id . ',',
+            'ids="' . $id . ' ',
+            ',' . $id . '"',
+            ',"' . $id . '"',
+            'ids":[' . $id . ']',
+            'ids":[' . $id . ',',
+            ',' . $id . ']',
+        ];
+        $paths = $this->attachment_relative_paths($id);
+        if ($paths === null) {
+            return null;
+        }
+        foreach ($paths as $path) {
+            if ($path !== '') {
+                $needles[] = $path;
+            }
+        }
+        return array_values(array_unique($needles));
+    }
+
+    /**
+     * OR of prepared LIKE clauses for the given columns and needles.
+     *
+     * @param string[] $columns Column names (already safe identifiers).
+     * @param string[] $needles Raw substrings to wrap with %.
+     * @return array{0: string, 1: string[]}|null
+     */
+    private function prepared_like_or(array $columns, array $needles) {
+        global $wpdb;
+        $parts = [];
+        $args = [];
+        foreach ($columns as $column) {
+            foreach ($needles as $needle) {
+                if ($needle === '') {
+                    continue;
+                }
+                $parts[] = $column . ' LIKE %s';
+                $args[] = '%' . $wpdb->esc_like($needle) . '%';
+            }
+        }
+        if ($parts === []) {
+            return null;
+        }
+        return [implode(' OR ', $parts), $args];
+    }
+
+    /**
+     * Attachment IDs mentioned in HTML / block markup / gallery shortcodes.
+     *
+     * @param string $content Post content, excerpt, or term description.
+     * @return array<int|string>
+     */
+    private function attachment_ids_from_html($content) {
+        $ids = [];
+        if (!is_string($content) || $content === '') {
+            return $ids;
+        }
+        if (preg_match_all('/wp-image-(\d+)/', $content, $matches)) {
+            $ids = array_merge($ids, $matches[1]);
+        }
+        if (preg_match_all('/\?attachment_id=(\d+)/', $content, $matches)) {
+            $ids = array_merge($ids, $matches[1]);
+        }
+        if (preg_match_all('/data-id=["\'](\d+)["\']/', $content, $matches)) {
+            $ids = array_merge($ids, $matches[1]);
+        }
+        if (preg_match_all('/"id"\s*:\s*(\d+)/', $content, $matches)) {
+            $ids = array_merge($ids, $matches[1]);
+        }
+        if (preg_match_all('/\[gallery[^\]]*ids=["\']([\d\s,]+)["\']/', $content, $matches)) {
+            foreach ($matches[1] as $list) {
+                $ids = array_merge($ids, preg_split('/\s*,\s*/', $list) ?: []);
+            }
+        }
+        foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($content) as $path) {
+            $found = $this->find_attachment_by_path($path);
+            if ($found) {
+                $ids[] = $found;
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * Attachment IDs stored in serialized widget / theme_mod payloads.
+     *
+     * @param string $serialized Serialized PHP.
+     * @return array<int|string>
+     */
+    private function attachment_ids_from_serialized($serialized) {
+        $ids = [];
+        if (!is_string($serialized) || $serialized === '') {
+            return $ids;
+        }
+        if (preg_match_all('/"attachment_id";i:(\d+)/', $serialized, $matches)) {
+            $ids = array_merge($ids, $matches[1]);
+        }
+        if (preg_match_all('/"ids";s:\d+:"([\d,]+)"/', $serialized, $matches)) {
+            foreach ($matches[1] as $ids_str) {
+                $ids = array_merge($ids, explode(',', $ids_str));
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * Whether a stored meta / option value references this attachment ID.
+     *
+     * @param mixed $value Meta or option value.
+     * @param int   $id    Attachment ID.
+     * @return bool
+     */
+    private function meta_value_references_attachment($value, $id) {
+        $id = (int) $id;
+        if (is_array($value) || is_object($value)) {
+            $value = function_exists('maybe_serialize') ? maybe_serialize($value) : serialize($value);
+        }
+        if (!is_string($value) && !is_numeric($value)) {
+            return false;
+        }
+        $value = (string) $value;
+        if ($value === (string) $id || (int) $value === $id) {
+            return true;
+        }
+        if (preg_match('/(?:^|,)' . $id . '(?:,|$)/', $value)) {
+            return true;
+        }
+        if (preg_match('/i:' . $id . ';/', $value)) {
+            return true;
+        }
+        if (preg_match('/s:\d+:"' . $id . '"/', $value)) {
+            return true;
+        }
+        if (preg_match('/"id"\s*:\s*' . $id . '(?!\d)/', $value)) {
+            return true;
+        }
+        $paths = $this->attachment_relative_paths($id);
+        if (!is_array($paths)) {
+            return false;
+        }
+        foreach ($paths as $path) {
+            if ($path !== '' && strpos($value, $path) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * ACF image / file / gallery fields for one attachment (single-ID mode only).
+     */
+    private function collect_acf_media_fields() {
+        if ($this->usage_check_id === null) {
+            return;
+        }
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+
+        $id = $this->usage_check_id;
+        $targets = $this->get_acf_media_field_targets();
+        if ($targets === null) {
+            return;
+        }
+        $names = isset($targets['names']) && is_array($targets['names']) ? $targets['names'] : [];
+        if ($names === []) {
+            return;
+        }
+
+        global $wpdb;
+        $key_parts = [];
+        $args = [];
+        foreach ($names as $name) {
+            if (!is_string($name) || $name === '') {
+                continue;
+            }
+            $key_parts[] = 'meta_key = %s';
+            $args[] = $name;
+            $key_parts[] = 'meta_key LIKE %s';
+            $args[] = '%_' . $wpdb->esc_like($name);
+        }
+        if ($key_parts === []) {
+            return;
+        }
+
+        $id_len = (string) strlen((string) $id);
+        $args[] = (string) $id;
+        $args[] = '%' . $wpdb->esc_like('i:' . $id . ';') . '%';
+        $args[] = '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%';
+        $args[] = $wpdb->esc_like((string) $id) . ',%';
+        $args[] = '%,' . $wpdb->esc_like((string) $id) . ',%';
+        $args[] = '%,' . $wpdb->esc_like((string) $id);
+
+        $sql = "SELECT meta_key, meta_value FROM {$wpdb->postmeta}
+                WHERE (" . implode(' OR ', $key_parts) . ")
+                AND (
+                    meta_value = %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                )
+                LIMIT 1";
+        $row = $wpdb->get_results($wpdb->prepare($sql, ...$args));
+        if (!empty($wpdb->last_error)) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if (!empty($row)) {
+            foreach ($row as $candidate) {
+                $key = isset($candidate->meta_key) ? (string) $candidate->meta_key : '';
+                foreach ($names as $name) {
+                    if ($this->acf_meta_key_matches_field($key, $name)
+                        && $this->meta_value_references_attachment($candidate->meta_value, $id)
+                    ) {
+                        $this->usage_check_hit = true;
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $opt_parts = [];
+        $opt_args = [];
+        foreach ($names as $name) {
+            if (!is_string($name) || $name === '') {
+                continue;
+            }
+            $opt_parts[] = 'option_name = %s';
+            $opt_args[] = $name;
+            $opt_parts[] = 'option_name LIKE %s';
+            $opt_args[] = '%_' . $wpdb->esc_like($name);
+        }
+        $opt_args[] = (string) $id;
+        $opt_args[] = '%' . $wpdb->esc_like('i:' . $id . ';') . '%';
+        $opt_args[] = '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%';
+        $opt_sql = "SELECT option_name, option_value FROM {$wpdb->options}
+                    WHERE (" . implode(' OR ', $opt_parts) . ")
+                    AND (
+                        option_value = %s
+                        OR option_value LIKE %s
+                        OR option_value LIKE %s
+                    )
+                    LIMIT 1";
+        $opt_row = $wpdb->get_results($wpdb->prepare($opt_sql, ...$opt_args));
+        if (!empty($wpdb->last_error)) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if (!empty($opt_row)) {
+            foreach ($opt_row as $candidate) {
+                if ($this->meta_value_references_attachment($candidate->option_value, $id)) {
+                    $this->usage_check_hit = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Options that store this attachment's upload URL (single-ID mode).
+     */
+    private function collect_option_url_references() {
+        if ($this->usage_check_id === null) {
+            return;
+        }
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        global $wpdb;
+        $paths = $this->attachment_relative_paths($this->usage_check_id);
+        if ($paths === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        $paths = array_values(array_filter($paths, function ($path) {
+            return is_string($path) && $path !== '';
+        }));
+        if ($paths === []) {
+            return;
+        }
+        $built = $this->prepared_like_or(['option_value'], $paths);
+        if ($built === null) {
+            return;
+        }
+        $hit = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_id FROM {$wpdb->options}
+             WHERE option_name NOT LIKE %s
+             AND option_name NOT LIKE %s
+             AND option_name NOT LIKE %s
+             AND ({$built[0]})
+             LIMIT 1",
+            $wpdb->esc_like('olimc_') . '%',
+            $wpdb->esc_like('_transient') . '%',
+            $wpdb->esc_like('_site_transient') . '%',
+            ...$built[1]
+        ));
+        $this->finish_usage_query($hit);
+    }
+
+    /**
      * Merge attachment IDs discovered by meta parsers.
      *
      * @param int[]|int|string $ids Attachment ID or list of IDs.
@@ -553,88 +1041,225 @@ class OLIMC_Scanner {
 
     private function collect_featured_images() {
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        if ($this->usage_check_id !== null) {
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_value FROM {$wpdb->postmeta}
+                 WHERE meta_key = '_thumbnail_id'
+                 AND meta_value = %d
+                 LIMIT 1",
+                $this->usage_check_id
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
         $ids = $wpdb->get_col(
             "SELECT DISTINCT meta_value FROM {$wpdb->postmeta}
              WHERE meta_key = '_thumbnail_id'
              AND meta_value > 0"
         );
-        $this->used_ids = array_merge($this->used_ids, $ids);
+        $this->finish_usage_query($ids);
     }
 
     private function collect_post_content_images() {
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        if ($this->usage_check_id !== null) {
+            $this->collect_post_content_images_for_id($this->usage_check_id);
+            return;
+        }
         $like = $this->upload_content_like();
         if ($like === null) {
             return;
         }
-        $rows = $wpdb->get_col($wpdb->prepare(
-            "SELECT post_content FROM {$wpdb->posts}
-             WHERE post_content LIKE %s
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_content, post_excerpt FROM {$wpdb->posts}
+             WHERE (post_content LIKE %s OR post_excerpt LIKE %s)
              AND post_status != 'trash'
              AND post_type NOT IN ('revision', 'attachment')",
+            $like,
             $like
         ));
 
         $attachment_ids = [];
-        foreach ($rows as $content) {
-            // Match wp-image-123 class (Gutenberg/Classic editor)
-            if (preg_match_all('/wp-image-(\d+)/', $content, $matches)) {
-                $attachment_ids = array_merge($attachment_ids, $matches[1]);
-            }
-            // Match attachment page links
-            if (preg_match_all('/\?attachment_id=(\d+)/', $content, $matches)) {
-                $attachment_ids = array_merge($attachment_ids, $matches[1]);
-            }
-            // Match data-id attributes
-            if (preg_match_all('/data-id=["\'](\d+)["\']/', $content, $matches)) {
-                $attachment_ids = array_merge($attachment_ids, $matches[1]);
-            }
-            foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($content) as $path) {
-                $id = $this->find_attachment_by_path($path);
-                if ($id) $attachment_ids[] = $id;
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $attachment_ids = array_merge(
+                    $attachment_ids,
+                    $this->attachment_ids_from_html(isset($row->post_content) ? $row->post_content : ''),
+                    $this->attachment_ids_from_html(isset($row->post_excerpt) ? $row->post_excerpt : '')
+                );
             }
         }
 
-        $this->used_ids = array_merge($this->used_ids, $attachment_ids);
+        $this->finish_usage_query($attachment_ids);
+    }
+
+    /**
+     * One LIKE query (OR of precise needles) against published / draft / private / future content.
+     *
+     * @param int $id Attachment ID.
+     */
+    private function collect_post_content_images_for_id($id) {
+        global $wpdb;
+        $needles = $this->like_needles_for_attachment($id);
+        if ($needles === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        $built = $this->prepared_like_or(['post_content', 'post_excerpt'], $needles);
+        if ($built === null) {
+            return;
+        }
+        $hit = $wpdb->get_var($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts}
+             WHERE post_status IN ('publish', 'draft', 'private', 'future')
+             AND post_type NOT IN ('revision', 'attachment')
+             AND ({$built[0]})
+             LIMIT 1",
+            ...$built[1]
+        ));
+        $this->finish_usage_query($hit);
     }
 
     private function collect_option_images() {
-        // Theme mods (custom logo, header image, background image)
-        $theme_mods = get_theme_mods();
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $ids = [];
+        $theme_mods = function_exists('get_theme_mods') ? get_theme_mods() : [];
+        if (!is_array($theme_mods)) {
+            $theme_mods = [];
+        }
         if (!empty($theme_mods['custom_logo'])) {
-            $this->used_ids[] = $theme_mods['custom_logo'];
+            $ids[] = (int) $theme_mods['custom_logo'];
         }
-        if (!empty($theme_mods['header_image_data']->attachment_id)) {
-            $this->used_ids[] = $theme_mods['header_image_data']->attachment_id;
+        if (!empty($theme_mods['header_image_data']) && !empty($theme_mods['header_image_data']->attachment_id)) {
+            $ids[] = (int) $theme_mods['header_image_data']->attachment_id;
         }
-        if (!empty($theme_mods['background_image'])) {
-            $id = attachment_url_to_postid($theme_mods['background_image']);
-            if ($id) $this->used_ids[] = $id;
+        if (!empty($theme_mods['background_image']) && function_exists('attachment_url_to_postid')) {
+            $found = attachment_url_to_postid($theme_mods['background_image']);
+            if ($found) {
+                $ids[] = (int) $found;
+            }
         }
+
+        if ($this->usage_check_id !== null) {
+            if (in_array($this->usage_check_id, $ids, true)) {
+                $this->finish_usage_query(true);
+                return;
+            }
+            $this->collect_theme_mods_option_for_id($this->usage_check_id);
+            return;
+        }
+        $this->finish_usage_query($ids);
+    }
+
+    /**
+     * @param int $id Attachment ID.
+     */
+    private function collect_theme_mods_option_for_id($id) {
+        global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $needles = [
+            'custom_logo";i:' . $id . ';',
+            's:' . strlen((string) $id) . ':"' . $id . '"',
+            'i:' . $id . ';',
+        ];
+        $paths = $this->attachment_relative_paths($id);
+        if ($paths === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        $needles = array_merge($needles, $paths);
+        $built = $this->prepared_like_or(['option_value'], $needles);
+        if ($built === null) {
+            return;
+        }
+        $hit = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_id FROM {$wpdb->options}
+             WHERE option_name LIKE %s
+             AND ({$built[0]})
+             LIMIT 1",
+            $wpdb->esc_like('theme_mods_') . '%',
+            ...$built[1]
+        ));
+        $this->finish_usage_query($hit);
     }
 
     private function collect_woocommerce_gallery() {
-        if (!class_exists('WooCommerce')) return;
+        if ($this->usage_check_id === null && !class_exists('WooCommerce')) {
+            return;
+        }
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
 
-        // Product gallery images
+        if ($this->usage_check_id !== null) {
+            $id = (string) $this->usage_check_id;
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_value FROM {$wpdb->postmeta}
+                 WHERE meta_key = '_product_image_gallery'
+                 AND meta_value != ''
+                 AND (
+                    meta_value = %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                    OR meta_value LIKE %s
+                 )
+                 LIMIT 1",
+                $id,
+                $wpdb->esc_like($id) . ',%',
+                '%,' . $wpdb->esc_like($id) . ',%',
+                '%,' . $wpdb->esc_like($id)
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
+
         $galleries = $wpdb->get_col(
             "SELECT meta_value FROM {$wpdb->postmeta}
              WHERE meta_key = '_product_image_gallery'
              AND meta_value != ''"
         );
 
+        $ids = [];
         foreach ($galleries as $gallery) {
-            $ids = array_filter(array_map('intval', explode(',', $gallery)));
-            $this->used_ids = array_merge($this->used_ids, $ids);
+            $ids = array_merge($ids, array_filter(array_map('intval', explode(',', $gallery))));
         }
+        $this->finish_usage_query($ids);
     }
 
     private function collect_woocommerce_variations() {
-        if (!class_exists('WooCommerce')) return;
+        if ($this->usage_check_id === null && !class_exists('WooCommerce')) {
+            return;
+        }
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
 
-        // Variation images
+        if ($this->usage_check_id !== null) {
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT pm.meta_value FROM {$wpdb->postmeta} pm
+                 INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+                 WHERE p.post_type = 'product_variation'
+                 AND pm.meta_key = '_thumbnail_id'
+                 AND pm.meta_value = %d
+                 LIMIT 1",
+                $this->usage_check_id
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
+
         $variation_images = $wpdb->get_col(
             "SELECT DISTINCT pm.meta_value FROM {$wpdb->postmeta} pm
              INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
@@ -642,42 +1267,125 @@ class OLIMC_Scanner {
              AND pm.meta_key = '_thumbnail_id'
              AND pm.meta_value > 0"
         );
-        $this->used_ids = array_merge($this->used_ids, $variation_images);
+        $this->finish_usage_query($variation_images);
     }
 
     private function collect_site_identity() {
-        $site_logo = get_option('site_logo');
-        if ($site_logo) $this->used_ids[] = $site_logo;
-
-        $site_icon = get_option('site_icon');
-        if ($site_icon) $this->used_ids[] = $site_icon;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $ids = [];
+        $site_logo = function_exists('get_option') ? get_option('site_logo') : 0;
+        if ($site_logo) {
+            $ids[] = (int) $site_logo;
+        }
+        $site_icon = function_exists('get_option') ? get_option('site_icon') : 0;
+        if ($site_icon) {
+            $ids[] = (int) $site_icon;
+        }
+        if ($this->usage_check_id !== null) {
+            $this->finish_usage_query(in_array($this->usage_check_id, $ids, true));
+            return;
+        }
+        $this->finish_usage_query($ids);
     }
 
     private function collect_widget_images() {
-        // Check widget data for image references
+        if (!$this->begin_usage_query()) {
+            return;
+        }
         $widget_types = ['widget_media_image', 'widget_media_gallery', 'widget_media_video', 'widget_media_audio', 'widget_custom_html', 'widget_text'];
+
+        if ($this->usage_check_id !== null) {
+            foreach ($widget_types as $type) {
+                $widgets = function_exists('get_option') ? get_option($type) : null;
+                if (!is_array($widgets)) {
+                    continue;
+                }
+                $serialized = serialize($widgets);
+                $ids = array_map('intval', $this->attachment_ids_from_serialized($serialized));
+                if (in_array($this->usage_check_id, $ids, true)) {
+                    $this->finish_usage_query(true);
+                    return;
+                }
+                $this->merge_upload_paths_from_text($serialized);
+                if ($this->usage_check_hit || $this->usage_check_failed) {
+                    return;
+                }
+            }
+            $this->collect_widget_options_for_id($this->usage_check_id);
+            return;
+        }
 
         foreach ($widget_types as $type) {
             $widgets = get_option($type);
-            if (!is_array($widgets)) continue;
+            if (!is_array($widgets)) {
+                continue;
+            }
 
             $serialized = serialize($widgets);
-            // Find numeric attachment IDs in widget data
-            if (preg_match_all('/"attachment_id";i:(\d+)/', $serialized, $matches)) {
-                $this->used_ids = array_merge($this->used_ids, $matches[1]);
-            }
-            if (preg_match_all('/"ids";s:\d+:"([\d,]+)"/', $serialized, $matches)) {
-                foreach ($matches[1] as $ids_str) {
-                    $this->used_ids = array_merge($this->used_ids, explode(',', $ids_str));
-                }
-            }
+            $this->used_ids = array_merge($this->used_ids, $this->attachment_ids_from_serialized($serialized));
             $this->merge_upload_paths_from_text($serialized);
         }
     }
 
+    /**
+     * @param int $id Attachment ID.
+     */
+    private function collect_widget_options_for_id($id) {
+        global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $needles = $this->like_needles_for_attachment($id);
+        if ($needles === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        $needles[] = '"attachment_id";i:' . $id . ';';
+        $needles[] = 'i:' . $id . ';';
+        $built = $this->prepared_like_or(['option_value'], $needles);
+        if ($built === null) {
+            return;
+        }
+        $hit = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_id FROM {$wpdb->options}
+             WHERE option_name LIKE %s
+             AND ({$built[0]})
+             LIMIT 1",
+            $wpdb->esc_like('widget_') . '%',
+            ...$built[1]
+        ));
+        $this->finish_usage_query($hit);
+    }
+
     private function collect_elementor_images() {
         global $wpdb;
-        // Elementor stores data in postmeta _elementor_data as JSON
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        if ($this->usage_check_id !== null) {
+            $needles = $this->like_needles_for_attachment($this->usage_check_id);
+            if ($needles === null) {
+                $this->usage_check_failed = true;
+                return;
+            }
+            $built = $this->prepared_like_or(['meta_value'], $needles);
+            if ($built === null) {
+                return;
+            }
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_id FROM {$wpdb->postmeta}
+                 WHERE meta_key = '_elementor_data'
+                 AND meta_value != ''
+                 AND ({$built[0]})
+                 LIMIT 1",
+                ...$built[1]
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
+
         $rows = $wpdb->get_col(
             "SELECT meta_value FROM {$wpdb->postmeta}
              WHERE meta_key = '_elementor_data'
@@ -685,10 +1393,9 @@ class OLIMC_Scanner {
         );
 
         foreach ($rows as $json) {
-            // Find "id" fields with numeric values (image widgets)
             if (preg_match_all('/"id"\s*:\s*(\d+)/', $json, $matches)) {
                 foreach ($matches[1] as $id) {
-                    if ((int)$id > 0 && (int)$id < 999999999) {
+                    if ((int) $id > 0 && (int) $id < 999999999) {
                         $this->used_ids[] = $id;
                     }
                 }
@@ -696,7 +1403,6 @@ class OLIMC_Scanner {
             $this->merge_upload_paths_from_text($json);
         }
 
-        // Elementor global CSS and data
         $elementor_global = get_option('elementor_custom_icon_sets_config');
         if (is_array($elementor_global)) {
             $this->merge_upload_paths_from_text(serialize($elementor_global));
@@ -792,12 +1498,27 @@ class OLIMC_Scanner {
      */
     private function collect_taxonomy_thumbnails() {
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        if ($this->usage_check_id !== null) {
+            $termmeta = isset($wpdb->termmeta) ? $wpdb->termmeta : $wpdb->prefix . 'termmeta';
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT meta_value FROM {$termmeta}
+                 WHERE meta_key = 'thumbnail_id'
+                 AND meta_value = %d
+                 LIMIT 1",
+                $this->usage_check_id
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
         $ids = $wpdb->get_col(
             "SELECT DISTINCT meta_value FROM {$wpdb->termmeta}
              WHERE meta_key = 'thumbnail_id'
              AND meta_value > 0"
         );
-        $this->used_ids = array_merge($this->used_ids, $ids);
+        $this->finish_usage_query($ids);
     }
 
     /**
@@ -807,22 +1528,41 @@ class OLIMC_Scanner {
      */
     private function collect_term_description_images() {
         global $wpdb;
+        if (!$this->begin_usage_query()) {
+            return;
+        }
+        $term_taxonomy = isset($wpdb->term_taxonomy) ? $wpdb->term_taxonomy : $wpdb->prefix . 'term_taxonomy';
+        if ($this->usage_check_id !== null) {
+            $needles = $this->like_needles_for_attachment($this->usage_check_id);
+            if ($needles === null) {
+                $this->usage_check_failed = true;
+                return;
+            }
+            $built = $this->prepared_like_or(['description'], $needles);
+            if ($built === null) {
+                return;
+            }
+            $hit = $wpdb->get_var($wpdb->prepare(
+                "SELECT term_taxonomy_id FROM {$term_taxonomy}
+                 WHERE ({$built[0]})
+                 LIMIT 1",
+                ...$built[1]
+            ));
+            $this->finish_usage_query($hit);
+            return;
+        }
         $like = $this->upload_content_like();
         $rows = [];
         if ($like !== null) {
             $rows = $wpdb->get_col($wpdb->prepare(
-                "SELECT description FROM {$wpdb->term_taxonomy}
+                "SELECT description FROM {$term_taxonomy}
                  WHERE description LIKE %s",
                 $like
             ));
         }
 
         foreach ($rows as $description) {
-            // Match wp-image-123 class
-            if (preg_match_all('/wp-image-(\d+)/', $description, $matches)) {
-                $this->used_ids = array_merge($this->used_ids, $matches[1]);
-            }
-            $this->merge_upload_paths_from_text($description);
+            $this->used_ids = array_merge($this->used_ids, $this->attachment_ids_from_html($description));
         }
 
         // Also check termmeta for image IDs/URLs (some plugins store images in term meta)
@@ -1245,6 +1985,23 @@ class OLIMC_Scanner {
      * @param string $text Text that may cite an upload URL or path.
      */
     private function merge_upload_paths_from_text($text) {
+        if ($this->usage_check_id !== null) {
+            $paths = $this->attachment_relative_paths($this->usage_check_id);
+            if ($paths === null) {
+                $this->usage_check_failed = true;
+                return;
+            }
+            if (!is_string($text) || $text === '') {
+                return;
+            }
+            foreach ($paths as $path) {
+                if ($path !== '' && strpos($text, $path) !== false) {
+                    $this->usage_check_hit = true;
+                    return;
+                }
+            }
+            return;
+        }
         foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($text) as $path) {
             $id = $this->find_attachment_by_path($path);
             if ($id) {

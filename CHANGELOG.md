@@ -2,6 +2,17 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.23] - 2026-10-20
+
+### Fixed
+- Deleting or trashing an attachment that is still in use is refused on every path (Media Library, WP-CLI, plugin single/bulk/Trash All/empty trash)
+- Live usage is checked with targeted SQL (`OLIMC_Scanner::is_attachment_in_use_now()`), not the last scan's `used_ids`
+- Plugin actions report how many used media items were kept (EN/FR). Whitelisted files stay protected
+
+### Added
+- Filter `olimc_must_keep_attachment`
+- When no scan exists (`olimc_scan_date`) and the live check errors or times out, the file is kept
+
 ## [1.5.22] - 2026-10-20
 
 ### Changed

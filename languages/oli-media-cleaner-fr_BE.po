@@ -372,3 +372,9 @@ msgid_plural "%d files restored."
 msgstr[0] "%d fichier restauré."
 msgstr[1] "%d fichiers restaurés."
 
+#. translators: %d: number of media items that are still in use
+msgid "%d used media item was kept."
+msgid_plural "%d used media items were kept."
+msgstr[0] "%d média utilisé a été conservé."
+msgstr[1] "%d médias utilisés ont été conservés."
+
