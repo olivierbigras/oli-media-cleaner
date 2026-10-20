@@ -5,7 +5,7 @@ Tags: media, cleanup, unused images, media cleaner, disk space
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.21
+Stable tag: 1.5.22
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,9 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 4. Scan sources information panel
 
 == Changelog ==
+
+= 1.5.22 =
+* Maintenance: GitHub links updated to github.com/olivierbigras (account renamed from bigrat95). No functional change.
 
 = 1.5.21 =
 * NEW: Protection system for externally referenced files — prevent deletion of files still in use outside WordPress (e.g. receipts, external systems)
@@ -246,6 +249,9 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 * Native WordPress admin UI — no external dependencies
 
 == Upgrade Notice ==
+
+= 1.5.22 =
+Maintenance release: GitHub links updated. No functional change.
 
 = 1.5.21 =
 Protection system for files referenced outside WordPress. Add paths/URLs/globs to settings or use per-file checkboxes to prevent deletion.

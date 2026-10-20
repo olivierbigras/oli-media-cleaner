@@ -2,6 +2,11 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.22] - 2026-10-20
+
+### Changed
+- GitHub links updated to github.com/olivierbigras (account renamed from bigrat95). No functional change.
+
 ## [1.5.21] - 2026-10-14
 
 ### Added
