@@ -1457,8 +1457,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         if ($count <= 0) {
             return '';
         }
-        /* translators: %d: number of media items that are still in use */
         return sprintf(
+            /* translators: %d: number of media items that are still in use */
             _n('%d used media item was kept.', '%d used media items were kept.', $count, 'oli-media-cleaner'),
             $count
         );
@@ -1971,29 +1971,26 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         // Combine all protected IDs
         $all_protected_ids = array_unique(array_merge($protected_meta_ids, $protected_path_ids));
-        
-        // Build exclusion clause
-        $exclude_clause = '';
-        if (!empty($all_protected_ids)) {
-            $protected_ids_str = implode(',', array_map('intval', $all_protected_ids));
-            $exclude_clause = " AND ID NOT IN ({$protected_ids_str})";
-        }
 
-        // Paginate by ID to ensure progress
-        $id_clause = $last_id > 0 ? " AND ID > {$last_id}" : '';
+        // ID 0 is never an attachment, so NOT IN (0) matches the previous empty-exclusion path.
+        $exclude_ids = !empty($all_protected_ids)
+            ? implode(',', array_map('absint', $all_protected_ids))
+            : '0';
 
-        // Fetch next batch of deletable items
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $trashed_ids = $wpdb->get_col( $wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts}
-             WHERE post_type = 'attachment'
-             AND post_status = 'trash'
-             {$exclude_clause}
-             {$id_clause}
-             ORDER BY ID ASC
-             LIMIT %d",
-            $batch_size
-        ) );
+        // Fetch next batch of deletable items. ID > 0 when last_id is 0 matches the previous unfiltered first page.
+        $trashed_ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts}
+                 WHERE post_type = 'attachment'
+                 AND post_status = 'trash'
+                 AND ID NOT IN (" . esc_sql($exclude_ids) . ")
+                 AND ID > %d
+                 ORDER BY ID ASC
+                 LIMIT %d",
+                $last_id,
+                $batch_size
+            )
+        );
 
         // Count only deletable items (excluding all protected) - from trash only
         $total_trashed = (int) wp_count_posts('attachment')->trash;
@@ -2022,8 +2019,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         
         $message = '';
         if ($done && $protected_count > 0) {
-            /* translators: %d: number of files */
             $message = sprintf(
+                /* translators: %d: number of files */
                 _n('%d protected file in trash was not deleted.', '%d protected files in trash were not deleted.', $protected_count, 'oli-media-cleaner'),
                 $protected_count
             );

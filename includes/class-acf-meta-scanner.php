@@ -780,6 +780,7 @@ class OLIMC_Acf_Meta_Scanner {
 			);
 		}
 		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- UNION of $wpdb->prepare() fragments with %i identifiers.
 		$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
 		if ( $this->db_failed() || ! is_array( $col ) ) {
 			return null;
