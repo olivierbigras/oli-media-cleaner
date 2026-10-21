@@ -735,11 +735,17 @@ class OLIMC_Acf_Meta_Scanner {
 	 */
 	private function max_id( $table, $id_col ) {
 		global $wpdb;
-		if ( ! is_string( $table ) || $table === '' || ! $this->is_safe_identifier( $id_col ) ) {
+		if ( ! $this->is_safe_identifier( $table ) || ! $this->is_safe_identifier( $id_col ) ) {
 			return 0;
 		}
 		$wpdb->last_error = '';
-		$value            = $wpdb->get_var( "SELECT MAX({$id_col}) FROM {$table}" );
+		$value            = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT MAX(%i) FROM %i',
+				$id_col,
+				$table
+			)
+		);
 		if ( $this->db_failed() ) {
 			return 0;
 		}
@@ -758,16 +764,23 @@ class OLIMC_Acf_Meta_Scanner {
 		if ( $keys === [] ) {
 			return [];
 		}
+		if ( ! $this->is_safe_identifier( $table ) || ! $this->is_safe_identifier( $key_col ) || ! $this->is_safe_identifier( $value_col ) ) {
+			return null;
+		}
 		$parts = [];
 		foreach ( $keys as $key ) {
 			$parts[] = $wpdb->prepare(
-				"SELECT {$value_col} AS meta_value FROM {$table} WHERE {$key_col} = %s AND {$value_col} != ''",
-				$key
+				'SELECT %i AS meta_value FROM %i WHERE %i = %s AND %i != %s',
+				$value_col,
+				$table,
+				$key_col,
+				$key,
+				$value_col,
+				''
 			);
 		}
-		$sql = implode( ' UNION ALL ', $parts );
 		$wpdb->last_error = '';
-		$col              = $wpdb->get_col( $sql );
+		$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
 		if ( $this->db_failed() || ! is_array( $col ) ) {
 			return null;
 		}
@@ -787,15 +800,31 @@ class OLIMC_Acf_Meta_Scanner {
 		if ( $field_keys === [] ) {
 			return [];
 		}
+		if ( ! $this->is_safe_identifier( $spec['table'] ) || ! $this->is_safe_identifier( $spec['id'] ) || ! $this->is_safe_identifier( $spec['key'] ) || ! $this->is_safe_identifier( $spec['value'] ) ) {
+			return null;
+		}
 		$clauses = [];
-		$args    = [ (int) $lo, (int) $hi ];
+		$args    = [
+			$spec['key'],
+			$spec['value'],
+			$spec['table'],
+			$spec['id'],
+			(int) $lo,
+			$spec['id'],
+			(int) $hi,
+		];
 		foreach ( $field_keys as $field_key ) {
-			$clauses[] = $spec['value'] . ' = %s';
+			$clauses[] = '%i = %s';
+			$args[]    = $spec['value'];
 			$args[]    = $field_key;
 		}
-		$sql = "SELECT {$spec['key']} AS meta_key, {$spec['value']} AS meta_value FROM {$spec['table']} WHERE {$spec['id']} > %d AND {$spec['id']} <= %d AND (" . implode( ' OR ', $clauses ) . ')';
 		$wpdb->last_error = '';
-		$rows             = $wpdb->get_results( $wpdb->prepare( $sql, ...$args ) );
+		$rows             = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d AND (' . esc_sql( implode( ' OR ', $clauses ) ) . ')',
+				...$args
+			)
+		);
 		if ( $this->db_failed() || ! is_array( $rows ) ) {
 			return null;
 		}
@@ -810,11 +839,19 @@ class OLIMC_Acf_Meta_Scanner {
 	 */
 	private function fetch_range( array $spec, $lo, $hi ) {
 		global $wpdb;
+		if ( ! $this->is_safe_identifier( $spec['table'] ) || ! $this->is_safe_identifier( $spec['id'] ) || ! $this->is_safe_identifier( $spec['key'] ) || ! $this->is_safe_identifier( $spec['value'] ) ) {
+			return null;
+		}
 		$wpdb->last_error = '';
 		$rows             = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT {$spec['key']} AS meta_key, {$spec['value']} AS meta_value FROM {$spec['table']} WHERE {$spec['id']} > %d AND {$spec['id']} <= %d",
+				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
+				$spec['key'],
+				$spec['value'],
+				$spec['table'],
+				$spec['id'],
 				(int) $lo,
+				$spec['id'],
 				(int) $hi
 			)
 		);

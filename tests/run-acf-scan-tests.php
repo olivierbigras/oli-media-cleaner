@@ -69,6 +69,28 @@ if ( ! function_exists( 'wp_upload_dir' ) ) {
 		];
 	}
 }
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	/**
+	 * @param string $url       URL.
+	 * @param int    $component Component.
+	 * @return mixed
+	 */
+	function wp_parse_url( $url, $component = -1 ) {
+		return parse_url( $url, $component );
+	}
+}
+if ( ! function_exists( 'esc_sql' ) ) {
+	/**
+	 * @param mixed $data Data.
+	 * @return mixed
+	 */
+	function esc_sql( $data ) {
+		if ( is_array( $data ) ) {
+			return array_map( 'esc_sql', $data );
+		}
+		return addslashes( (string) $data );
+	}
+}
 if ( ! function_exists( '_n' ) ) {
 	/**
 	 * @param string $single Single.
@@ -132,7 +154,7 @@ class OLIMC_Fake_Wpdb {
 	public function prepare( $sql, ...$args ) {
 		$index = 0;
 		return preg_replace_callback(
-			'/%[dfs]/',
+			'/%[dfsi]/',
 			function ( $match ) use ( &$args, &$index ) {
 				$value = $args[ $index ] ?? '';
 				$index++;
@@ -141,6 +163,13 @@ class OLIMC_Fake_Wpdb {
 				}
 				if ( $match[0] === '%f' ) {
 					return (string) (float) $value;
+				}
+				if ( $match[0] === '%i' ) {
+					$ident = (string) $value;
+					if ( ! preg_match( '/^[A-Za-z0-9_]+$/', $ident ) ) {
+						return '`invalid`';
+					}
+					return '`' . $ident . '`';
 				}
 				return "'" . str_replace( "'", "''", (string) $value ) . "'";
 			},

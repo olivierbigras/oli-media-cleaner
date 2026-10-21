@@ -637,11 +637,15 @@ class OLIMC_Scanner {
         $parts = [];
         $args = [];
         foreach ($columns as $column) {
+            if (!$this->is_safe_identifier($column)) {
+                continue;
+            }
             foreach ($needles as $needle) {
                 if ($needle === '') {
                     continue;
                 }
-                $parts[] = $column . ' LIKE %s';
+                $parts[] = '%i LIKE %s';
+                $args[] = $column;
                 $args[] = '%' . $wpdb->esc_like($needle) . '%';
             }
         }
@@ -649,6 +653,16 @@ class OLIMC_Scanner {
             return null;
         }
         return [implode(' OR ', $parts), $args];
+    }
+
+    /**
+     * Column and table names interpolated into SQL. Never accept meta values here.
+     *
+     * @param string $key Identifier.
+     * @return bool
+     */
+    private function is_safe_identifier($key) {
+        return is_string($key) && $key !== '' && (bool) preg_match('/^[A-Za-z0-9_]+$/', $key);
     }
 
     /**
@@ -798,18 +812,23 @@ class OLIMC_Scanner {
         $args[] = '%,' . $wpdb->esc_like((string) $id) . ',%';
         $args[] = '%,' . $wpdb->esc_like((string) $id);
 
-        $sql = "SELECT meta_key, meta_value FROM {$wpdb->postmeta}
-                WHERE (" . implode(' OR ', $key_parts) . ")
-                AND (
+        $key_sql = implode(' OR ', $key_parts);
+        $row = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT meta_key, meta_value FROM {$wpdb->postmeta}
+                 WHERE (" . esc_sql($key_sql) . ")
+                 AND (
                     meta_value = %s
                     OR meta_value LIKE %s
                     OR meta_value LIKE %s
                     OR meta_value LIKE %s
                     OR meta_value LIKE %s
                     OR meta_value LIKE %s
-                )
-                LIMIT 1";
-        $row = $wpdb->get_results($wpdb->prepare($sql, ...$args));
+                 )
+                 LIMIT 1",
+                ...$args
+            )
+        );
         if (!empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
@@ -845,15 +864,20 @@ class OLIMC_Scanner {
         $opt_args[] = (string) $id;
         $opt_args[] = '%' . $wpdb->esc_like('i:' . $id . ';') . '%';
         $opt_args[] = '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%';
-        $opt_sql = "SELECT option_name, option_value FROM {$wpdb->options}
-                    WHERE (" . implode(' OR ', $opt_parts) . ")
-                    AND (
-                        option_value = %s
-                        OR option_value LIKE %s
-                        OR option_value LIKE %s
-                    )
-                    LIMIT 1";
-        $opt_row = $wpdb->get_results($wpdb->prepare($opt_sql, ...$opt_args));
+        $opt_sql = implode(' OR ', $opt_parts);
+        $opt_row = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT option_name, option_value FROM {$wpdb->options}
+                 WHERE (" . esc_sql($opt_sql) . ")
+                 AND (
+                    option_value = %s
+                    OR option_value LIKE %s
+                    OR option_value LIKE %s
+                 )
+                 LIMIT 1",
+                ...$opt_args
+            )
+        );
         if (!empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
@@ -899,7 +923,7 @@ class OLIMC_Scanner {
              WHERE option_name NOT LIKE %s
              AND option_name NOT LIKE %s
              AND option_name NOT LIKE %s
-             AND ({$built[0]})
+             AND (" . esc_sql($built[0]) . ")
              LIMIT 1",
             $wpdb->esc_like('olimc_') . '%',
             $wpdb->esc_like('_transient') . '%',
@@ -1120,7 +1144,7 @@ class OLIMC_Scanner {
             "SELECT ID FROM {$wpdb->posts}
              WHERE post_status IN ('publish', 'draft', 'private', 'future')
              AND post_type NOT IN ('revision', 'attachment')
-             AND ({$built[0]})
+             AND (" . esc_sql($built[0]) . ")
              LIMIT 1",
             ...$built[1]
         ));
@@ -1186,7 +1210,7 @@ class OLIMC_Scanner {
         $hit = $wpdb->get_var($wpdb->prepare(
             "SELECT option_id FROM {$wpdb->options}
              WHERE option_name LIKE %s
-             AND ({$built[0]})
+             AND (" . esc_sql($built[0]) . ")
              LIMIT 1",
             $wpdb->esc_like('theme_mods_') . '%',
             ...$built[1]
@@ -1352,7 +1376,7 @@ class OLIMC_Scanner {
         $hit = $wpdb->get_var($wpdb->prepare(
             "SELECT option_id FROM {$wpdb->options}
              WHERE option_name LIKE %s
-             AND ({$built[0]})
+             AND (" . esc_sql($built[0]) . ")
              LIMIT 1",
             $wpdb->esc_like('widget_') . '%',
             ...$built[1]
@@ -1379,7 +1403,7 @@ class OLIMC_Scanner {
                 "SELECT meta_id FROM {$wpdb->postmeta}
                  WHERE meta_key = '_elementor_data'
                  AND meta_value != ''
-                 AND ({$built[0]})
+                 AND (" . esc_sql($built[0]) . ")
                  LIMIT 1",
                 ...$built[1]
             ));
@@ -1504,11 +1528,17 @@ class OLIMC_Scanner {
         }
         if ($this->usage_check_id !== null) {
             $termmeta = isset($wpdb->termmeta) ? $wpdb->termmeta : $wpdb->prefix . 'termmeta';
+            if (!$this->is_safe_identifier($termmeta)) {
+                $this->usage_check_failed = true;
+                return;
+            }
             $hit = $wpdb->get_var($wpdb->prepare(
-                "SELECT meta_value FROM {$termmeta}
-                 WHERE meta_key = 'thumbnail_id'
+                'SELECT meta_value FROM %i
+                 WHERE meta_key = %s
                  AND meta_value = %d
-                 LIMIT 1",
+                 LIMIT 1',
+                $termmeta,
+                'thumbnail_id',
                 $this->usage_check_id
             ));
             $this->finish_usage_query($hit);
@@ -1533,6 +1563,12 @@ class OLIMC_Scanner {
             return;
         }
         $term_taxonomy = isset($wpdb->term_taxonomy) ? $wpdb->term_taxonomy : $wpdb->prefix . 'term_taxonomy';
+        if (!$this->is_safe_identifier($term_taxonomy)) {
+            if ($this->usage_check_id !== null) {
+                $this->usage_check_failed = true;
+            }
+            return;
+        }
         if ($this->usage_check_id !== null) {
             $needles = $this->like_needles_for_attachment($this->usage_check_id);
             if ($needles === null) {
@@ -1544,9 +1580,10 @@ class OLIMC_Scanner {
                 return;
             }
             $hit = $wpdb->get_var($wpdb->prepare(
-                "SELECT term_taxonomy_id FROM {$term_taxonomy}
-                 WHERE ({$built[0]})
-                 LIMIT 1",
+                'SELECT term_taxonomy_id FROM %i
+                 WHERE (' . esc_sql($built[0]) . ')
+                 LIMIT 1',
+                $term_taxonomy,
                 ...$built[1]
             ));
             $this->finish_usage_query($hit);
@@ -1556,8 +1593,9 @@ class OLIMC_Scanner {
         $rows = [];
         if ($like !== null) {
             $rows = $wpdb->get_col($wpdb->prepare(
-                "SELECT description FROM {$term_taxonomy}
-                 WHERE description LIKE %s",
+                'SELECT description FROM %i
+                 WHERE description LIKE %s',
+                $term_taxonomy,
                 $like
             ));
         }

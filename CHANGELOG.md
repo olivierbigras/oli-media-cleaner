@@ -2,6 +2,18 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.25] - 2026-10-21
+
+### Fixed
+- Plugin Check 2.1.0 errors: prepared SQL identifiers (`%i` / `esc_sql` whitelist), missing translators comments, `parse_url()` → `wp_parse_url()`, and CSV export via `WP_Filesystem`
+
+### Changed
+- Requires at least WordPress 6.2 (`wp_filesize`, `$wpdb->prepare()` `%i` placeholders)
+- Admin AJAX reads go through a visible nonce check plus `wp_unslash()` / sanitization
+
+### Added
+- `.distignore` and `.gitattributes` `export-ignore` so the distribution ZIP excludes tests, GitHub workflows, PHPCS/PHPUnit/Composer/npm files, and internal markdown
+
 ## [1.5.24] - 2026-10-21
 
 ### Changed

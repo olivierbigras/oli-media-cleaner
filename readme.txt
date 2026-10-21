@@ -2,10 +2,10 @@
 Contributors: bigrat95
 Donate link: https://www.paypal.com/donate/?hosted_button_id=29SAPKFAHMTNW
 Tags: media, cleanup, unused images, media cleaner, disk space
-Requires at least: 5.8
+Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.24
+Stable tag: 1.5.25
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,11 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 4. Scan sources information panel
 
 == Changelog ==
+
+= 1.5.25 =
+* FIX: Plugin Check 2.1.0 reports 0 errors (prepared SQL identifiers, translators comments, wp_parse_url, WP_Filesystem CSV export)
+* CHANGE: Requires at least WordPress 6.2 so $wpdb->prepare() can use %i for table and column names
+* NEW: .distignore and git archive export-ignore exclude development files from the distribution ZIP
 
 = 1.5.24 =
 * CHANGE: Protected paths and glob patterns are empty by default and configured per site (settings field or `olimc_protected_paths` filter)
@@ -259,6 +264,9 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 * Native WordPress admin UI — no external dependencies
 
 == Upgrade Notice ==
+
+= 1.5.25 =
+Plugin Check 2.1.0 compliance. Requires WordPress 6.2+. No change to scan or deletion behavior.
 
 = 1.5.22 =
 Maintenance release: GitHub links updated. No functional change.
