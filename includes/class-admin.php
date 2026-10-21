@@ -4,6 +4,7 @@ defined('ABSPATH') || exit;
 class OLIMC_Admin {
 
     public static function init() {
+        add_action('init', [__CLASS__, 'maybe_upgrade'], 1);
         add_action('init', [__CLASS__, 'load_textdomain']);
         add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
@@ -122,9 +123,8 @@ class OLIMC_Admin {
             return true;
         }
 
-        // Check global protected paths
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (empty($protected_paths) || !is_string($protected_paths)) {
+        $protected_paths = self::get_protected_path_patterns();
+        if ($protected_paths === []) {
             return false;
         }
 
@@ -133,33 +133,118 @@ class OLIMC_Admin {
             return false;
         }
 
-        $url = wp_get_attachment_url($attachment_id);
-        if (!$url) {
-            return false;
-        }
-
         $upload_dir = wp_upload_dir(null, false);
         $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
 
-        $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
-        foreach ($lines as $pattern) {
-            if (empty($pattern)) {
-                continue;
-            }
-
-            // Normalize to uploads-relative path
+        foreach ($protected_paths as $pattern) {
             $pattern = self::normalize_protected_pattern($pattern, $base_url);
-            if (empty($pattern)) {
+            if ($pattern === '') {
                 continue;
             }
 
-            // Check if file matches pattern (glob or literal)
             if (self::path_matches_pattern($file, $pattern)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Parse the stored protected-paths option into a list of patterns.
+     *
+     * @param mixed $raw Option value (multiline string).
+     * @return string[]
+     */
+    public static function parse_protected_path_option($raw) {
+        if (!is_string($raw) || $raw === '') {
+            return [];
+        }
+        $lines = [];
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            $line = trim($line);
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+        return array_values(array_unique($lines));
+    }
+
+    /**
+     * Protected paths and glob patterns for this site.
+     *
+     * Empty by default. Values come from the `olimc_protected_paths` option
+     * (one path, URL, or glob per line) and the `olimc_protected_paths` filter.
+     *
+     * @return string[]
+     */
+    public static function get_protected_path_patterns() {
+        $patterns = self::parse_protected_path_option(get_option('olimc_protected_paths', ''));
+        if (function_exists('apply_filters')) {
+            $filtered = apply_filters('olimc_protected_paths', $patterns);
+            if (is_array($filtered)) {
+                $patterns = [];
+                foreach ($filtered as $pattern) {
+                    if (!is_string($pattern)) {
+                        continue;
+                    }
+                    $pattern = trim($pattern);
+                    if ($pattern !== '') {
+                        $patterns[] = $pattern;
+                    }
+                }
+                $patterns = array_values(array_unique($patterns));
+            }
+        }
+        return $patterns;
+    }
+
+    /**
+     * Persist previously applied protected paths into the site option.
+     *
+     * Runtime defaults stay empty. Existing option values are kept. A one-time
+     * `olimc_legacy_protected_paths` filter may supply the list a site already
+     * relied on so this plugin never ships client-specific paths.
+     */
+    public static function migrate_protected_paths_from_legacy() {
+        $existing = self::parse_protected_path_option(get_option('olimc_protected_paths', ''));
+        $legacy = [];
+        if (function_exists('apply_filters')) {
+            $legacy = apply_filters('olimc_legacy_protected_paths', []);
+        }
+        if (!is_array($legacy)) {
+            $legacy = [];
+        }
+        $from_legacy = [];
+        foreach ($legacy as $pattern) {
+            if (!is_string($pattern)) {
+                continue;
+            }
+            $pattern = trim($pattern);
+            if ($pattern !== '') {
+                $from_legacy[] = $pattern;
+            }
+        }
+        $merged = array_values(array_unique(array_merge($existing, $from_legacy)));
+        update_option('olimc_protected_paths', implode("\n", $merged), false);
+    }
+
+    /**
+     * Run versioned upgrades. Safe to call on init and on activation.
+     */
+    public static function maybe_upgrade() {
+        $stored = get_option('olimc_version', '0');
+        if (!is_string($stored) && !is_numeric($stored)) {
+            $stored = '0';
+        }
+        $stored = (string) $stored;
+        if ($stored === OLIMC_VERSION) {
+            return;
+        }
+        if (version_compare($stored, '1.5.24', '<')) {
+            self::migrate_protected_paths_from_legacy();
+        }
+        update_option('olimc_version', OLIMC_VERSION);
     }
 
     /**
@@ -239,12 +324,12 @@ class OLIMC_Admin {
     // ─── End protection system ────────────────────────────────────────
 
     public static function activate() {
-        update_option('olimc_version', OLIMC_VERSION);
+        self::maybe_upgrade();
         // Initialize whitelist as empty
         if (false === get_option('olimc_whitelist')) {
             update_option('olimc_whitelist', [], false);
         }
-        // Initialize protected paths as empty
+        // Initialize protected paths as empty (new sites only; upgrades keep existing values)
         if (false === get_option('olimc_protected_paths')) {
             update_option('olimc_protected_paths', '', false);
         }
@@ -576,7 +661,7 @@ class OLIMC_Admin {
                                     rows="8"
                                     style="width:100%;max-width:600px;font-family:monospace;"
                                     placeholder="<?php esc_attr_e('Examples:
-2024/03/logo_osm_2019.png
+2024/03/logo-2019.png
 2023/*/header-*.jpg
 2024/**/receipts/*.pdf
 https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); ?>"
@@ -1756,8 +1841,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         // Get protected IDs (path-based protection) - ONLY from trash
         $protected_path_ids = [];
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (!empty($protected_paths) && is_string($protected_paths)) {
+        $protected_paths = self::get_protected_path_patterns();
+        if ($protected_paths !== []) {
             $upload_dir = wp_upload_dir(null, false);
             $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
             
@@ -1771,11 +1856,11 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
                  AND pm.meta_key = '_wp_attached_file'"
             );
             
-            $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
             $patterns = [];
-            foreach ($lines as $pattern) {
-                if (!empty($pattern)) {
-                    $patterns[] = self::normalize_protected_pattern($pattern, $base_url);
+            foreach ($protected_paths as $pattern) {
+                $normalized = self::normalize_protected_pattern($pattern, $base_url);
+                if ($normalized !== '') {
+                    $patterns[] = $normalized;
                 }
             }
             
