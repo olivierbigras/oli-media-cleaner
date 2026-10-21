@@ -315,7 +315,7 @@ $insert_post = $pdo->prepare( 'INSERT INTO posts (ID, post_type, post_status) VA
 for ( $id = 1; $id <= 10000; $id++ ) {
 	$insert_post->execute( [ $id, 'attachment', 'inherit' ] );
 }
-// Real osm.ca false positives: hyphenated ACF keys, outside the 1..10000 filler set.
+// Real-world false positives: hyphenated ACF keys, outside the 1..10000 filler set.
 $insert_post->execute( [ 37455, 'attachment', 'inherit' ] );
 $insert_post->execute( [ 37681, 'attachment', 'inherit' ] );
 
@@ -358,12 +358,12 @@ $seed = [
 	[ 500014, '_highlight-image', 'field_flexible_components_highlight-image_image' ],
 	[ 500015, '_flexible_components_highlight-image_image', 'field_flexible_components_highlight-image_image' ],
 	[ 500016, 'flexible_components_highlight-image_image', '37681' ],
-	[ 500017, 'image', 'https://osm.ca/app/uploads/2024/06/tournee-url.jpg' ],
-	[ 500018, '_wp_attached_file', '2024/06/tournee-url.jpg' ],
+	[ 500017, 'image', 'https://example.com/app/uploads/2024/06/tour-url.jpg' ],
+	[ 500018, '_wp_attached_file', '2024/06/tour-url.jpg' ],
 	[ 500019, 'rank_math_facebook_image', '220' ],
 	[ 500020, 'page_builder', $builder_value ],
-	[ 500021, 'og_image_url', 'https://osm.ca/app/uploads/2024/06/tournee-og.jpg' ],
-	[ 500022, '_wp_attached_file', '2024/06/tournee-og.jpg' ],
+	[ 500021, 'og_image_url', 'https://example.com/app/uploads/2024/06/tour-og.jpg' ],
+	[ 500022, '_wp_attached_file', '2024/06/tour-og.jpg' ],
 ];
 $insert_meta = $pdo->prepare( 'INSERT INTO postmeta (meta_id, post_id, meta_key, meta_value) VALUES (?, 2, ?, ?)' );
 foreach ( $seed as $row ) {
@@ -393,8 +393,8 @@ $pdo->exec( "UPDATE postmeta SET post_id = 222 WHERE meta_id = 500022" );
 OLIMC_Media_Usage_Parser::set_upload_markers(
 	[
 		'https://example.com/wp-content/uploads',
-		'https://osm.ca/app/uploads',
-		'//osm.ca/app/uploads',
+		'https://example.com/app/uploads',
+		'//example.com/app/uploads',
 		'/app/uploads',
 	]
 );
@@ -528,8 +528,8 @@ $engine_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-acf-me
 olimc_scan_assert( strpos( $engine_source, 'function is_safe_meta_key' ) === false, 'meta keys are no longer filtered by a character whitelist' );
 olimc_scan_assert( strpos( $engine_source, 'generic_post' ) !== false, 'ACF mode still walks non-ACF meta' );
 
-$pastille = '2026/02/lang-lang-1080x1080-osm-2026-2027-en-pastille.jpg';
-$thumb    = 'lang-lang-1080x1080-osm-2026-2027-en-pastille-150x150.jpg';
+$pastille = '2026/02/concert-badge-1080-en.jpg';
+$thumb    = 'concert-badge-1080-en-150x150.jpg';
 $thumb_rel = '2026/02/' . $thumb;
 $used_meta = serialize(
 	[
@@ -547,7 +547,7 @@ $share_pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id I
 $share_pdo->exec( 'CREATE TABLE term_taxonomy (term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT, description TEXT)' );
 $share_pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 $share_insert = $share_pdo->prepare( 'INSERT INTO postmeta (meta_id, post_id, meta_key, meta_value) VALUES (?, ?, ?, ?)' );
-$backup_name = 'lang-lang-backup.jpg';
+$backup_name = 'concert-badge-backup.jpg';
 $backup_rel  = '2026/02/' . $backup_name;
 $backup_meta = serialize(
 	[

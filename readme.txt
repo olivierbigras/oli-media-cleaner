@@ -5,7 +5,7 @@ Tags: media, cleanup, unused images, media cleaner, disk space
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.23
+Stable tag: 1.5.24
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -104,6 +104,11 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 4. Scan sources information panel
 
 == Changelog ==
+
+= 1.5.24 =
+* CHANGE: Protected paths and glob patterns are empty by default and configured per site (settings field or `olimc_protected_paths` filter)
+* NEW: Upgrade copies a site's previously applied protected paths into the `olimc_protected_paths` option so existing protection is kept. No built-in client list is shipped
+* CHANGE: Sample paths and filenames in settings and tests no longer refer to a specific site
 
 = 1.5.23 =
 * FIX: Refuse to trash or permanently delete media that is still in use (featured image, post content, WooCommerce gallery, ACF fields, and other live references), including Media Library, WP-CLI, and plugin actions

@@ -2,6 +2,16 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.24] - 2026-10-21
+
+### Changed
+- Protected paths and glob patterns are site-configurable and empty by default (`olimc_protected_paths` option, `olimc_protected_paths` filter)
+- Client-specific sample paths, domains, and filenames were removed from source, tests, and translation examples
+
+### Added
+- On update, previously applied protected paths are copied into the site option so existing sites keep the same protection. This plugin does not ship a built-in client list
+- One-time filter `olimc_legacy_protected_paths` can supply that previous list during the upgrade
+
 ## [1.5.23] - 2026-10-20
 
 ### Fixed

@@ -378,7 +378,7 @@ msgid "Protected Paths"
 msgstr ""
 
 #. translators: Example patterns for protected paths
-msgid "Examples:\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
 msgstr ""
 
 msgid "Use * wildcards for glob patterns. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."
@@ -432,7 +432,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: Example patterns for protected paths with ** syntax
-msgid "Examples:\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
 msgstr ""
 
 msgid "Use * wildcards for glob patterns: * matches within one directory segment, ** matches across segments. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."

@@ -393,8 +393,8 @@ msgid "Protected Paths"
 msgstr "Chemins protégés"
 
 #. translators: Example patterns for protected paths
-msgid "Examples:\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
-msgstr "Exemples :\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgstr "Exemples :\n2024/03/logo-2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
 
 msgid "Use * wildcards for glob patterns. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."
 msgstr "Utilisez des jokers * pour les motifs glob. Les chemins sont relatifs au répertoire des téléversements. Les dérivés (vignettes, WebP) sont automatiquement protégés lorsque l'original est protégé."
@@ -447,8 +447,8 @@ msgstr[0] "%d fichier protégé dans la corbeille n'a pas été supprimé."
 msgstr[1] "%d fichiers protégés dans la corbeille n'ont pas été supprimés."
 
 #. translators: Example patterns for protected paths with ** syntax
-msgid "Examples:\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
-msgstr "Exemples :\n2024/03/logo_osm_2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+msgstr "Exemples :\n2024/03/logo-2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
 
 msgid "Use * wildcards for glob patterns: * matches within one directory segment, ** matches across segments. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."
 msgstr "Utilisez des jokers * pour les motifs glob : * correspond à un segment de répertoire, ** correspond à plusieurs segments. Les chemins sont relatifs au répertoire des téléversements. Les dérivés (vignettes, WebP) sont automatiquement protégés lorsque l'original est protégé."

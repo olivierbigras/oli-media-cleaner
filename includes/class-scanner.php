@@ -131,9 +131,11 @@ class OLIMC_Scanner {
             $protected = array_merge($protected, array_map('intval', $protected_ids));
         }
 
-        // Collect IDs matching protected paths
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (empty($protected_paths) || !is_string($protected_paths)) {
+        // Collect IDs matching protected paths (option + olimc_protected_paths filter)
+        $protected_paths = class_exists('OLIMC_Admin')
+            ? OLIMC_Admin::get_protected_path_patterns()
+            : [];
+        if ($protected_paths === []) {
             return $protected;
         }
 
@@ -146,13 +148,12 @@ class OLIMC_Scanner {
              WHERE meta_key = '_wp_attached_file'"
         );
 
-        $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
         $patterns = [];
-        foreach ($lines as $pattern) {
-            if (empty($pattern)) {
-                continue;
+        foreach ($protected_paths as $pattern) {
+            $normalized = $this->normalize_protected_pattern($pattern, $base_url);
+            if ($normalized !== '') {
+                $patterns[] = $normalized;
             }
-            $patterns[] = $this->normalize_protected_pattern($pattern, $base_url);
         }
 
         foreach ($files as $row) {
@@ -268,7 +269,7 @@ class OLIMC_Scanner {
      * Make sure ACF has booted and local JSON / PHP groups are included.
      *
      * Cron and early AJAX used to call acf_get_field_groups() before acf/init,
-     * which skips theme JSON (the concert field group on sites like osm.ca).
+     * which skips theme JSON (local field groups registered by the active theme).
      *
      * @return bool Whether the ACF API is available.
      */
