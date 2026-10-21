@@ -1,9 +1,23 @@
-# Exclude dev files from GitHub zip downloads (Code > Download ZIP)
+# Exclude development files from GitHub "Download ZIP" / git archive.
 .git export-ignore
 .gitignore export-ignore
 .gitattributes export-ignore
+.distignore export-ignore
 .github export-ignore
-README.md export-ignore
+.idea export-ignore
+.vscode export-ignore
 tests export-ignore
+bin export-ignore
+node_modules export-ignore
+vendor export-ignore
+phpcs.xml export-ignore
+phpcs.xml.dist export-ignore
+phpunit.xml export-ignore
+phpunit.xml.dist export-ignore
+composer.json export-ignore
+composer.lock export-ignore
+composer.phar export-ignore
 package.json export-ignore
 package-lock.json export-ignore
+CHANGELOG.md export-ignore
+README.md export-ignore

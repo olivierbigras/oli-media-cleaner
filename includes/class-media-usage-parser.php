@@ -51,7 +51,7 @@ class OLIMC_Media_Usage_Parser {
 				if ( is_string( $protocol_less ) && $protocol_less !== '' && $protocol_less !== $value ) {
 					$markers[] = $protocol_less;
 				}
-				$path = parse_url( $value, PHP_URL_PATH );
+				$path = wp_parse_url( $value, PHP_URL_PATH );
 				if ( is_string( $path ) && $path !== '' && $path !== '/' ) {
 					$markers[] = rtrim( $path, '/' );
 				}
@@ -92,7 +92,7 @@ class OLIMC_Media_Usage_Parser {
 		foreach ( self::upload_location_markers() as $marker ) {
 			$path = $marker;
 			if ( preg_match( '#^https?:#', $marker ) || strpos( $marker, '//' ) === 0 ) {
-				$parsed = parse_url( strpos( $marker, '//' ) === 0 ? 'http:' . $marker : $marker, PHP_URL_PATH );
+				$parsed = wp_parse_url( strpos( $marker, '//' ) === 0 ? 'http:' . $marker : $marker, PHP_URL_PATH );
 				$path   = is_string( $parsed ) ? $parsed : '';
 			}
 			$path = rtrim( (string) $path, "/\\" );
