@@ -1974,22 +1974,24 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         // ID 0 is never an attachment, so NOT IN (0) matches the previous empty-exclusion path.
         $exclude_ids = !empty($all_protected_ids)
-            ? implode(',', array_map('absint', $all_protected_ids))
-            : '0';
+            ? array_values(array_unique(array_map('absint', $all_protected_ids)))
+            : [];
+        $exclude_ids = array_values(array_filter($exclude_ids, static function ($id) {
+            return (int) $id > 0;
+        }));
+        if ($exclude_ids === []) {
+            $exclude_ids = [0];
+        }
+        $id_sql = implode(',', array_map(static function ($id) use ($wpdb) {
+            return $wpdb->prepare('%d', (int) $id);
+        }, $exclude_ids));
+        $tail_sql = $wpdb->prepare('AND ID > %d ORDER BY ID ASC LIMIT %d', $last_id, $batch_size);
+        $where_sql = "ID NOT IN ({$id_sql}) {$tail_sql}";
 
         // Fetch next batch of deletable items. ID > 0 when last_id is 0 matches the previous unfiltered first page.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() / absint fragments.
         $trashed_ids = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT ID FROM {$wpdb->posts}
-                 WHERE post_type = 'attachment'
-                 AND post_status = 'trash'
-                 AND ID NOT IN (" . esc_sql($exclude_ids) . ")
-                 AND ID > %d
-                 ORDER BY ID ASC
-                 LIMIT %d",
-                $last_id,
-                $batch_size
-            )
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
 
         // Count only deletable items (excluding all protected) - from trash only
