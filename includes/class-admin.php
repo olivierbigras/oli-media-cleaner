@@ -4,6 +4,7 @@ defined('ABSPATH') || exit;
 class OLIMC_Admin {
 
     public static function init() {
+        add_action('init', [__CLASS__, 'maybe_upgrade'], 1);
         add_action('init', [__CLASS__, 'load_textdomain']);
         add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
@@ -122,9 +123,8 @@ class OLIMC_Admin {
             return true;
         }
 
-        // Check global protected paths
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (empty($protected_paths) || !is_string($protected_paths)) {
+        $protected_paths = self::get_protected_path_patterns();
+        if ($protected_paths === []) {
             return false;
         }
 
@@ -133,33 +133,118 @@ class OLIMC_Admin {
             return false;
         }
 
-        $url = wp_get_attachment_url($attachment_id);
-        if (!$url) {
-            return false;
-        }
-
         $upload_dir = wp_upload_dir(null, false);
         $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
 
-        $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
-        foreach ($lines as $pattern) {
-            if (empty($pattern)) {
-                continue;
-            }
-
-            // Normalize to uploads-relative path
+        foreach ($protected_paths as $pattern) {
             $pattern = self::normalize_protected_pattern($pattern, $base_url);
-            if (empty($pattern)) {
+            if ($pattern === '') {
                 continue;
             }
 
-            // Check if file matches pattern (glob or literal)
             if (self::path_matches_pattern($file, $pattern)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Parse the stored protected-paths option into a list of patterns.
+     *
+     * @param mixed $raw Option value (multiline string).
+     * @return string[]
+     */
+    public static function parse_protected_path_option($raw) {
+        if (!is_string($raw) || $raw === '') {
+            return [];
+        }
+        $lines = [];
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            $line = trim($line);
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+        return array_values(array_unique($lines));
+    }
+
+    /**
+     * Protected paths and glob patterns for this site.
+     *
+     * Empty by default. Values come from the `olimc_protected_paths` option
+     * (one path, URL, or glob per line) and the `olimc_protected_paths` filter.
+     *
+     * @return string[]
+     */
+    public static function get_protected_path_patterns() {
+        $patterns = self::parse_protected_path_option(get_option('olimc_protected_paths', ''));
+        if (function_exists('apply_filters')) {
+            $filtered = apply_filters('olimc_protected_paths', $patterns);
+            if (is_array($filtered)) {
+                $patterns = [];
+                foreach ($filtered as $pattern) {
+                    if (!is_string($pattern)) {
+                        continue;
+                    }
+                    $pattern = trim($pattern);
+                    if ($pattern !== '') {
+                        $patterns[] = $pattern;
+                    }
+                }
+                $patterns = array_values(array_unique($patterns));
+            }
+        }
+        return $patterns;
+    }
+
+    /**
+     * Persist previously applied protected paths into the site option.
+     *
+     * Runtime defaults stay empty. Existing option values are kept. A one-time
+     * `olimc_legacy_protected_paths` filter may supply the list a site already
+     * relied on so this plugin never ships client-specific paths.
+     */
+    public static function migrate_protected_paths_from_legacy() {
+        $existing = self::parse_protected_path_option(get_option('olimc_protected_paths', ''));
+        $legacy = [];
+        if (function_exists('apply_filters')) {
+            $legacy = apply_filters('olimc_legacy_protected_paths', []);
+        }
+        if (!is_array($legacy)) {
+            $legacy = [];
+        }
+        $from_legacy = [];
+        foreach ($legacy as $pattern) {
+            if (!is_string($pattern)) {
+                continue;
+            }
+            $pattern = trim($pattern);
+            if ($pattern !== '') {
+                $from_legacy[] = $pattern;
+            }
+        }
+        $merged = array_values(array_unique(array_merge($existing, $from_legacy)));
+        update_option('olimc_protected_paths', implode("\n", $merged), false);
+    }
+
+    /**
+     * Run versioned upgrades. Safe to call on init and on activation.
+     */
+    public static function maybe_upgrade() {
+        $stored = get_option('olimc_version', '0');
+        if (!is_string($stored) && !is_numeric($stored)) {
+            $stored = '0';
+        }
+        $stored = (string) $stored;
+        if ($stored === OLIMC_VERSION) {
+            return;
+        }
+        if (version_compare($stored, '1.5.24', '<')) {
+            self::migrate_protected_paths_from_legacy();
+        }
+        update_option('olimc_version', OLIMC_VERSION);
     }
 
     /**
@@ -239,12 +324,12 @@ class OLIMC_Admin {
     // ─── End protection system ────────────────────────────────────────
 
     public static function activate() {
-        update_option('olimc_version', OLIMC_VERSION);
+        self::maybe_upgrade();
         // Initialize whitelist as empty
         if (false === get_option('olimc_whitelist')) {
             update_option('olimc_whitelist', [], false);
         }
-        // Initialize protected paths as empty
+        // Initialize protected paths as empty (new sites only; upgrades keep existing values)
         if (false === get_option('olimc_protected_paths')) {
             update_option('olimc_protected_paths', '', false);
         }
@@ -455,7 +540,11 @@ class OLIMC_Admin {
         if (!current_user_can('manage_options')) return;
 
         $scan_date    = get_option( 'olimc_scan_date', '' );
-        $tab          = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'unused';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only tab on a manage_options screen.
+        $tab          = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'unused';
+        if ( ! in_array( $tab, [ 'unused', 'whitelist', 'trash' ], true ) ) {
+            $tab = 'unused';
+        }
         $whitelist    = get_option( 'olimc_whitelist', [] );
         $unused_count = count( get_option( 'olimc_scan_results', [] ) );
         $base_url     = admin_url( 'upload.php?page=oli-media-cleaner' );
@@ -576,7 +665,7 @@ class OLIMC_Admin {
                                     rows="8"
                                     style="width:100%;max-width:600px;font-family:monospace;"
                                     placeholder="<?php esc_attr_e('Examples:
-2024/03/logo_osm_2019.png
+2024/03/logo-2019.png
 2023/*/header-*.jpg
 2024/**/receipts/*.pdf
 https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); ?>"
@@ -940,6 +1029,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Step 1: Start a resumable scan. Does not decide unused media yet.
      */
     public static function ajax_start_scan() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         if (!OLIMC_Acf_Meta_Scanner::acquire_lock('ajax')) {
@@ -976,6 +1066,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Step 2: Continue the resumable scan for a short time budget.
      */
     public static function ajax_scan_batch() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         if (!OLIMC_Acf_Meta_Scanner::acquire_lock('ajax')) {
@@ -1033,15 +1124,17 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Get paginated results (refreshes table via AJAX).
      */
     public static function ajax_get_results() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $tab = sanitize_text_field($_POST['tab'] ?? 'unused');
-        $page = max(1, (int) ($_POST['page'] ?? 1));
-        $search = sanitize_text_field($_POST['search'] ?? '');
-        $orderby = sanitize_text_field($_POST['orderby'] ?? 'date');
-        $order = sanitize_text_field($_POST['order'] ?? 'desc');
-        $filter_type = sanitize_text_field($_POST['filter_type'] ?? '');
-        $per_page = (int) ($_POST['per_page'] ?? 20);
+        $tab = isset($_POST['tab']) ? sanitize_key(wp_unslash($_POST['tab'])) : 'unused';
+        $page = isset($_POST['page']) ? absint(wp_unslash($_POST['page'])) : 1;
+        $page = max(1, $page);
+        $search = isset($_POST['search']) ? sanitize_text_field(wp_unslash($_POST['search'])) : '';
+        $orderby = isset($_POST['orderby']) ? sanitize_key(wp_unslash($_POST['orderby'])) : 'date';
+        $order = isset($_POST['order']) ? sanitize_key(wp_unslash($_POST['order'])) : 'desc';
+        $filter_type = isset($_POST['filter_type']) ? sanitize_key(wp_unslash($_POST['filter_type'])) : '';
+        $per_page = isset($_POST['per_page']) ? absint(wp_unslash($_POST['per_page'])) : 20;
 
         if (!in_array($orderby, ['name', 'size', 'type', 'date'], true)) $orderby = 'date';
         if (!in_array($order, ['asc', 'desc'], true)) $order = 'desc';
@@ -1151,35 +1244,26 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         $filename = 'oli-media-cleaner-' . $tab . '-' . gmdate( 'Y-m-d-His' ) . '.csv';
 
-        nocache_headers();
-        header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-
-        $out = fopen( 'php://output', 'w' );
-
-        // UTF-8 BOM so Excel opens accented characters correctly.
-        fwrite( $out, "\xEF\xBB\xBF" );
-
-        fputcsv(
-            $out,
-            [
-                __( 'ID', 'oli-media-cleaner' ),
-                __( 'Status', 'oli-media-cleaner' ),
-                __( 'Title', 'oli-media-cleaner' ),
-                __( 'Filename', 'oli-media-cleaner' ),
-                __( 'URL', 'oli-media-cleaner' ),
-                __( 'Type', 'oli-media-cleaner' ),
-                __( 'MIME type', 'oli-media-cleaner' ),
-                __( 'Size (bytes)', 'oli-media-cleaner' ),
-                __( 'Size', 'oli-media-cleaner' ),
-                __( 'Date', 'oli-media-cleaner' ),
-            ]
-        );
+        $lines = [
+            self::csv_line(
+                [
+                    __( 'ID', 'oli-media-cleaner' ),
+                    __( 'Status', 'oli-media-cleaner' ),
+                    __( 'Title', 'oli-media-cleaner' ),
+                    __( 'Filename', 'oli-media-cleaner' ),
+                    __( 'URL', 'oli-media-cleaner' ),
+                    __( 'Type', 'oli-media-cleaner' ),
+                    __( 'MIME type', 'oli-media-cleaner' ),
+                    __( 'Size (bytes)', 'oli-media-cleaner' ),
+                    __( 'Size', 'oli-media-cleaner' ),
+                    __( 'Date', 'oli-media-cleaner' ),
+                ]
+            ),
+        ];
 
         foreach ( $rows as $item ) {
             $bytes = (int) ( $item['file_size'] ?? 0 );
-            fputcsv(
-                $out,
+            $lines[] = self::csv_line(
                 [
                     $item['id'] ?? '',
                     $item['status'] ?? '',
@@ -1195,7 +1279,74 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             );
         }
 
-        fclose( $out );
+        // UTF-8 BOM so Excel opens accented characters correctly.
+        $content = "\xEF\xBB\xBF" . implode( "\n", $lines ) . "\n";
+        self::send_csv_download( $filename, $content );
+    }
+
+    /**
+     * Encode one CSV row the way fputcsv() does (comma, quote enclosure).
+     *
+     * @param array<int, mixed> $fields Row values.
+     * @return string
+     */
+    private static function csv_line( array $fields ) {
+        $encoded = [];
+        foreach ( $fields as $field ) {
+            $field = (string) $field;
+            if ( strpbrk( $field, ",\"\n\r" ) !== false ) {
+                $field = '"' . str_replace( '"', '""', $field ) . '"';
+            }
+            $encoded[] = $field;
+        }
+        return implode( ',', $encoded );
+    }
+
+    /**
+     * Stream a CSV download via WP_Filesystem (temp file in uploads).
+     *
+     * @param string $filename Download name.
+     * @param string $content  CSV body including BOM.
+     */
+    private static function send_csv_download( $filename, $content ) {
+        if ( ! function_exists( 'WP_Filesystem' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+
+        global $wp_filesystem;
+        $force_direct = static function () {
+            return 'direct';
+        };
+        add_filter( 'filesystem_method', $force_direct );
+        $ready = WP_Filesystem();
+        remove_filter( 'filesystem_method', $force_direct );
+        if ( ! $ready || ! $wp_filesystem ) {
+            wp_die( esc_html__( 'Could not write the CSV export.', 'oli-media-cleaner' ), '', [ 'response' => 500 ] );
+        }
+
+        $uploads = wp_upload_dir();
+        if ( ! empty( $uploads['error'] ) || empty( $uploads['basedir'] ) ) {
+            wp_die( esc_html__( 'Could not write the CSV export.', 'oli-media-cleaner' ), '', [ 'response' => 500 ] );
+        }
+
+        $dir      = trailingslashit( $uploads['basedir'] );
+        $tmp_name = wp_unique_filename( $dir, 'olimc-export.csv' );
+        $tmp      = $dir . $tmp_name;
+
+        if ( ! $wp_filesystem->put_contents( $tmp, $content, FS_CHMOD_FILE ) ) {
+            wp_die( esc_html__( 'Could not write the CSV export.', 'oli-media-cleaner' ), '', [ 'response' => 500 ] );
+        }
+
+        $data = $wp_filesystem->get_contents( $tmp );
+        $wp_filesystem->delete( $tmp );
+        if ( ! is_string( $data ) ) {
+            wp_die( esc_html__( 'Could not write the CSV export.', 'oli-media-cleaner' ), '', [ 'response' => 500 ] );
+        }
+
+        nocache_headers();
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        echo $data; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSV download body.
         exit;
     }
 
@@ -1203,9 +1354,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Trash a single unused file.
      */
     public static function ajax_trash_single() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $post_id = (int) ($_POST['post_id'] ?? 0);
+        $post_id = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
         if (self::is_attachment_protected($post_id) || self::is_attachment_whitelisted($post_id)) {
@@ -1228,9 +1380,13 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Trash multiple files.
      */
     public static function ajax_trash_bulk() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $ids = array_map('intval', $_POST['ids'] ?? []);
+        $ids = [];
+        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('absint', wp_unslash($_POST['ids']));
+        }
         $trashed = 0;
         $protected = 0;
         $used_kept = 0;
@@ -1301,8 +1457,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         if ($count <= 0) {
             return '';
         }
-        /* translators: %d: number of media items that are still in use */
         return sprintf(
+            /* translators: %d: number of media items that are still in use */
             _n('%d used media item was kept.', '%d used media items were kept.', $count, 'oli-media-cleaner'),
             $count
         );
@@ -1473,9 +1629,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Permanently delete a single file.
      */
     public static function ajax_delete_single() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $post_id = (int) ($_POST['post_id'] ?? 0);
+        $post_id = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
         if (self::is_attachment_protected($post_id) || self::is_attachment_whitelisted($post_id)) {
@@ -1498,9 +1655,13 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Permanently delete multiple files.
      */
     public static function ajax_delete_bulk() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $ids = array_map('intval', $_POST['ids'] ?? []);
+        $ids = [];
+        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('absint', wp_unslash($_POST['ids']));
+        }
         $deleted = 0;
         $protected = 0;
         $used_kept = 0;
@@ -1541,9 +1702,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Add to whitelist.
      */
     public static function ajax_whitelist_single() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $post_id = (int) ($_POST['post_id'] ?? 0);
+        $post_id = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
         $whitelist = get_option('olimc_whitelist', []);
@@ -1559,9 +1721,13 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Add multiple to whitelist.
      */
     public static function ajax_whitelist_bulk() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $ids = array_map('intval', $_POST['ids'] ?? []);
+        $ids = [];
+        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('absint', wp_unslash($_POST['ids']));
+        }
         $whitelist = get_option('olimc_whitelist', []);
         $added = 0;
 
@@ -1573,10 +1739,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         }
         update_option('olimc_whitelist', $whitelist, false);
 
+        /* translators: %d: number of items */
+        $message = sprintf(_n('%d item added to whitelist.', '%d items added to whitelist.', $added, 'oli-media-cleaner'), $added);
         wp_send_json_success([
-            /* translators: %d: number of items added */
-            /* translators: %d: number of items */
-            'message' => sprintf(_n('%d item added to whitelist.', '%d items added to whitelist.', $added, 'oli-media-cleaner'), $added),
+            'message' => $message,
             'count'   => $added,
         ]);
     }
@@ -1585,9 +1751,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Remove from whitelist.
      */
     public static function ajax_remove_whitelist() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $post_id = (int) ($_POST['post_id'] ?? 0);
+        $post_id = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
         $whitelist = get_option('olimc_whitelist', []);
@@ -1601,18 +1768,23 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Remove multiple from whitelist.
      */
     public static function ajax_remove_whitelist_bulk() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $ids = array_map('intval', $_POST['ids'] ?? []);
+        $ids = [];
+        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('absint', wp_unslash($_POST['ids']));
+        }
         $whitelist = get_option('olimc_whitelist', []);
         $whitelist = array_values(array_diff($whitelist, $ids));
         update_option('olimc_whitelist', $whitelist, false);
 
+        $removed = count($ids);
+        /* translators: %d: number of items */
+        $message = sprintf(_n('%d item removed from whitelist.', '%d items removed from whitelist.', $removed, 'oli-media-cleaner'), $removed);
         wp_send_json_success([
-            /* translators: %d: number of items removed */
-            /* translators: %d: number of items */
-            'message' => sprintf(_n('%d item removed from whitelist.', '%d items removed from whitelist.', count($ids), 'oli-media-cleaner'), count($ids)),
-            'count'   => count($ids),
+            'message' => $message,
+            'count'   => $removed,
         ]);
     }
 
@@ -1620,6 +1792,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Remove every item from the whitelist.
      */
     public static function ajax_remove_whitelist_all() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         $whitelist = get_option('olimc_whitelist', []);
@@ -1637,9 +1810,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Restore from trash.
      */
     public static function ajax_restore_single() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $post_id = (int) ($_POST['post_id'] ?? 0);
+        $post_id = isset($_POST['post_id']) ? absint(wp_unslash($_POST['post_id'])) : 0;
         if (!$post_id) wp_send_json_error(__('Invalid ID.', 'oli-media-cleaner'));
 
         $result = wp_untrash_post($post_id);
@@ -1653,9 +1827,13 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Restore multiple from trash.
      */
     public static function ajax_restore_bulk() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $ids = array_map('intval', $_POST['ids'] ?? []);
+        $ids = [];
+        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('absint', wp_unslash($_POST['ids']));
+        }
         $restored = 0;
         foreach ($ids as $id) {
             if (wp_untrash_post($id)) {
@@ -1663,10 +1841,10 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             }
         }
 
+        /* translators: %d: number of files */
+        $message = sprintf(_n('%d file restored.', '%d files restored.', $restored, 'oli-media-cleaner'), $restored);
         wp_send_json_success([
-            /* translators: %d: number of files restored */
-            /* translators: %d: number of files */
-            'message' => sprintf(_n('%d file restored.', '%d files restored.', $restored, 'oli-media-cleaner'), $restored),
+            'message' => $message,
             'count'   => $restored,
         ]);
     }
@@ -1675,6 +1853,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Trash all unused in batches (AJAX).
      */
     public static function ajax_trash_all_batch() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         $batch_size = 50;
@@ -1737,11 +1916,12 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Excludes protected items in the query itself and paginates by ID to ensure progress.
      */
     public static function ajax_empty_trash_batch() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         global $wpdb;
         $batch_size = 50;
-        $last_id = isset($_POST['last_id']) ? (int) $_POST['last_id'] : 0;
+        $last_id = isset($_POST['last_id']) ? absint(wp_unslash($_POST['last_id'])) : 0;
 
         // Get protected IDs (meta-based protection) - ONLY from trash
         $protected_meta_ids = $wpdb->get_col(
@@ -1756,8 +1936,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         // Get protected IDs (path-based protection) - ONLY from trash
         $protected_path_ids = [];
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (!empty($protected_paths) && is_string($protected_paths)) {
+        $protected_paths = self::get_protected_path_patterns();
+        if ($protected_paths !== []) {
             $upload_dir = wp_upload_dir(null, false);
             $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
             
@@ -1771,11 +1951,11 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
                  AND pm.meta_key = '_wp_attached_file'"
             );
             
-            $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
             $patterns = [];
-            foreach ($lines as $pattern) {
-                if (!empty($pattern)) {
-                    $patterns[] = self::normalize_protected_pattern($pattern, $base_url);
+            foreach ($protected_paths as $pattern) {
+                $normalized = self::normalize_protected_pattern($pattern, $base_url);
+                if ($normalized !== '') {
+                    $patterns[] = $normalized;
                 }
             }
             
@@ -1791,29 +1971,28 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         // Combine all protected IDs
         $all_protected_ids = array_unique(array_merge($protected_meta_ids, $protected_path_ids));
-        
-        // Build exclusion clause
-        $exclude_clause = '';
-        if (!empty($all_protected_ids)) {
-            $protected_ids_str = implode(',', array_map('intval', $all_protected_ids));
-            $exclude_clause = " AND ID NOT IN ({$protected_ids_str})";
+
+        // ID 0 is never an attachment, so NOT IN (0) matches the previous empty-exclusion path.
+        $exclude_ids = !empty($all_protected_ids)
+            ? array_values(array_unique(array_map('absint', $all_protected_ids)))
+            : [];
+        $exclude_ids = array_values(array_filter($exclude_ids, static function ($id) {
+            return (int) $id > 0;
+        }));
+        if ($exclude_ids === []) {
+            $exclude_ids = [0];
         }
+        $id_sql = implode(',', array_map(static function ($id) use ($wpdb) {
+            return $wpdb->prepare('%d', (int) $id);
+        }, $exclude_ids));
+        $tail_sql = $wpdb->prepare('AND ID > %d ORDER BY ID ASC LIMIT %d', $last_id, $batch_size);
+        $where_sql = "ID NOT IN ({$id_sql}) {$tail_sql}";
 
-        // Paginate by ID to ensure progress
-        $id_clause = $last_id > 0 ? " AND ID > {$last_id}" : '';
-
-        // Fetch next batch of deletable items
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $trashed_ids = $wpdb->get_col( $wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts}
-             WHERE post_type = 'attachment'
-             AND post_status = 'trash'
-             {$exclude_clause}
-             {$id_clause}
-             ORDER BY ID ASC
-             LIMIT %d",
-            $batch_size
-        ) );
+        // Fetch next batch of deletable items. ID > 0 when last_id is 0 matches the previous unfiltered first page.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() / absint fragments.
+        $trashed_ids = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
 
         // Count only deletable items (excluding all protected) - from trash only
         $total_trashed = (int) wp_count_posts('attachment')->trash;
@@ -1842,8 +2021,8 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         
         $message = '';
         if ($done && $protected_count > 0) {
-            /* translators: %d: number of files */
             $message = sprintf(
+                /* translators: %d: number of files */
                 _n('%d protected file in trash was not deleted.', '%d protected files in trash were not deleted.', $protected_count, 'oli-media-cleaner'),
                 $protected_count
             );
@@ -1864,6 +2043,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Restore all trashed attachments in batches (AJAX).
      */
     public static function ajax_restore_all_batch() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         global $wpdb;
@@ -1905,10 +2085,11 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Save cron settings.
      */
     public static function ajax_save_cron_settings() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
-        $enabled = !empty($_POST['enabled']);
-        $frequency = sanitize_text_field($_POST['frequency'] ?? 'daily');
+        $enabled = !empty($_POST['enabled']) && sanitize_text_field(wp_unslash($_POST['enabled']));
+        $frequency = isset($_POST['frequency']) ? sanitize_key(wp_unslash($_POST['frequency'])) : 'daily';
 
         if (!in_array($frequency, ['daily', 'twicedaily', 'weekly'], true)) {
             $frequency = 'daily';
@@ -1933,11 +2114,15 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         ];
         $frequency_label = $frequency_labels[$frequency] ?? $frequency;
 
+        if ($enabled) {
+            /* translators: %1$s: frequency label, %2$s: next run date */
+            $message = sprintf(__('Scheduled scan enabled (%1$s). Next run: %2$s', 'oli-media-cleaner'), $frequency_label, $next_run);
+        } else {
+            $message = __('Scheduled scan disabled.', 'oli-media-cleaner');
+        }
+
         wp_send_json_success([
-            'message'  => $enabled
-                /* translators: %1$s: frequency label, %2$s: next run date */
-                ? sprintf(__('Scheduled scan enabled (%1$s). Next run: %2$s', 'oli-media-cleaner'), $frequency_label, $next_run)
-                : __('Scheduled scan disabled.', 'oli-media-cleaner'),
+            'message'  => $message,
             'next_run' => $next_run ?: __('Not scheduled', 'oli-media-cleaner'),
         ]);
     }
@@ -1946,6 +2131,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
      * Save protection settings and return match counts with warnings.
      */
     public static function ajax_save_protection_settings() {
+        check_ajax_referer('olimc_nonce', 'nonce');
         self::verify_request();
 
         $protected_paths = isset($_POST['protected_paths']) ? sanitize_textarea_field(wp_unslash($_POST['protected_paths'])) : '';

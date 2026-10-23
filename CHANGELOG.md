@@ -2,6 +2,37 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.26] - 2026-10-23
+
+### Fixed
+- Removed `esc_sql()` from SQL fragments and ID lists that are then passed to `$wpdb->prepare()`. After WordPress 4.8.3, `esc_sql()` escapes `%` placeholders and breaks those queries
+- Empty Trash exclusion list uses `%d` placeholders instead of interpolating `esc_sql()` output
+
+### Changed
+- Screenshots recaptured on a local demo WordPress site with generic `sample-photo-*.jpg` files (no real media library data)
+
+## [1.5.25] - 2026-10-21
+
+### Fixed
+- Plugin Check 2.1.0 errors: prepared SQL identifiers (`%i` / `esc_sql` whitelist), missing translators comments, `parse_url()` → `wp_parse_url()`, and CSV export via `WP_Filesystem`
+
+### Changed
+- Requires at least WordPress 6.2 (`wp_filesize`, `$wpdb->prepare()` `%i` placeholders)
+- Admin AJAX reads go through a visible nonce check plus `wp_unslash()` / sanitization
+
+### Added
+- `.distignore` and `.gitattributes` `export-ignore` so the distribution ZIP excludes tests, GitHub workflows, PHPCS/PHPUnit/Composer/npm files, and internal markdown
+
+## [1.5.24] - 2026-10-21
+
+### Changed
+- Protected paths and glob patterns are site-configurable and empty by default (`olimc_protected_paths` option, `olimc_protected_paths` filter)
+- Client-specific sample paths, domains, and filenames were removed from source, tests, and translation examples
+
+### Added
+- On update, previously applied protected paths are copied into the site option so existing sites keep the same protection. This plugin does not ship a built-in client list
+- One-time filter `olimc_legacy_protected_paths` can supply that previous list during the upgrade
+
 ## [1.5.23] - 2026-10-20
 
 ### Fixed

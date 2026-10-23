@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/olivierbigras/oli-media-cleaner/releases"><img src="https://img.shields.io/badge/version-1.5.15-blue" alt="Version"></a>
+  <a href="https://github.com/olivierbigras/oli-media-cleaner/releases"><img src="https://img.shields.io/badge/version-1.5.26-blue" alt="Version"></a>
   <a href="https://wordpress.org/"><img src="https://img.shields.io/badge/WordPress-7.1-green" alt="WordPress"></a>
   <a href="https://php.net/"><img src="https://img.shields.io/badge/PHP-7.4%2B-purple" alt="PHP"></a>
   <a href="https://www.gnu.org/licenses/gpl-2.0.html"><img src="https://img.shields.io/badge/license-GPL--2.0--or--later-orange" alt="License"></a>
@@ -307,6 +307,21 @@ Per-page selector, pagination controls, and the Scheduled Auto-Cleanup settings 
 ---
 
 ## Changelog
+
+### 1.5.26
+- FIX: Do not wrap SQL fragments or ID lists with `esc_sql()` before `$wpdb->prepare()` (that combination breaks queries since WordPress 4.8.3)
+- FIX: Empty Trash binds excluded IDs with `%d` placeholders
+- CHANGE: Screenshots recaptured on a neutral demo site with generic sample filenames
+
+### 1.5.25
+- FIX: Plugin Check 2.1.0 reports 0 errors (prepared SQL, translators comments, `wp_parse_url`, WP_Filesystem CSV)
+- CHANGE: Requires at least WordPress 6.2
+- NEW: `.distignore` / `export-ignore` exclude development files from the ZIP
+
+### 1.5.24
+- CHANGE: Protected paths and glob patterns are empty by default (settings field or `olimc_protected_paths` filter)
+- NEW: Upgrade copies a site's previously applied protected paths into the site option. No built-in client list is shipped
+- CHANGE: Sample paths and test fixtures no longer refer to a specific site
 
 ### 1.5.15
 - NEW: CSV export adds a Status column (Unused / Whitelist / Trash) and exports all three categories in one file

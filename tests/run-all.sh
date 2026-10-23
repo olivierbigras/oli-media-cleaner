@@ -12,6 +12,9 @@ echo "Syntax OK"
 echo "== parser tests =="
 php tests/run-tests.php
 
+echo "== protection tests =="
+php tests/run-protection-tests.php
+
 echo "== ACF scan + perf tests =="
 php tests/run-acf-scan-tests.php
 

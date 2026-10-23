@@ -21,6 +21,7 @@ delete_option( 'olimc_scan_pending_cron' );
 delete_option( 'olimc_scan_lock' );
 delete_option( 'olimc_scan_date' );
 delete_option( 'olimc_whitelist' );
+delete_option( 'olimc_protected_paths' );
 delete_option( 'olimc_cron_enabled' );
 delete_option( 'olimc_cron_frequency' );
 
