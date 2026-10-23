@@ -805,27 +805,23 @@ class OLIMC_Acf_Meta_Scanner {
 			return null;
 		}
 		$clauses = [];
-		$args    = [
+		foreach ( $field_keys as $field_key ) {
+			$clauses[] = $wpdb->prepare( '%i = %s', $spec['value'], $field_key );
+		}
+		$range_sql = $wpdb->prepare(
+			'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
 			$spec['key'],
 			$spec['value'],
 			$spec['table'],
 			$spec['id'],
 			(int) $lo,
 			$spec['id'],
-			(int) $hi,
-		];
-		foreach ( $field_keys as $field_key ) {
-			$clauses[] = '%i = %s';
-			$args[]    = $spec['value'];
-			$args[]    = $field_key;
-		}
-		$wpdb->last_error = '';
-		$rows             = $wpdb->get_results(
-			$wpdb->prepare(
-				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d AND (' . esc_sql( implode( ' OR ', $clauses ) ) . ')',
-				...$args
-			)
+			(int) $hi
 		);
+		$where_sql        = $range_sql . ' AND (' . implode( ' OR ', $clauses ) . ')';
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+		$rows = $wpdb->get_results( $where_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
 		if ( $this->db_failed() || ! is_array( $rows ) ) {
 			return null;
 		}

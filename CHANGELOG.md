@@ -2,6 +2,15 @@
 
 All notable changes to Oli Media Cleaner will be documented in this file.
 
+## [1.5.26] - 2026-10-23
+
+### Fixed
+- Removed `esc_sql()` from SQL fragments and ID lists that are then passed to `$wpdb->prepare()`. After WordPress 4.8.3, `esc_sql()` escapes `%` placeholders and breaks those queries
+- Empty Trash exclusion list uses `%d` placeholders instead of interpolating `esc_sql()` output
+
+### Changed
+- Screenshots recaptured on a local demo WordPress site with generic `sample-photo-*.jpg` files (no real media library data)
+
 ## [1.5.25] - 2026-10-21
 
 ### Fixed
