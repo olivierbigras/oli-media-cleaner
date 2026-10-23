@@ -2,10 +2,10 @@
 Contributors: bigrat95
 Donate link: https://www.paypal.com/donate/?hosted_button_id=29SAPKFAHMTNW
 Tags: media, cleanup, unused images, media cleaner, disk space
-Requires at least: 5.8
+Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.23
+Stable tag: 1.5.26
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -98,12 +98,25 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 
 == Screenshots ==
 
-1. Main dashboard with stats cards and scan button
-2. Unused media list with bulk actions
-3. Whitelist tab
-4. Scan sources information panel
+1. Dashboard with stats, scan button, and unused media list using generic sample files
+2. Pagination controls and scheduled scan settings
 
 == Changelog ==
+
+= 1.5.26 =
+* FIX: Stop wrapping SQL fragments or ID lists with esc_sql() before $wpdb->prepare() (WP 4.8.3+ placeholder escaping broke those queries)
+* FIX: Empty Trash binds excluded IDs with %d placeholders
+* CHANGE: Screenshots recaptured on a neutral demo site with generic sample-photo filenames
+
+= 1.5.25 =
+* FIX: Plugin Check 2.1.0 reports 0 errors (prepared SQL identifiers, translators comments, wp_parse_url, WP_Filesystem CSV export)
+* CHANGE: Requires at least WordPress 6.2 so $wpdb->prepare() can use %i for table and column names
+* NEW: .distignore and git archive export-ignore exclude development files from the distribution ZIP
+
+= 1.5.24 =
+* CHANGE: Protected paths and glob patterns are empty by default and configured per site (settings field or `olimc_protected_paths` filter)
+* NEW: Upgrade copies a site's previously applied protected paths into the `olimc_protected_paths` option so existing protection is kept. No built-in client list is shipped
+* CHANGE: Sample paths and filenames in settings and tests no longer refer to a specific site
 
 = 1.5.23 =
 * FIX: Refuse to trash or permanently delete media that is still in use (featured image, post content, WooCommerce gallery, ACF fields, and other live references), including Media Library, WP-CLI, and plugin actions
@@ -254,6 +267,12 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 * Native WordPress admin UI — no external dependencies
 
 == Upgrade Notice ==
+
+= 1.5.26 =
+Fixes SQL queries that combined esc_sql() with $wpdb->prepare(). Screenshots replaced with generic demo media.
+
+= 1.5.25 =
+Plugin Check 2.1.0 compliance. Requires WordPress 6.2+. No change to scan or deletion behavior.
 
 = 1.5.22 =
 Maintenance release: GitHub links updated. No functional change.

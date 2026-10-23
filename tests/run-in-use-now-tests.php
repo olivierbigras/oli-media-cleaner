@@ -138,6 +138,29 @@ if ( ! class_exists( 'WooCommerce' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	/**
+	 * @param string $url       URL.
+	 * @param int    $component Component.
+	 * @return mixed
+	 */
+	function wp_parse_url( $url, $component = -1 ) {
+		return parse_url( $url, $component );
+	}
+}
+if ( ! function_exists( 'esc_sql' ) ) {
+	/**
+	 * @param mixed $data Data.
+	 * @return mixed
+	 */
+	function esc_sql( $data ) {
+		if ( is_array( $data ) ) {
+			return array_map( 'esc_sql', $data );
+		}
+		return addslashes( (string) $data );
+	}
+}
+
 require_once dirname( __DIR__ ) . '/includes/class-media-usage-parser.php';
 require_once dirname( __DIR__ ) . '/includes/class-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-admin.php';
@@ -198,7 +221,7 @@ class OLIMC_Inuse_Fake_Wpdb {
 	public function prepare( $sql, ...$args ) {
 		$index = 0;
 		return preg_replace_callback(
-			'/%[dfs]/',
+			'/%[dfsi]/',
 			function ( $match ) use ( &$args, &$index ) {
 				$value = $args[ $index ] ?? '';
 				$index++;
@@ -207,6 +230,13 @@ class OLIMC_Inuse_Fake_Wpdb {
 				}
 				if ( $match[0] === '%f' ) {
 					return (string) (float) $value;
+				}
+				if ( $match[0] === '%i' ) {
+					$ident = (string) $value;
+					if ( ! preg_match( '/^[A-Za-z0-9_]+$/', $ident ) ) {
+						return '`invalid`';
+					}
+					return '`' . $ident . '`';
 				}
 				return "'" . str_replace( "'", "''", (string) $value ) . "'";
 			},

@@ -131,9 +131,11 @@ class OLIMC_Scanner {
             $protected = array_merge($protected, array_map('intval', $protected_ids));
         }
 
-        // Collect IDs matching protected paths
-        $protected_paths = get_option('olimc_protected_paths', '');
-        if (empty($protected_paths) || !is_string($protected_paths)) {
+        // Collect IDs matching protected paths (option + olimc_protected_paths filter)
+        $protected_paths = class_exists('OLIMC_Admin')
+            ? OLIMC_Admin::get_protected_path_patterns()
+            : [];
+        if ($protected_paths === []) {
             return $protected;
         }
 
@@ -146,13 +148,12 @@ class OLIMC_Scanner {
              WHERE meta_key = '_wp_attached_file'"
         );
 
-        $lines = array_filter(array_map('trim', explode("\n", $protected_paths)));
         $patterns = [];
-        foreach ($lines as $pattern) {
-            if (empty($pattern)) {
-                continue;
+        foreach ($protected_paths as $pattern) {
+            $normalized = $this->normalize_protected_pattern($pattern, $base_url);
+            if ($normalized !== '') {
+                $patterns[] = $normalized;
             }
-            $patterns[] = $this->normalize_protected_pattern($pattern, $base_url);
         }
 
         foreach ($files as $row) {
@@ -268,7 +269,7 @@ class OLIMC_Scanner {
      * Make sure ACF has booted and local JSON / PHP groups are included.
      *
      * Cron and early AJAX used to call acf_get_field_groups() before acf/init,
-     * which skips theme JSON (the concert field group on sites like osm.ca).
+     * which skips theme JSON (local field groups registered by the active theme).
      *
      * @return bool Whether the ACF API is available.
      */
@@ -625,29 +626,44 @@ class OLIMC_Scanner {
     }
 
     /**
-     * OR of prepared LIKE clauses for the given columns and needles.
+     * OR of LIKE clauses with values already bound by $wpdb->prepare().
      *
      * @param string[] $columns Column names (already safe identifiers).
      * @param string[] $needles Raw substrings to wrap with %.
-     * @return array{0: string, 1: string[]}|null
+     * @return string|null Prepared SQL fragment, or null if nothing to match.
      */
     private function prepared_like_or(array $columns, array $needles) {
         global $wpdb;
         $parts = [];
-        $args = [];
         foreach ($columns as $column) {
+            if (!$this->is_safe_identifier($column)) {
+                continue;
+            }
             foreach ($needles as $needle) {
                 if ($needle === '') {
                     continue;
                 }
-                $parts[] = $column . ' LIKE %s';
-                $args[] = '%' . $wpdb->esc_like($needle) . '%';
+                $parts[] = $wpdb->prepare(
+                    '%i LIKE %s',
+                    $column,
+                    '%' . $wpdb->esc_like($needle) . '%'
+                );
             }
         }
         if ($parts === []) {
             return null;
         }
-        return [implode(' OR ', $parts), $args];
+        return implode(' OR ', $parts);
+    }
+
+    /**
+     * Column and table names interpolated into SQL. Never accept meta values here.
+     *
+     * @param string $key Identifier.
+     * @return bool
+     */
+    private function is_safe_identifier($key) {
+        return is_string($key) && $key !== '' && (bool) preg_match('/^[A-Za-z0-9_]+$/', $key);
     }
 
     /**
@@ -775,40 +791,39 @@ class OLIMC_Scanner {
 
         global $wpdb;
         $key_parts = [];
-        $args = [];
         foreach ($names as $name) {
             if (!is_string($name) || $name === '') {
                 continue;
             }
-            $key_parts[] = 'meta_key = %s';
-            $args[] = $name;
-            $key_parts[] = 'meta_key LIKE %s';
-            $args[] = '%_' . $wpdb->esc_like($name);
+            $key_parts[] = $wpdb->prepare('meta_key = %s', $name);
+            $key_parts[] = $wpdb->prepare('meta_key LIKE %s', '%_' . $wpdb->esc_like($name));
         }
         if ($key_parts === []) {
             return;
         }
 
         $id_len = (string) strlen((string) $id);
-        $args[] = (string) $id;
-        $args[] = '%' . $wpdb->esc_like('i:' . $id . ';') . '%';
-        $args[] = '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%';
-        $args[] = $wpdb->esc_like((string) $id) . ',%';
-        $args[] = '%,' . $wpdb->esc_like((string) $id) . ',%';
-        $args[] = '%,' . $wpdb->esc_like((string) $id);
-
-        $sql = "SELECT meta_key, meta_value FROM {$wpdb->postmeta}
-                WHERE (" . implode(' OR ', $key_parts) . ")
-                AND (
-                    meta_value = %s
-                    OR meta_value LIKE %s
-                    OR meta_value LIKE %s
-                    OR meta_value LIKE %s
-                    OR meta_value LIKE %s
-                    OR meta_value LIKE %s
-                )
-                LIMIT 1";
-        $row = $wpdb->get_results($wpdb->prepare($sql, ...$args));
+        $value_sql = $wpdb->prepare(
+            '(
+                meta_value = %s
+                OR meta_value LIKE %s
+                OR meta_value LIKE %s
+                OR meta_value LIKE %s
+                OR meta_value LIKE %s
+                OR meta_value LIKE %s
+             )',
+            (string) $id,
+            '%' . $wpdb->esc_like('i:' . $id . ';') . '%',
+            '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%',
+            $wpdb->esc_like((string) $id) . ',%',
+            '%,' . $wpdb->esc_like((string) $id) . ',%',
+            '%,' . $wpdb->esc_like((string) $id)
+        );
+        $where_sql = '(' . implode(' OR ', $key_parts) . ') AND ' . $value_sql;
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $row = $wpdb->get_results(
+            "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         if (!empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
@@ -831,28 +846,28 @@ class OLIMC_Scanner {
             return;
         }
         $opt_parts = [];
-        $opt_args = [];
         foreach ($names as $name) {
             if (!is_string($name) || $name === '') {
                 continue;
             }
-            $opt_parts[] = 'option_name = %s';
-            $opt_args[] = $name;
-            $opt_parts[] = 'option_name LIKE %s';
-            $opt_args[] = '%_' . $wpdb->esc_like($name);
+            $opt_parts[] = $wpdb->prepare('option_name = %s', $name);
+            $opt_parts[] = $wpdb->prepare('option_name LIKE %s', '%_' . $wpdb->esc_like($name));
         }
-        $opt_args[] = (string) $id;
-        $opt_args[] = '%' . $wpdb->esc_like('i:' . $id . ';') . '%';
-        $opt_args[] = '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%';
-        $opt_sql = "SELECT option_name, option_value FROM {$wpdb->options}
-                    WHERE (" . implode(' OR ', $opt_parts) . ")
-                    AND (
-                        option_value = %s
-                        OR option_value LIKE %s
-                        OR option_value LIKE %s
-                    )
-                    LIMIT 1";
-        $opt_row = $wpdb->get_results($wpdb->prepare($opt_sql, ...$opt_args));
+        $opt_value_sql = $wpdb->prepare(
+            '(
+                option_value = %s
+                OR option_value LIKE %s
+                OR option_value LIKE %s
+             )',
+            (string) $id,
+            '%' . $wpdb->esc_like('i:' . $id . ';') . '%',
+            '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%'
+        );
+        $where_sql = '(' . implode(' OR ', $opt_parts) . ') AND ' . $opt_value_sql;
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $opt_row = $wpdb->get_results(
+            "SELECT option_name, option_value FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         if (!empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
@@ -889,22 +904,21 @@ class OLIMC_Scanner {
         if ($paths === []) {
             return;
         }
-        $built = $this->prepared_like_or(['option_value'], $paths);
-        if ($built === null) {
+        $like_sql = $this->prepared_like_or(['option_value'], $paths);
+        if ($like_sql === null) {
             return;
         }
-        $hit = $wpdb->get_var($wpdb->prepare(
-            "SELECT option_id FROM {$wpdb->options}
-             WHERE option_name NOT LIKE %s
-             AND option_name NOT LIKE %s
-             AND option_name NOT LIKE %s
-             AND ({$built[0]})
-             LIMIT 1",
+        $prefix_sql = $wpdb->prepare(
+            'option_name NOT LIKE %s AND option_name NOT LIKE %s AND option_name NOT LIKE %s',
             $wpdb->esc_like('olimc_') . '%',
             $wpdb->esc_like('_transient') . '%',
-            $wpdb->esc_like('_site_transient') . '%',
-            ...$built[1]
-        ));
+            $wpdb->esc_like('_site_transient') . '%'
+        );
+        $where_sql = $prefix_sql . ' AND (' . $like_sql . ')';
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $hit = $wpdb->get_var(
+            "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         $this->finish_usage_query($hit);
     }
 
@@ -1111,18 +1125,14 @@ class OLIMC_Scanner {
             $this->usage_check_failed = true;
             return;
         }
-        $built = $this->prepared_like_or(['post_content', 'post_excerpt'], $needles);
-        if ($built === null) {
+        $where_sql = $this->prepared_like_or(['post_content', 'post_excerpt'], $needles);
+        if ($where_sql === null) {
             return;
         }
-        $hit = $wpdb->get_var($wpdb->prepare(
-            "SELECT ID FROM {$wpdb->posts}
-             WHERE post_status IN ('publish', 'draft', 'private', 'future')
-             AND post_type NOT IN ('revision', 'attachment')
-             AND ({$built[0]})
-             LIMIT 1",
-            ...$built[1]
-        ));
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $hit = $wpdb->get_var(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'draft', 'private', 'future') AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         $this->finish_usage_query($hit);
     }
 
@@ -1178,18 +1188,16 @@ class OLIMC_Scanner {
             return;
         }
         $needles = array_merge($needles, $paths);
-        $built = $this->prepared_like_or(['option_value'], $needles);
-        if ($built === null) {
+        $like_sql = $this->prepared_like_or(['option_value'], $needles);
+        if ($like_sql === null) {
             return;
         }
-        $hit = $wpdb->get_var($wpdb->prepare(
-            "SELECT option_id FROM {$wpdb->options}
-             WHERE option_name LIKE %s
-             AND ({$built[0]})
-             LIMIT 1",
-            $wpdb->esc_like('theme_mods_') . '%',
-            ...$built[1]
-        ));
+        $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('theme_mods_') . '%');
+        $where_sql = $name_sql . ' AND (' . $like_sql . ')';
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $hit = $wpdb->get_var(
+            "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         $this->finish_usage_query($hit);
     }
 
@@ -1344,18 +1352,16 @@ class OLIMC_Scanner {
         }
         $needles[] = '"attachment_id";i:' . $id . ';';
         $needles[] = 'i:' . $id . ';';
-        $built = $this->prepared_like_or(['option_value'], $needles);
-        if ($built === null) {
+        $like_sql = $this->prepared_like_or(['option_value'], $needles);
+        if ($like_sql === null) {
             return;
         }
-        $hit = $wpdb->get_var($wpdb->prepare(
-            "SELECT option_id FROM {$wpdb->options}
-             WHERE option_name LIKE %s
-             AND ({$built[0]})
-             LIMIT 1",
-            $wpdb->esc_like('widget_') . '%',
-            ...$built[1]
-        ));
+        $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('widget_') . '%');
+        $where_sql = $name_sql . ' AND (' . $like_sql . ')';
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        $hit = $wpdb->get_var(
+            "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+        );
         $this->finish_usage_query($hit);
     }
 
@@ -1370,18 +1376,14 @@ class OLIMC_Scanner {
                 $this->usage_check_failed = true;
                 return;
             }
-            $built = $this->prepared_like_or(['meta_value'], $needles);
-            if ($built === null) {
+            $where_sql = $this->prepared_like_or(['meta_value'], $needles);
+            if ($where_sql === null) {
                 return;
             }
-            $hit = $wpdb->get_var($wpdb->prepare(
-                "SELECT meta_id FROM {$wpdb->postmeta}
-                 WHERE meta_key = '_elementor_data'
-                 AND meta_value != ''
-                 AND ({$built[0]})
-                 LIMIT 1",
-                ...$built[1]
-            ));
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            $hit = $wpdb->get_var(
+                "SELECT meta_id FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_data' AND meta_value != '' AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+            );
             $this->finish_usage_query($hit);
             return;
         }
@@ -1503,11 +1505,17 @@ class OLIMC_Scanner {
         }
         if ($this->usage_check_id !== null) {
             $termmeta = isset($wpdb->termmeta) ? $wpdb->termmeta : $wpdb->prefix . 'termmeta';
+            if (!$this->is_safe_identifier($termmeta)) {
+                $this->usage_check_failed = true;
+                return;
+            }
             $hit = $wpdb->get_var($wpdb->prepare(
-                "SELECT meta_value FROM {$termmeta}
-                 WHERE meta_key = 'thumbnail_id'
+                'SELECT meta_value FROM %i
+                 WHERE meta_key = %s
                  AND meta_value = %d
-                 LIMIT 1",
+                 LIMIT 1',
+                $termmeta,
+                'thumbnail_id',
                 $this->usage_check_id
             ));
             $this->finish_usage_query($hit);
@@ -1532,22 +1540,26 @@ class OLIMC_Scanner {
             return;
         }
         $term_taxonomy = isset($wpdb->term_taxonomy) ? $wpdb->term_taxonomy : $wpdb->prefix . 'term_taxonomy';
+        if (!$this->is_safe_identifier($term_taxonomy)) {
+            if ($this->usage_check_id !== null) {
+                $this->usage_check_failed = true;
+            }
+            return;
+        }
         if ($this->usage_check_id !== null) {
             $needles = $this->like_needles_for_attachment($this->usage_check_id);
             if ($needles === null) {
                 $this->usage_check_failed = true;
                 return;
             }
-            $built = $this->prepared_like_or(['description'], $needles);
-            if ($built === null) {
+            $like_sql = $this->prepared_like_or(['description'], $needles);
+            if ($like_sql === null) {
                 return;
             }
-            $hit = $wpdb->get_var($wpdb->prepare(
-                "SELECT term_taxonomy_id FROM {$term_taxonomy}
-                 WHERE ({$built[0]})
-                 LIMIT 1",
-                ...$built[1]
-            ));
+            $from_sql = $wpdb->prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
+            $where_sql = $from_sql . $like_sql . ') LIMIT 1';
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
             $this->finish_usage_query($hit);
             return;
         }
@@ -1555,8 +1567,9 @@ class OLIMC_Scanner {
         $rows = [];
         if ($like !== null) {
             $rows = $wpdb->get_col($wpdb->prepare(
-                "SELECT description FROM {$term_taxonomy}
-                 WHERE description LIKE %s",
+                'SELECT description FROM %i
+                 WHERE description LIKE %s',
+                $term_taxonomy,
                 $like
             ));
         }
