@@ -1266,6 +1266,7 @@ class OLIMC_Scanner {
         }
 
         if ($this->usage_check_id !== null) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live usage check for attachment as WooCommerce variation thumbnail, result specific to current check.
             $hit = $wpdb->get_var($wpdb->prepare(
                 "SELECT pm.meta_value FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
@@ -1279,6 +1280,7 @@ class OLIMC_Scanner {
             return;
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to find all WooCommerce variation thumbnails during scan, result changes frequently.
         $variation_images = $wpdb->get_col(
             "SELECT DISTINCT pm.meta_value FROM {$wpdb->postmeta} pm
              INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
@@ -1369,9 +1371,9 @@ class OLIMC_Scanner {
         }
         $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('widget_') . '%');
         $where_sql = $name_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in widget options, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
-            "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+            "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
         $this->finish_usage_query($hit);
     }
@@ -1391,14 +1393,15 @@ class OLIMC_Scanner {
             if ($where_sql === null) {
                 return;
             }
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
             $hit = $wpdb->get_var(
-                "SELECT meta_id FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_data' AND meta_value != '' AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+                "SELECT meta_id FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_data' AND meta_value != '' AND ({$where_sql}) LIMIT 1"
             );
             $this->finish_usage_query($hit);
             return;
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to fetch all Elementor data during scan, operation-specific data not cached.
         $rows = $wpdb->get_col(
             "SELECT meta_value FROM {$wpdb->postmeta}
              WHERE meta_key = '_elementor_data'
@@ -1569,7 +1572,7 @@ class OLIMC_Scanner {
             }
             $from_sql = $wpdb->prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
             $where_sql = $from_sql . $like_sql . ') LIMIT 1';
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
             $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
             $this->finish_usage_query($hit);
             return;
