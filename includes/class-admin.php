@@ -1983,7 +1983,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         // Fetch next batch of deletable items. ID > 0 when last_id is 0 matches the previous unfiltered first page.
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Batch query for empty trash operation, $where_sql safely assembled from $wpdb->prepare() fragments ($id_sql from prepare('%d'), $tail_sql from prepare with placeholders), transient data not cached.
         $trashed_ids = $wpdb->get_col(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}"
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
         );
 
         // Count only deletable items (excluding all protected) - from trash only
