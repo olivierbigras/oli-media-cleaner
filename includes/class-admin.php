@@ -5,7 +5,6 @@ class OLIMC_Admin {
 
     public static function init() {
         add_action('init', [__CLASS__, 'maybe_upgrade'], 1);
-        add_action('init', [__CLASS__, 'load_textdomain']);
         add_action('admin_menu', [__CLASS__, 'add_menu']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
         add_filter('plugin_action_links_' . OLIMC_BASENAME, [__CLASS__, 'plugin_action_links']);
@@ -49,16 +48,6 @@ class OLIMC_Admin {
         add_action('delete_attachment', [__CLASS__, 'on_delete_attachment'], 0);
     }
 
-    /**
-     * Load bundled translations as a fallback until WordPress.org language packs ship.
-     */
-    public static function load_textdomain() {
-        load_plugin_textdomain(
-            'oli-media-cleaner',
-            false,
-            dirname(OLIMC_BASENAME) . '/languages'
-        );
-    }
 
     // ─── Protection system ────────────────────────────────────────────
 
