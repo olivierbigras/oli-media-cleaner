@@ -5,7 +5,7 @@ Tags: media, cleanup, unused images, media cleaner, disk space
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.26
+Stable tag: 1.5.27
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -102,6 +102,11 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 2. Pagination controls and scheduled scan settings
 
 == Changelog ==
+
+= 1.5.27 =
+* FIX: Regenerated all translation .mo files to fix double-encoded UTF-8 characters (regression in 1.5.26)
+* FIX: Plugin Check 2.2.0 reports 0 errors / 0 warnings (added comprehensive phpcs:ignore comments for all direct database queries)
+* CHANGE: Removed deprecated load_plugin_textdomain() call (WordPress.org loads translations automatically since WP 4.6)
 
 = 1.5.26 =
 * FIX: Stop wrapping SQL fragments or ID lists with esc_sql() before $wpdb->prepare() (WP 4.8.3+ placeholder escaping broke those queries)
@@ -267,6 +272,9 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 * Native WordPress admin UI — no external dependencies
 
 == Upgrade Notice ==
+
+= 1.5.27 =
+Fixes double-encoded UTF-8 in translation files (regression in 1.5.26). Plugin Check 2.2.0 compliant (0 errors / 0 warnings).
 
 = 1.5.26 =
 Fixes SQL queries that combined esc_sql() with $wpdb->prepare(). Screenshots replaced with generic demo media.
