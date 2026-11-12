@@ -559,13 +559,14 @@ class OLIMC_Acf_Meta_Scanner {
 		$batch  = 40;
 		$offset = (int) $state['cursor'];
 		$wpdb->last_error = '';
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status != 'trash' ORDER BY ID ASC LIMIT %d OFFSET %d",
-				$batch,
-				$offset
-			)
-		);
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query to fetch batch of attachment IDs for ACF scanning, paginated query not worth caching.
+	$ids = $wpdb->get_col(
+		$wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status != 'trash' ORDER BY ID ASC LIMIT %d OFFSET %d",
+			$batch,
+			$offset
+		)
+	);
 		if ( $this->db_failed() || ! is_array( $ids ) ) {
 			$this->fail( $state, 'Could not list attachments.' );
 			return;
@@ -738,14 +739,15 @@ class OLIMC_Acf_Meta_Scanner {
 		if ( ! $this->is_safe_identifier( $table ) || ! $this->is_safe_identifier( $id_col ) ) {
 			return 0;
 		}
-		$wpdb->last_error = '';
-		$value            = $wpdb->get_var(
-			$wpdb->prepare(
-				'SELECT MAX(%i) FROM %i',
-				$id_col,
-				$table
-			)
-		);
+	$wpdb->last_error = '';
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query to find maximum ID in table for pagination, single value query.
+	$value            = $wpdb->get_var(
+		$wpdb->prepare(
+			'SELECT MAX(%i) FROM %i',
+			$id_col,
+			$table
+		)
+	);
 		if ( $this->db_failed() ) {
 			return 0;
 		}
@@ -781,7 +783,8 @@ class OLIMC_Acf_Meta_Scanner {
 		}
 		$wpdb->last_error = '';
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- UNION of $wpdb->prepare() fragments with %i identifiers.
-		$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- UNION query to fetch meta values from multiple tables (postmeta/options/termmeta/usermeta) during ACF scan, $parts contains $wpdb->prepare() fragments with %i identifiers, operation-specific data not cached.
+	$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
 		if ( $this->db_failed() || ! is_array( $col ) ) {
 			return null;
 		}
@@ -820,8 +823,8 @@ class OLIMC_Acf_Meta_Scanner {
 		);
 		$where_sql        = $range_sql . ' AND (' . implode( ' OR ', $clauses ) . ')';
 		$wpdb->last_error = '';
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
-		$rows = $wpdb->get_results( $where_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- ACF meta batch query, $where_sql safely assembled from $wpdb->prepare() fragments, operation-specific data not cached.
+	$rows = $wpdb->get_results( $where_sql );
 		if ( $this->db_failed() || ! is_array( $rows ) ) {
 			return null;
 		}
@@ -840,6 +843,7 @@ class OLIMC_Acf_Meta_Scanner {
 			return null;
 		}
 		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- ACF meta batch query during scan, paginated data not worth caching.
 		$rows             = $wpdb->get_results(
 			$wpdb->prepare(
 				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
