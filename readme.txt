@@ -3,7 +3,7 @@ Contributors: bigrat95
 Donate link: https://www.paypal.com/donate/?hosted_button_id=29SAPKFAHMTNW
 Tags: media, cleanup, unused images, media cleaner, disk space
 Requires at least: 6.2
-Tested up to: 7.1.4
+Tested up to: 7.1
 Requires PHP: 7.4
 Stable tag: 1.5.26
 License: GPL-2.0-or-later
