@@ -862,6 +862,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
 
         } elseif ($tab === 'trash') {
             global $wpdb;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single query to fetch all trashed attachment IDs for tab display, no caching benefit for dynamic trash list.
             $rows = $wpdb->get_results(
                 "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' ORDER BY ID ASC"
             );
@@ -1913,6 +1914,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $last_id = isset($_POST['last_id']) ? absint(wp_unslash($_POST['last_id'])) : 0;
 
         // Get protected IDs (meta-based protection) - ONLY from trash
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Batch query to identify protected attachments during empty trash operation, transient operation not worth caching.
         $protected_meta_ids = $wpdb->get_col(
             "SELECT DISTINCT pm.post_id
              FROM {$wpdb->postmeta} pm
@@ -1931,6 +1933,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
             
             // Get all trashed attachment files (already filtered to trash status)
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Batch fetch of trashed attachment metadata for protection system during empty trash, operation-specific data not worth caching.
             $trashed_files = $wpdb->get_results(
                 "SELECT p.ID as post_id, pm.meta_value as file_path
                  FROM {$wpdb->posts} p
@@ -1978,9 +1981,9 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
         $where_sql = "ID NOT IN ({$id_sql}) {$tail_sql}";
 
         // Fetch next batch of deletable items. ID > 0 when last_id is 0 matches the previous unfiltered first page.
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() / absint fragments.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Batch query for empty trash operation, $where_sql safely assembled from $wpdb->prepare() fragments ($id_sql from prepare('%d'), $tail_sql from prepare with placeholders), transient data not cached.
         $trashed_ids = $wpdb->get_col(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'trash' AND {$where_sql}"
         );
 
         // Count only deletable items (excluding all protected) - from trash only
@@ -2134,6 +2137,7 @@ https://example.com/wp-content/uploads/2024/03/logo.png', 'oli-media-cleaner'); 
             $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
 
             // Get all attachment files
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to fetch all attachment file paths for protection system analysis, operation-specific data not cached.
             $files = $wpdb->get_results(
                 "SELECT post_id, meta_value FROM {$wpdb->postmeta}
                  WHERE meta_key = '_wp_attached_file'"

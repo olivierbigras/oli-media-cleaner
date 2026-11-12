@@ -24,6 +24,7 @@ class OLIMC_Scanner {
      */
     public function get_all_attachment_ids() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk fetch of all non-trashed attachment IDs for media scanning, complete list changes frequently and is not reused.
         return $wpdb->get_col(
             "SELECT ID FROM {$wpdb->posts}
              WHERE post_type = 'attachment'
@@ -37,6 +38,7 @@ class OLIMC_Scanner {
      */
     public function get_total_attachment_count() {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Count query for scan progress display, result changes during scan and is not reused.
         return (int) $wpdb->get_var(
             "SELECT COUNT(ID) FROM {$wpdb->posts}
              WHERE post_type = 'attachment'
@@ -121,6 +123,7 @@ class OLIMC_Scanner {
         $protected = [];
 
         // Collect IDs with _olimc_protected meta
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query to fetch protected attachment IDs for scan exclusion, protection status changes frequently.
         $protected_ids = $wpdb->get_col(
             "SELECT DISTINCT post_id FROM {$wpdb->postmeta}
              WHERE meta_key = '_olimc_protected'
@@ -143,6 +146,7 @@ class OLIMC_Scanner {
         $base_url = isset($upload_dir['baseurl']) ? $upload_dir['baseurl'] : '';
 
         // Get all attachment files
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to fetch all attachment file paths for protection system, operation-specific data not cached.
         $files = $wpdb->get_results(
             "SELECT post_id, meta_value FROM {$wpdb->postmeta}
              WHERE meta_key = '_wp_attached_file'"
