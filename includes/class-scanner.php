@@ -826,7 +826,7 @@ class OLIMC_Scanner {
         );
         $where_sql = '(' . implode(' OR ', $key_parts) . ') AND ' . $value_sql;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in postmeta, $where_sql safely assembled from $wpdb->prepare() fragments, transient check not cached.
-        $row = $wpdb->get_results(
+        $row = $wpdb->get_results( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
             "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE {$where_sql} LIMIT 1"
         );
         if (!empty($wpdb->last_error)) {
@@ -870,7 +870,8 @@ class OLIMC_Scanner {
         );
         $where_sql = '(' . implode(' OR ', $opt_parts) . ') AND ' . $opt_value_sql;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in options table, $where_sql safely assembled from $wpdb->prepare() fragments, transient check not cached.
-        $opt_row = $wpdb->get_results(
+        $opt_row = $wpdb->get_results( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+			(
             "SELECT option_name, option_value FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
         if (!empty($wpdb->last_error)) {
@@ -1989,6 +1990,7 @@ class OLIMC_Scanner {
 
         // If not found, try with the original (might be a thumbnail filename)
         if (!$id && $clean !== $path) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Fallback query to find attachment by original path, uses internal cache for results.
             $id = $wpdb->get_var($wpdb->prepare(
                 "SELECT post_id FROM {$wpdb->postmeta}
                  WHERE meta_key = '_wp_attached_file'
