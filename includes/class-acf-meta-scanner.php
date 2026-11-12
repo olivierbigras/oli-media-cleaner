@@ -843,6 +843,7 @@ class OLIMC_Acf_Meta_Scanner {
 			return null;
 		}
 		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- ACF meta batch query during scan, paginated data not worth caching.
 		$rows             = $wpdb->get_results(
 			$wpdb->prepare(
 				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
