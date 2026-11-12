@@ -783,7 +783,7 @@ class OLIMC_Acf_Meta_Scanner {
 		}
 		$wpdb->last_error = '';
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- UNION of $wpdb->prepare() fragments with %i identifiers.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- UNION query to fetch meta values from multiple tables (postmeta/options/termmeta/usermeta) during ACF scan, operation-specific data not cached.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- UNION query to fetch meta values from multiple tables (postmeta/options/termmeta/usermeta) during ACF scan, $parts contains $wpdb->prepare() fragments with %i identifiers, operation-specific data not cached.
 	$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
 		if ( $this->db_failed() || ! is_array( $col ) ) {
 			return null;
