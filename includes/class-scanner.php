@@ -920,7 +920,7 @@ class OLIMC_Scanner {
             $wpdb->esc_like('_site_transient') . '%'
         );
         $where_sql = $prefix_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in plugin transients/options, $where_sql safely assembled from $wpdb->prepare() fragments ($prefix_sql from prepare, $like_sql from esc_like + prepare), transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in plugin transients/options, $where_sql safely assembled from $wpdb->prepare() fragments ($prefix_sql from prepare, $like_sql from esc_like + prepare), transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1138,7 +1138,7 @@ class OLIMC_Scanner {
         if ($where_sql === null) {
             return;
         }
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in post content, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in post content, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'draft', 'private', 'future') AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1"
         );
@@ -1203,7 +1203,7 @@ class OLIMC_Scanner {
         }
         $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('theme_mods_') . '%');
         $where_sql = $name_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in theme_mods, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in theme_mods, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1371,7 +1371,7 @@ class OLIMC_Scanner {
         }
         $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('widget_') . '%');
         $where_sql = $name_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in widget options, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in widget options, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1393,7 +1393,7 @@ class OLIMC_Scanner {
             if ($where_sql === null) {
                 return;
             }
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
             $hit = $wpdb->get_var(
                 "SELECT meta_id FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_data' AND meta_value != '' AND ({$where_sql}) LIMIT 1"
             );
@@ -1493,6 +1493,7 @@ class OLIMC_Scanner {
         if ($like === null) {
             return;
         }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to scan post content for theme file references during scan, operation-specific data not cached.
         $rows = $wpdb->get_col($wpdb->prepare(
             "SELECT post_content FROM {$wpdb->posts}
              WHERE post_content LIKE %s
@@ -1523,6 +1524,7 @@ class OLIMC_Scanner {
                 $this->usage_check_failed = true;
                 return;
             }
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Live usage check for attachment in term meta, result specific to current check.
             $hit = $wpdb->get_var($wpdb->prepare(
                 'SELECT meta_value FROM %i
                  WHERE meta_key = %s
@@ -1535,6 +1537,7 @@ class OLIMC_Scanner {
             $this->finish_usage_query($hit);
             return;
         }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to find all term thumbnails (WooCommerce categories, etc.) during scan, result changes frequently.
         $ids = $wpdb->get_col(
             "SELECT DISTINCT meta_value FROM {$wpdb->termmeta}
              WHERE meta_key = 'thumbnail_id'
@@ -1572,7 +1575,7 @@ class OLIMC_Scanner {
             }
             $from_sql = $wpdb->prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
             $where_sql = $from_sql . $like_sql . ') LIMIT 1';
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
             $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
             $this->finish_usage_query($hit);
             return;
@@ -1580,6 +1583,7 @@ class OLIMC_Scanner {
         $like = $this->upload_content_like();
         $rows = [];
         if ($like !== null) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to fetch term descriptions containing upload URLs during scan, operation-specific data not cached.
             $rows = $wpdb->get_col($wpdb->prepare(
                 'SELECT description FROM %i
                  WHERE description LIKE %s',
@@ -1593,18 +1597,20 @@ class OLIMC_Scanner {
         }
 
         // Also check termmeta for image IDs/URLs (some plugins store images in term meta)
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to find numeric attachment IDs in term meta during scan, result changes frequently.
         $meta_ids = $wpdb->get_col(
             "SELECT DISTINCT meta_value FROM {$wpdb->termmeta}
              WHERE meta_value REGEXP '^[0-9]+$'
              AND meta_value > 0
              AND meta_key NOT IN ('thumbnail_id', 'order', 'product_count_product_cat')
              AND CAST(meta_value AS UNSIGNED) IN (
-                SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment'
+                 SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment'
              )"
         );
         $this->used_ids = array_merge($this->used_ids, $meta_ids);
 
         if ($like !== null) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to fetch term meta values containing upload URLs during scan, operation-specific data not cached.
             $meta_urls = $wpdb->get_col($wpdb->prepare(
                 "SELECT DISTINCT meta_value FROM {$wpdb->termmeta}
                  WHERE meta_value LIKE %s",
@@ -1971,6 +1977,7 @@ class OLIMC_Scanner {
             return $this->path_cache[$clean];
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Query to find attachment ID by file path during live usage check, uses internal cache for results.
         $id = $wpdb->get_var($wpdb->prepare(
             "SELECT post_id FROM {$wpdb->postmeta}
              WHERE meta_key = '_wp_attached_file'
