@@ -920,7 +920,7 @@ class OLIMC_Scanner {
             $wpdb->esc_like('_site_transient') . '%'
         );
         $where_sql = $prefix_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in plugin transients/options, $where_sql safely assembled from $wpdb->prepare() fragments ($prefix_sql from prepare, $like_sql from esc_like + prepare), transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in plugin transients/options, $where_sql safely assembled from $wpdb->prepare() fragments ($prefix_sql from prepare, $like_sql from esc_like + prepare), transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1138,7 +1138,7 @@ class OLIMC_Scanner {
         if ($where_sql === null) {
             return;
         }
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in post content, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in post content, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'draft', 'private', 'future') AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1"
         );
@@ -1203,7 +1203,7 @@ class OLIMC_Scanner {
         }
         $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('theme_mods_') . '%');
         $where_sql = $name_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in theme_mods, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in theme_mods, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1371,7 +1371,7 @@ class OLIMC_Scanner {
         }
         $name_sql = $wpdb->prepare('option_name LIKE %s', $wpdb->esc_like('widget_') . '%');
         $where_sql = $name_sql . ' AND (' . $like_sql . ')';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in widget options, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check for attachment in widget options, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
         $hit = $wpdb->get_var(
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1"
         );
@@ -1393,7 +1393,7 @@ class OLIMC_Scanner {
             if ($where_sql === null) {
                 return;
             }
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
             $hit = $wpdb->get_var(
                 "SELECT meta_id FROM {$wpdb->postmeta} WHERE meta_key = '_elementor_data' AND meta_value != '' AND ({$where_sql}) LIMIT 1"
             );
@@ -1575,8 +1575,8 @@ class OLIMC_Scanner {
             }
             $from_sql = $wpdb->prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
             $where_sql = $from_sql . $like_sql . ') LIMIT 1';
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
-            $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Live usage check query, $where_sql safely assembled from $wpdb->prepare() and esc_like() fragments, transient check not cached.
+            $hit = $wpdb->get_var($where_sql);
             $this->finish_usage_query($hit);
             return;
         }
@@ -1804,6 +1804,7 @@ class OLIMC_Scanner {
         }
         global $wpdb;
         $wpdb->last_error = '';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bulk query to build upload file index for shared file detection, result cached in static property.
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s, %s) AND meta_value != ''",
             '_wp_attached_file',
