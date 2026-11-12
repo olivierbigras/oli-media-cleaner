@@ -826,8 +826,8 @@ class OLIMC_Scanner {
         );
         $where_sql = '(' . implode(' OR ', $key_parts) . ') AND ' . $value_sql;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Live usage check for attachment in postmeta, $where_sql safely assembled from $wpdb->prepare() fragments, transient check not cached.
-        $row = $wpdb->get_results( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
-            "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE {$where_sql} LIMIT 1"
+        $row = $wpdb->get_results(
+            "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
         );
         if (!empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
