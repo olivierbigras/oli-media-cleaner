@@ -750,7 +750,9 @@ class OLIMC_Scanner {
                 $ids = array_merge($ids, preg_split('/\s*,\s*/', $list) ?: []);
             }
         }
-        foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($content) as $path) {
+        $paths = OLIMC_Media_Usage_Parser::relative_upload_paths($content);
+        $this->prefetch_paths($paths);
+        foreach ($paths as $path) {
             $found = $this->find_attachment_by_path($path);
             if ($found) {
                 $ids[] = $found;
@@ -1186,6 +1188,15 @@ class OLIMC_Scanner {
 
         $attachment_ids = [];
         if (is_array($rows)) {
+            $all_paths = [];
+            foreach ($rows as $row) {
+                $all_paths = array_merge(
+                    $all_paths,
+                    OLIMC_Media_Usage_Parser::relative_upload_paths(isset($row->post_content) ? $row->post_content : ''),
+                    OLIMC_Media_Usage_Parser::relative_upload_paths(isset($row->post_excerpt) ? $row->post_excerpt : '')
+                );
+            }
+            $this->prefetch_paths($all_paths);
             foreach ($rows as $row) {
                 $attachment_ids = array_merge(
                     $attachment_ids,
@@ -2047,6 +2058,58 @@ class OLIMC_Scanner {
     // ─── Utility ──────────────────────────────────────────────────────
 
     /**
+     * Resolve many relative upload paths with a few queries instead of one per path.
+     *
+     * Looking a path up costs a scan of the attached-file rows, so thousands of
+     * single lookups would not fit in one scan step on a large library. The
+     * result lands in the same cache as find_attachment_by_path().
+     *
+     * @param string[] $paths Relative upload paths (as found in content).
+     */
+    private function prefetch_paths( array $paths ) {
+        global $wpdb;
+        $wanted = [];
+        foreach ( $paths as $path ) {
+            $path = trim( (string) $path, '"\'\\/ ' );
+            if ( '' === $path ) {
+                continue;
+            }
+            $clean = preg_replace( '/-\d+x\d+(\.\w+)$/', '$1', $path );
+            if ( isset( $this->path_cache[ $clean ] ) ) {
+                continue;
+            }
+            $wanted[ $clean ] = $path;
+        }
+        if ( count( $wanted ) < 2 ) {
+            return;
+        }
+        $lookups = [];
+        foreach ( $wanted as $clean => $path ) {
+            $lookups[ $clean ] = true;
+            $lookups[ $path ]  = true;
+        }
+        $found = [];
+        foreach ( array_chunk( array_keys( $lookups ), 250 ) as $chunk ) {
+            $marks = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- the list only holds %s placeholders.
+            $rows = $wpdb->get_results( $wpdb->prepare( "SELECT meta_value, post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value IN ({$marks})", $chunk ) );
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+            if ( ! is_array( $rows ) ) {
+                return; // The single lookups will run and report the failure themselves.
+            }
+            foreach ( $rows as $row ) {
+                if ( ! isset( $found[ $row->meta_value ] ) ) {
+                    $found[ $row->meta_value ] = (int) $row->post_id;
+                }
+            }
+        }
+        foreach ( $wanted as $clean => $path ) {
+            $id = isset( $found[ $clean ] ) ? $found[ $clean ] : ( isset( $found[ $path ] ) ? $found[ $path ] : 0 );
+            $this->path_cache[ $clean ] = $id;
+        }
+    }
+
+    /**
      * Find attachment ID from a partial upload path (e.g. "2025/06/photo.jpg").
      * Caches lookups for performance.
      */
@@ -2119,7 +2182,9 @@ class OLIMC_Scanner {
             }
             return;
         }
-        foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($text) as $path) {
+        $paths = OLIMC_Media_Usage_Parser::relative_upload_paths($text);
+        $this->prefetch_paths($paths);
+        foreach ($paths as $path) {
             $id = $this->find_attachment_by_path($path);
             if ($id) {
                 $this->used_ids[] = $id;
