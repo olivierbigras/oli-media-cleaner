@@ -699,8 +699,9 @@ class OLIMC_Acf_Meta_Scanner {
 		if ( ! empty( $state['count_attached'] ) && $parents !== [] ) {
 			$parent_ids = array_values( array_unique( $parents ) );
 			$placeholders = implode( ',', array_fill( 0, count( $parent_ids ), '%d' ) );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders only.
-			$existing = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_status != 'trash' AND ID IN ({$placeholders})", $parent_ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders only.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- the list holds only %d placeholders.
+			$existing = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_status != 'trash' AND ID IN ({$placeholders})", $parent_ids ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			if ( $this->db_failed() || ! is_array( $existing ) ) {
 				$this->fail( $state, 'Could not read attached media.' );
 				return;
