@@ -106,6 +106,9 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.
 * REMOVED: All translations except French (Canada and France), which are rewritten for the new screen.
 
+= 1.5.27 =
+* Folded into 2.0.0 (not released separately): translation encoding fix, Plugin Check annotations, removal of load_plugin_textdomain().
+
 = 1.5.26 =
 * FIX: Stop wrapping SQL fragments or ID lists with esc_sql() before $wpdb->prepare() (WP 4.8.3+ placeholder escaping broke those queries)
 * FIX: Empty Trash binds excluded IDs with %d placeholders

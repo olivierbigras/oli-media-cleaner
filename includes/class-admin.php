@@ -20,7 +20,6 @@ class OLIMC_Admin {
 
     public static function init() {
         add_action('init', [ __CLASS__, 'maybe_upgrade' ], 1);
-        add_action('init', [ __CLASS__, 'load_textdomain' ]);
         add_filter('plugin_row_meta', [ __CLASS__, 'plugin_row_meta' ], 10, 2);
 
         // Keep checkbox on the media edit screen.
@@ -41,17 +40,6 @@ class OLIMC_Admin {
             OLIMC_Screen::init();
             OLIMC_Ajax::init();
         }
-    }
-
-    /**
-     * Load bundled translations as a fallback until WordPress.org language packs ship.
-     */
-    public static function load_textdomain() {
-        load_plugin_textdomain(
-            'oli-media-cleaner',
-            false,
-            dirname(OLIMC_BASENAME) . '/languages'
-        );
     }
 
     /**

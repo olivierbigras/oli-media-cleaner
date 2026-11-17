@@ -29,6 +29,12 @@ All notable changes to Oli Media Cleaner will be documented in this file.
 - Screenshots and banners from the repository (they belong to the WordPress.org assets).
 - Development dependency on jsdom.
 
+## [1.5.27]
+Prepared on a branch (never released); folded into 2.0.0.
+- Translation files regenerated to fix double-encoded UTF-8 (superseded: 2.0.0 ships only French, rebuilt).
+- `phpcs:ignore` annotations for Plugin Check on direct queries (the 2.0.0 queries carry their own).
+- Removed the `load_plugin_textdomain()` call (WordPress loads translations itself); kept removed in 2.0.0.
+
 ## [1.5.26] - 2026-10-23
 
 ### Fixed
