@@ -3,6 +3,7 @@
 .olimc-stats li{box-sizing:border-box;flex:1 1 150px;margin:0;padding:12px 16px;background:#fff;border:1px solid #c3c4c7}
 .olimc-stats b{display:block;font-size:20px;line-height:1.4;font-weight:600}
 .olimc-scanbar{margin:16px 0 8px}
+.wp-core-ui .olimc-wrap .olimc-scanbar .button-large{min-height:46px}
 .olimc-sources{margin:0 0 12px}
 .olimc-bar{height:12px;overflow:hidden;background:#dcdcde;border-radius:2px}
 .olimc-bar>span{display:block;width:0;height:100%;background:#2271b1;transition:width .3s}
@@ -32,7 +33,7 @@
 .olimc-dialog li{display:flex;gap:8px;align-items:center;margin:4px 0;word-break:break-all}
 .olimc-dialog li img{width:32px;height:32px;object-fit:cover}
 .olimc-dialog footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:20px}
-.olimc-dialog .button-large,.olimc-wrap .button-large{min-height:44px;display:inline-flex;align-items:center}
+.wp-core-ui .olimc-dialog .button-large,.wp-core-ui .olimc-wrap .button-large{min-height:44px;display:inline-flex;align-items:center}
 .olimc-ok label{display:flex;gap:8px;align-items:center;min-height:44px}
 .olimc-dialog .olimc-danger.button-primary{background:#b32d2e;border-color:#b32d2e;color:#fff}
 .olimc-wrap a:focus-visible,.olimc-wrap button:focus-visible,.olimc-wrap summary:focus-visible,.olimc-dialog button:focus-visible,.olimc-dialog input:focus-visible{outline:2px solid #2271b1;outline-offset:2px;box-shadow:0 0 0 4px #fff}
@@ -41,7 +42,7 @@
 .olimc-wrap details{max-width:720px;margin:12px 0}
 .olimc-pattern-lines{margin:4px 0}
 @media (max-width:782px){
-.olimc-wrap .button,.olimc-wrap .row-actions a,.olimc-wrap .row-actions button,.olimc-wrap .nav-tab,.olimc-wrap .olimc-bulkbar button,.olimc-dialog .button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.wp-core-ui .olimc-wrap .button,.wp-core-ui .olimc-wrap .row-actions a,.wp-core-ui .olimc-wrap .row-actions button,.wp-core-ui .olimc-wrap .nav-tab,.wp-core-ui .olimc-wrap .olimc-bulkbar button,.wp-core-ui .olimc-dialog .button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
 .olimc-wrap .row-actions{position:static;display:flex;flex-wrap:wrap;gap:0 12px}
 .olimc-wrap .row-actions span{display:inline-flex}
 .olimc-stats li{flex-basis:calc(50% - 6px)}

@@ -93,6 +93,23 @@ class OLIMC_List_Table extends WP_List_Table {
 		return 'file';
 	}
 
+	/**
+	 * Name the table for assistive technology (To review / Kept / Trash).
+	 */
+	public function display() {
+		$labels = [
+			'review' => __( 'To review', 'oli-media-cleaner' ),
+			'kept'   => __( 'Kept', 'oli-media-cleaner' ),
+			'trash'  => __( 'Trash', 'oli-media-cleaner' ),
+		];
+		$label  = isset( $labels[ $this->tab ] ) ? $labels[ $this->tab ] : '';
+		ob_start();
+		parent::display();
+		$html = (string) ob_get_clean();
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- core table markup; the label is escaped here.
+		echo '' === $label ? $html : preg_replace( '/<table class="wp-list-table/', '<table aria-label="' . esc_attr( $label ) . '" class="wp-list-table', $html, 1 );
+	}
+
 	protected function get_table_classes() {
 		return [ 'widefat', 'fixed', 'striped', 'olimc-table' ];
 	}
@@ -126,7 +143,10 @@ class OLIMC_List_Table extends WP_List_Table {
 		if ( ! in_array( $order, [ 'asc', 'desc' ], true ) ) {
 			$order = 'desc';
 		}
-		$paging = [
+		// Let core mark the active column (aria-sort, arrow) and build the toggle links.
+		$_GET['orderby'] = $orderby; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$_GET['order']   = $order; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$paging          = [
 			'orderby'  => $orderby,
 			'order'    => $order,
 			'per_page' => self::per_page(),

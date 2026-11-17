@@ -20,7 +20,20 @@ class OLIMC_Screen {
 		add_filter( 'set_screen_option_olimc_per_page', [ __CLASS__, 'save_per_page' ], 10, 3 );
 		add_filter( 'plugin_action_links_' . OLIMC_BASENAME, [ __CLASS__, 'action_links' ] );
 		add_action( 'admin_post_olimc_export', [ __CLASS__, 'export_csv' ] );
+		add_action( 'admin_page_access_denied', [ __CLASS__, 'access_denied' ] );
 		OLIMC_Settings::init();
+	}
+
+	/**
+	 * Core refuses the page itself when the user cannot even open the Media menu
+	 * (no upload_files); show the plugin message instead of the generic one.
+	 */
+	public static function access_denied() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- only compares the requested page slug; nothing is read or changed.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( self::PAGE === $page ) {
+			wp_die( esc_html__( 'You do not have permission to clean the media library.', 'oli-media-cleaner' ), '', [ 'response' => 403 ] );
+		}
 	}
 
 	/**
