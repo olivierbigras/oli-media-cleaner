@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * Scan controller: start, step, resume, cancel and publish, shared by the
  * screen (AJAX) and by the scheduled event. The engine lives in
@@ -366,11 +367,11 @@ class OLIMC_Scan {
 		$known = apply_filters(
 			'olimc_known_gaps',
 			[
-				'revslider'              => 'Slider Revolution',
-				'LayerSlider'            => 'LayerSlider',
-				'smart-slider-3'         => 'Smart Slider 3',
-				'nextgen-gallery'        => 'NextGEN Gallery',
-				'envira-gallery-lite'    => 'Envira Gallery',
+				'revslider'           => 'Slider Revolution',
+				'LayerSlider'         => 'LayerSlider',
+				'smart-slider-3'      => 'Smart Slider 3',
+				'nextgen-gallery'     => 'NextGEN Gallery',
+				'envira-gallery-lite' => 'Envira Gallery',
 			]
 		);
 		$gaps = [];

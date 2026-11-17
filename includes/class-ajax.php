@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * AJAX routes. Every route checks the capability and the nonce `olimc_nonce`;
  * routes that act on media also check the capability on each media.
@@ -202,19 +203,19 @@ class OLIMC_Ajax {
 	}
 
 	/**
-	 * Run $fn on each ID and collect outcomes by code.
+	 * Run $action on each ID and collect outcomes by code.
 	 *
 	 * @param int[]    $ids IDs.
-	 * @param callable $fn  Receives the ID, returns the result array of OLIMC_Trash.
+	 * @param callable $actionReceives the ID, returns the result array of OLIMC_Trash.
 	 * @return array{ok: int[], by: array<string,array>}
 	 */
-	private static function each( array $ids, $fn ) {
+	private static function each( array $ids, $action ) {
 		$out = [
 			'ok' => [],
 			'by' => [],
 		];
 		foreach ( $ids as $id ) {
-			$r = call_user_func( $fn, $id );
+			$r = call_user_func( $action, $id );
 			if ( ! empty( $r['ok'] ) ) {
 				$out['ok'][] = $id;
 			} else {

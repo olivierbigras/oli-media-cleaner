@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * Lists of the Kept and Trash tabs, read from the media library itself.
  *
@@ -221,7 +222,7 @@ class OLIMC_Library {
 		do {
 			$res = self::query( $tab, $filters, [
 				'per_page' => 200,
-				'page' => $page,
+				'page'     => $page,
 			] );
 			foreach ( $res['rows'] as $row ) {
 				$ids[] = (int) $row->id;

@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * Resumable ACF / meta attachment scan.
  *
@@ -920,8 +921,9 @@ class OLIMC_Acf_Meta_Scanner {
 			);
 		}
 		$wpdb->last_error = '';
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- UNION of $wpdb->prepare() fragments with %i identifiers.
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- UNION of $wpdb->prepare() fragments with %i identifiers.
 		$col              = $wpdb->get_col( implode( ' UNION ALL ', $parts ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 		if ( $this->db_failed() || ! is_array( $col ) ) {
 			return null;
 		}
@@ -960,8 +962,9 @@ class OLIMC_Acf_Meta_Scanner {
 		);
 		$where_sql        = $range_sql . ' AND (' . implode( ' OR ', $clauses ) . ')';
 		$wpdb->last_error = '';
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
-		$rows = $wpdb->get_results( $where_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+		$rows = $wpdb->get_results( $where_sql );
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $this->db_failed() || ! is_array( $rows ) ) {
 			return null;
 		}

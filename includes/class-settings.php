@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * Settings (Settings API), defaults and the scheduled events they control.
  *
@@ -51,11 +52,11 @@ class OLIMC_Settings {
 	}
 
 	public static function register() {
-		$args = static function ( $cb, $default ) {
+		$args = static function ( $cb, $fallback ) {
 			return [
 				'type'              => 'string',
 				'sanitize_callback' => $cb,
-				'default'           => $default,
+				'default'           => $fallback,
 				'show_in_rest'      => false,
 			];
 		};

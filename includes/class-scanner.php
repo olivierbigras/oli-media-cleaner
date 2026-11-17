@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 defined('ABSPATH') || exit;
 
 class OLIMC_Scanner {
@@ -1658,8 +1659,9 @@ class OLIMC_Scanner {
             }
             $from_sql = olimc_prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
             $where_sql = $from_sql . $like_sql . ') LIMIT 1';
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
-            $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
+            $hit = $wpdb->get_var($where_sql);
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             $this->finish_usage_query($hit);
             return;
         }
