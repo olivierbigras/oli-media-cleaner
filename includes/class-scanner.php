@@ -1174,27 +1174,14 @@ class OLIMC_Scanner {
             $this->collect_post_content_images_for_id($this->usage_check_id);
             return;
         }
-        $likes = $this->content_prefilter_likes();
-        $range = $this->aux_range === null ? [ 0, PHP_INT_MAX ] : $this->aux_range;
-        $clauses = [];
-        $args = [];
-        foreach ($likes as $like) {
-            $clauses[] = '(post_content LIKE %s OR post_excerpt LIKE %s)';
-            $args[] = $like;
-            $args[] = $like;
+        $where_sql = $this->prepared_like_or([ 'post_content', 'post_excerpt' ], $this->content_prefilter_needles());
+        if ($where_sql === null) {
+            return;
         }
-        $args[] = $range[0];
-        $args[] = $range[1];
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- the list only holds %s placeholders.
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_content, post_excerpt FROM {$wpdb->posts}
-             WHERE (" . implode(' OR ', $clauses) . ")
-             AND post_status != 'trash'
-             AND post_type NOT IN ('revision', 'attachment')
-             AND ID BETWEEN %d AND %d",
-            $args
-        ));
-        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+        $range = $this->aux_range === null ? [ 0, PHP_INT_MAX ] : $this->aux_range;
+        $rows  = $wpdb->get_results(
+            "SELECT post_content, post_excerpt FROM {$wpdb->posts} WHERE ({$where_sql}) AND post_status != 'trash' AND post_type NOT IN ('revision', 'attachment') AND ID BETWEEN " . (int) $range[0] . ' AND ' . (int) $range[1] // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments; the bounds are integers.
+        );
 
         $attachment_ids = [];
         if (is_array($rows)) {
@@ -2161,19 +2148,12 @@ class OLIMC_Scanner {
      * LIKE patterns that pre-select the content worth reading: an upload URL, or any way
      * WordPress and page builders cite a media by ID (classic and block galleries, wp-image-N, block "id").
      *
-     * @return string[]
+     * @return string[] Raw substrings.
      */
-    private function content_prefilter_likes() {
-        global $wpdb;
-        $likes = [];
-        $upload = $this->upload_content_like();
-        if ($upload !== null) {
-            $likes[] = $upload;
-        }
-        foreach ([ 'wp-image-', '[gallery', '[playlist', '[audio ids', '[video ids', 'wp:gallery', '"id":', '"ids":', 'data-id=', 'attachment_id=' ] as $needle) {
-            $likes[] = '%' . $wpdb->esc_like($needle) . '%';
-        }
-        return $likes;
+    private function content_prefilter_needles() {
+        $needles  = [ OLIMC_Media_Usage_Parser::upload_search_fragment() ];
+        $needles  = array_merge($needles, [ 'wp-image-', '[gallery', '[playlist', 'wp:gallery', '"id":', '"ids":', 'data-id=', 'attachment_id=' ]);
+        return $needles;
     }
 
     /**
