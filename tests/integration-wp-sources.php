@@ -109,10 +109,15 @@ foreach ( $names as $n ) {
 	olimc_src( ! in_array( $ids[ $n ], $listed, true ), "source '$n': media not listed" );
 }
 
-// Cleanup.
+// Cleanup (the shared-file guard is lifted for these fixtures only; the files are removed by hand).
+remove_filter( 'pre_delete_attachment', [ 'OLIMC_Admin', 'pre_delete_attachment' ], 0 );
 foreach ( $ids as $id ) {
 	delete_post_meta( $id, '_olimc_trashed' );
+	delete_post_meta( $id, '_wp_attached_file' );
 	wp_delete_attachment( $id, true );
+}
+foreach ( glob( wp_upload_dir()['path'] . '/olimc-src-*.jpg' ) ?: [] as $f ) {
+	unlink( $f );
 }
 foreach ( $cleanup['posts'] as $pid ) {
 	wp_delete_post( $pid, true );
