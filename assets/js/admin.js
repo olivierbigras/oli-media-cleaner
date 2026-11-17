@@ -171,22 +171,22 @@
 		return o && o.name ? o.name : '';
 	}
 	function msgTrashed( n ) {
-		return sprintf( _n( '%s file moved to the trash.', '%s files moved to the trash.', n, 'oli-media-cleaner' ), fmt( n ) );
+		return sprintf( /* translators: %s: number of files */ _n( '%s file moved to the trash.', '%s files moved to the trash.', n, 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function msgRestored( n ) {
-		return sprintf( _n( '%s file restored to the media library.', '%s files restored to the media library.', n, 'oli-media-cleaner' ), fmt( n ) );
+		return sprintf( /* translators: %s: number of files */ _n( '%s file restored to the media library.', '%s files restored to the media library.', n, 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function msgDeleted( n ) {
-		return sprintf( _n( '%s file permanently deleted.', '%s files permanently deleted.', n, 'oli-media-cleaner' ), fmt( n ) );
+		return sprintf( /* translators: %s: number of files */ _n( '%s file permanently deleted.', '%s files permanently deleted.', n, 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function msgKept( n ) {
-		return sprintf( _n( '%s file kept.', '%s files kept.', n, 'oli-media-cleaner' ), fmt( n ) );
+		return sprintf( /* translators: %s: number of files */ _n( '%s file kept.', '%s files kept.', n, 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function msgSkippedKept( n ) {
-		return sprintf( _n( '%s kept file was skipped.', '%s kept files were skipped.', n, 'oli-media-cleaner' ), fmt( n ) );
+		return sprintf( /* translators: %s: number of files */ _n( '%s kept file was skipped.', '%s kept files were skipped.', n, 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function msgFail( n, reason ) {
-		return sprintf( _n( '%1$s file could not be moved. %2$s', '%1$s files could not be moved. %2$s', n, 'oli-media-cleaner' ), fmt( n ), reason || '' ).trim();
+		return sprintf( /* translators: %1$s: number of files, %2$s: reason */ _n( '%1$s file could not be moved. %2$s', '%1$s files could not be moved. %2$s', n, 'oli-media-cleaner' ), fmt( n ), reason || '' ).trim();
 	}
 	function msgError( data, fallback ) {
 		return data && data.message ? data.message : fallback;
@@ -341,11 +341,11 @@
 		}
 		$( '#olimc-step' ).textContent = stepText;
 		$( '#olimc-count' ).textContent = sprintf(
-			_n( '%1$s of %2$s file checked', '%1$s of %2$s files checked', v.total, 'oli-media-cleaner' ),
+			/* translators: %1$s: number of items done, %2$s: total number of items */ _n( '%1$s of %2$s file checked', '%1$s of %2$s files checked', v.total, 'oli-media-cleaner' ),
 			fmt( v.checked ),
 			fmt( v.total )
 		);
-		$( '#olimc-elapsed' ).textContent = sprintf( __( 'Elapsed: %s', 'oli-media-cleaner' ), clock( v.elapsed ) );
+		$( '#olimc-elapsed' ).textContent = sprintf( /* translators: %s: elapsed time, for example 00:42 */ __( 'Elapsed: %s', 'oli-media-cleaner' ), clock( v.elapsed ) );
 		$$( '.olimc-steps li' ).forEach( function ( li, i ) {
 			var n = i + 1;
 			li.className = n === v.step ? 'is-now' : '';
@@ -418,7 +418,7 @@
 			}
 			if ( v.done ) {
 				var done = sprintf(
-					_n(
+					/* translators: %1$s: number of unused files, %2$s: their total size */ _n(
 						'Scan complete: %1$s unused file (%2$s). Nothing was changed.',
 						'Scan complete: %1$s unused files (%2$s). Nothing was changed.',
 						v.count,
@@ -572,13 +572,13 @@
 	}
 
 	function verbTrash( done, total ) {
-		return sprintf( __( '%1$s of %2$s files moved', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
+		return sprintf( /* translators: %1$s: number of items done, %2$s: total number of items */ __( '%1$s of %2$s files moved', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
 	}
 	function verbDelete( done, total ) {
-		return sprintf( __( '%1$s of %2$s files deleted', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
+		return sprintf( /* translators: %1$s: number of items done, %2$s: total number of items */ __( '%1$s of %2$s files deleted', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
 	}
 	function verbRestore( done, total ) {
-		return sprintf( __( '%1$s of %2$s files restored', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
+		return sprintf( /* translators: %1$s: number of items done, %2$s: total number of items */ __( '%1$s of %2$s files restored', 'oli-media-cleaner' ), fmt( done ), fmt( total ) );
 	}
 
 	/** Send IDs in batches. Returns the merged server answers. */
@@ -657,7 +657,7 @@
 					text: used
 						.slice( 0, 3 )
 						.map( function ( u ) {
-							return sprintf( __( '“%s” is now in use and was not moved. Run a new scan.', 'oli-media-cleaner' ), nameOf( u ) );
+							return sprintf( /* translators: %s: file name */ __( '“%s” is now in use and was not moved. Run a new scan.', 'oli-media-cleaner' ), nameOf( u ) );
 						} )
 						.join( ' ' ),
 				} );
@@ -682,7 +682,7 @@
 				list.push( {
 					type: 'warning',
 					text: sprintf(
-						_n(
+						/* translators: %s: number of files */ _n(
 							'%s file could not be restored. A file with the same name already exists.',
 							'%s files could not be restored. Files with the same name already exist.',
 							exists,
@@ -696,7 +696,7 @@
 				list.push( {
 					type: 'warning',
 					text: sprintf(
-						_n( '%s file could not be restored.', '%s files could not be restored.', rfail.length, 'oli-media-cleaner' ),
+						/* translators: %s: number of files */ _n( '%s file could not be restored.', '%s files could not be restored.', rfail.length, 'oli-media-cleaner' ),
 						fmt( rfail.length )
 					),
 				} );
@@ -712,7 +712,7 @@
 				list.push( {
 					type: 'info',
 					text: sprintf(
-						_n(
+						/* translators: %s: number of files */ _n(
 							'%s kept file was restored instead of deleted.',
 							'%s kept files were restored instead of deleted.',
 							keptRestored,
@@ -729,7 +729,7 @@
 				list.push( {
 					type: 'warning',
 					text: sprintf(
-						_n(
+						/* translators: %s: number of files */ _n(
 							'%s file could not be deleted because your site still uses it.',
 							'%s files could not be deleted because your site still uses them.',
 							dfail.length,
@@ -750,7 +750,7 @@
 			var u = merge( parts, 'unkept' );
 			list.push( {
 				type: 'success',
-				text: sprintf( _n( '%s file is no longer kept.', '%s files are no longer kept.', u.length, 'oli-media-cleaner' ), fmt( u.length ) ),
+				text: sprintf( /* translators: %s: number of files */ _n( '%s file is no longer kept.', '%s files are no longer kept.', u.length, 'oli-media-cleaner' ), fmt( u.length ) ),
 			} );
 		}
 		if ( run.cancelled ) {
@@ -823,13 +823,13 @@
 	function dialogText( act, n ) {
 		if ( act === 'trash' ) {
 			return {
-				title: sprintf( _n( 'Move %s file to the trash?', 'Move %s files to the trash?', n, 'oli-media-cleaner' ), fmt( n ) ),
+				title: sprintf( /* translators: %s: number of files */ _n( 'Move %s file to the trash?', 'Move %s files to the trash?', n, 'oli-media-cleaner' ), fmt( n ) ),
 				ok: __( 'Move to trash', 'oli-media-cleaner' ),
 			};
 		}
 		if ( act === 'delete' ) {
 			return {
-				title: sprintf( _n( 'Permanently delete %s file?', 'Permanently delete %s files?', n, 'oli-media-cleaner' ), fmt( n ) ),
+				title: sprintf( /* translators: %s: number of files */ _n( 'Permanently delete %s file?', 'Permanently delete %s files?', n, 'oli-media-cleaner' ), fmt( n ) ),
 				ok: __( 'Delete permanently', 'oli-media-cleaner' ),
 			};
 		}
@@ -860,7 +860,7 @@
 			var body =
 				act === 'trash'
 					? sprintf(
-						__( 'These files (%s) are set aside and removed from the media library. If your site still uses them, they will appear as missing: you can then restore them from the trash.', 'oli-media-cleaner' ),
+						/* translators: %s: total size of the selected files */ __( 'These files (%s) are set aside and removed from the media library. If your site still uses them, they will appear as missing: you can then restore them from the trash.', 'oli-media-cleaner' ),
 						d.size_label
 					)
 					: __( 'The files and their thumbnails will be erased from the server. This cannot be undone. A recent backup is recommended.', 'oli-media-cleaner' );
@@ -874,7 +874,7 @@
 				title: t.title,
 				body: body,
 				sample: d.sample,
-				more: d.more > 0 ? sprintf( _n( 'and %s more', 'and %s more', d.more, 'oli-media-cleaner' ), d.more_label ) : '',
+				more: d.more > 0 ? sprintf( /* translators: %s: number of other files */ _n( 'and %s more', 'and %s more', d.more, 'oli-media-cleaner' ), d.more_label ) : '',
 				check: check,
 				ok: t.ok,
 				danger: act !== 'trash',
@@ -929,7 +929,7 @@
 		bar.textContent = '';
 		if ( selectAll ) {
 			bar.hidden = false;
-			bar.appendChild( document.createTextNode( sprintf( __( 'All %s results are selected.', 'oli-media-cleaner' ), fmt( total ) ) + ' ' ) );
+			bar.appendChild( document.createTextNode( sprintf( /* translators: %s: number of results */ __( 'All %s results are selected.', 'oli-media-cleaner' ), fmt( total ) ) + ' ' ) );
 			var clear = el( 'button', 'button-link', __( 'Clear selection', 'oli-media-cleaner' ) );
 			clear.type = 'button';
 			clear.addEventListener( 'click', function () {
@@ -944,9 +944,9 @@
 		}
 		if ( ids.length && checked.length === ids.length && total > ids.length ) {
 			bar.hidden = false;
-			var msg = sprintf( _n( '%s file is selected on this page.', '%s files are selected on this page.', checked.length, 'oli-media-cleaner' ), fmt( checked.length ) );
+			var msg = sprintf( /* translators: %s: number of files */ _n( '%s file is selected on this page.', '%s files are selected on this page.', checked.length, 'oli-media-cleaner' ), fmt( checked.length ) );
 			bar.appendChild( document.createTextNode( msg + ' ' ) );
-			var all = el( 'button', 'button-link', sprintf( __( 'Select all %s results', 'oli-media-cleaner' ), fmt( total ) ) );
+			var all = el( 'button', 'button-link', sprintf( /* translators: %s: number of results */ __( 'Select all %s results', 'oli-media-cleaner' ), fmt( total ) ) );
 			all.type = 'button';
 			all.id = 'olimc-selall';
 			all.addEventListener( 'click', function () {
@@ -1055,6 +1055,7 @@
 				}
 				var d = res.data;
 				status.textContent = sprintf(
+					/* translators: %s: number of files that match the patterns */
 					_n( '%s file matches.', '%s files match.', d.total, 'oli-media-cleaner' ),
 					d.total_label
 				);
