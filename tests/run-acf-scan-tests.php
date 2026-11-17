@@ -555,7 +555,7 @@ olimc_scan_assert( strpos( $ajax_source, "check_ajax_referer( 'olimc_nonce', 'no
 
 $scanner_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-scanner.php' );
 olimc_scan_assert( strpos( $scanner_source, 'acf_include_fields' ) !== false, 'local ACF JSON is loaded via acf_include_fields' );
-olimc_scan_assert( strpos( $scanner_source, '!$init_done && !$acf_init_done && function_exists(\'acf_init\')' ) !== false, 'acf_init() runs only before init' );
+olimc_scan_assert( strpos( str_replace( '! ', '!', $scanner_source ), '!$init_done && !$acf_init_done && function_exists(\'acf_init\')' ) !== false, 'acf_init() runs only before init' );
 olimc_scan_assert( strpos( $scanner_source, 'max(5, $max - 5)' ) !== false, 'synchronous scans stop before max_execution_time' );
 $js = file_get_contents( dirname( __DIR__ ) . '/assets/js/admin.js' );
 olimc_scan_assert( strpos( $js, 'confirmDialog' ) !== false && strpos( $js, 'showModal' ) !== false, 'destructive actions use the native dialog' );

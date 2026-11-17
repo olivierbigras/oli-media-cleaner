@@ -471,7 +471,7 @@ OLIMC_Scanner::reset_upload_path_index();
 
 $admin_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-admin.php' );
 olimc_inuse_assert( strpos( $admin_source, "apply_filters('olimc_must_keep_attachment'" ) !== false, 'must_keep exposes olimc_must_keep_attachment' );
-olimc_inuse_assert( strpos( $admin_source, "add_action('delete_attachment', [__CLASS__, 'on_delete_attachment'], 0)" ) !== false, 'delete_attachment still runs at priority 0' );
+olimc_inuse_assert( strpos( str_replace( ' ', '', $admin_source ), "add_action('delete_attachment',[__CLASS__,'on_delete_attachment'],0)" ) !== false, 'delete_attachment still runs at priority 0' );
 olimc_inuse_assert( strpos( $admin_source, "add_filter('pre_delete_attachment'" ) !== false, 'pre_delete_attachment guard is unchanged' );
 
 $scanner_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-scanner.php' );
