@@ -161,7 +161,7 @@ class OLIMC_Acf_Meta_Scanner {
 		$protected = $this->scanner->get_protected_attachment_ids();
 		$initial_used = [];
 		foreach ($protected as $id) {
-			$initial_used[(int) $id] = 1;
+			$initial_used[ (int) $id ] = 1;
 		}
 
 		$targets = $this->scanner->get_acf_media_field_targets();
@@ -171,6 +171,7 @@ class OLIMC_Acf_Meta_Scanner {
 		$max_term   = isset( $wpdb->termmeta ) ? $this->max_id( $wpdb->termmeta, 'meta_id' ) : 0;
 		$max_user   = $this->max_id( $wpdb->usermeta, 'umeta_id' );
 		$max_option = $this->max_id( $wpdb->options, 'option_id' );
+		$max_content = $this->max_id( $wpdb->posts, 'ID' );
 
 		$state = [
 			'phase'             => ( $mode === 'acf' ) ? 'acf_in_post' : 'fallback_post',
@@ -189,6 +190,10 @@ class OLIMC_Acf_Meta_Scanner {
 			'max_term'          => $max_term,
 			'max_user'          => $max_user,
 			'max_option'        => $max_option,
+			'max_content'       => $max_content,
+			'total'             => $this->scanner->get_total_attachment_count(),
+			'count_attached'    => function_exists( 'get_option' ) && get_option( 'olimc_count_attached', '0' ) === '1',
+			'images_only'       => function_exists( 'get_option' ) && get_option( 'olimc_types', 'all' ) === 'images',
 			'error'             => '',
 			'skip_auxiliary'    => false,
 			'skip_classify'     => false,
@@ -214,8 +219,9 @@ class OLIMC_Acf_Meta_Scanner {
 			return $state;
 		}
 
-		$deadline = microtime( true ) + ( max( 1, (int) $budget_ms ) / 1000 );
-		$guard    = 0;
+		$state['stepped'] = 1;
+		$deadline         = microtime( true ) + ( max( 1, (int) $budget_ms ) / 1000 );
+		$guard            = 0;
 		do {
 			$marker = $state['phase'] . ':' . (int) $state['cursor'];
 			$this->step_once( $state );
@@ -234,6 +240,36 @@ class OLIMC_Acf_Meta_Scanner {
 	}
 
 	/**
+	 * Screen step (1 to 5) for a state. The five steps and their phases:
+	 * 1 preparing (initial state), 2 ACF (acf_*), 3 other metadata (generic_*, fallback_*),
+	 * 4 content, theme and widgets (aux_*), 5 sorting results (classify).
+	 *
+	 * @param array $state Scan state.
+	 * @return int 1-5
+	 */
+	public function step_number( array $state ) {
+		if ( empty( $state['stepped'] ) ) {
+			return 1;
+		}
+		$phase = isset( $state['phase'] ) ? (string) $state['phase'] : '';
+		if ( $phase === 'classify' || $phase === 'done' ) {
+			return 5;
+		}
+		if ( strpos( $phase, 'aux_' ) === 0 ) {
+			return 4;
+		}
+		if ( strpos( $phase, 'generic_' ) === 0 || strpos( $phase, 'fallback_' ) === 0 ) {
+			return 3;
+		}
+		return 2;
+	}
+
+	/**
+	 * Share of the whole scan (0-100) for a state, weighted 2 / 35 / 25 / 28 / 10 over the five steps.
+	 * Never goes backwards and stays at 99 or below until the scan is done.
+	 *
+	 * Without ACF the "other metadata" walk takes the 35 + 25 points of steps 2 and 3.
+	 *
 	 * @param array $state Scan state.
 	 * @return int 0-100
 	 */
@@ -244,18 +280,66 @@ class OLIMC_Acf_Meta_Scanner {
 		if ( isset( $state['phase'] ) && $state['phase'] === 'done' ) {
 			return 100;
 		}
-		$order = $this->phase_order( isset( $state['mode'] ) ? $state['mode'] : 'fallback' );
-		$idx   = array_search( $state['phase'], $order, true );
-		if ( $idx === false ) {
-			return 0;
+		if ( empty( $state['stepped'] ) ) {
+			return 2;
 		}
-		$frac = 0;
+		$mode  = isset( $state['mode'] ) ? $state['mode'] : 'fallback';
 		$phase = (string) $state['phase'];
-		if ( strpos( $phase, 'ref_' ) !== false || strpos( $phase, 'fallback_' ) !== false || strpos( $phase, 'generic_' ) !== false ) {
-			$max  = max( 1, (int) $this->range_max_for_phase( $state ) );
-			$frac = min( 1, (int) $state['cursor'] / $max );
+		$frac  = $this->phase_fraction( $state );
+
+		if ( $phase === 'classify' ) {
+			return (int) min( 99, floor( 90 + 10 * $frac ) );
 		}
-		return (int) min( 99, floor( ( ( $idx + $frac ) / count( $order ) ) * 100 ) );
+		if ( strpos( $phase, 'aux_' ) === 0 ) {
+			$slugs = array_keys( OLIMC_Scanner::auxiliary_source_map() );
+			$idx   = array_search( substr( $phase, 4 ), $slugs, true );
+			$idx   = ( false === $idx ) ? 0 : $idx;
+			return (int) min( 99, floor( 62 + 28 * ( ( $idx + $frac ) / count( $slugs ) ) ) );
+		}
+		$order = $this->phase_order( $mode );
+		$idx   = array_search( $phase, $order, true );
+		if ( false === $idx ) {
+			return 2;
+		}
+		if ( $mode === 'acf' ) {
+			if ( strpos( $phase, 'generic_' ) === 0 ) {
+				$g = array_values( array_filter( $order, static function ( $p ) {
+					return strpos( $p, 'generic_' ) === 0;
+				} ) );
+				$i = array_search( $phase, $g, true );
+				return (int) min( 99, floor( 37 + 25 * ( ( $i + $frac ) / count( $g ) ) ) );
+			}
+			$g = array_values( array_filter( $order, static function ( $p ) {
+				return strpos( $p, 'acf_' ) === 0;
+			} ) );
+			$i = array_search( $phase, $g, true );
+			return (int) min( 99, floor( 2 + 35 * ( ( $i + $frac ) / count( $g ) ) ) );
+		}
+		return (int) min( 99, floor( 2 + 60 * ( ( $idx + $frac ) / count( $order ) ) ) );
+	}
+
+	/**
+	 * Progress inside the current phase, 0 to 1.
+	 *
+	 * @param array $state Scan state.
+	 * @return float
+	 */
+	private function phase_fraction( array $state ) {
+		$phase  = (string) $state['phase'];
+		$cursor = (int) $state['cursor'];
+		if ( $phase === 'classify' ) {
+			$total = isset( $state['total'] ) ? (int) $state['total'] : 0;
+			return $total > 0 ? min( 1, $cursor / $total ) : 0;
+		}
+		if ( $phase === 'aux_content' || $phase === 'aux_css' ) {
+			$max = isset( $state['max_content'] ) ? (int) $state['max_content'] : 0;
+			return $max > 0 ? min( 1, $cursor / $max ) : 0;
+		}
+		if ( strpos( $phase, 'ref_' ) !== false || strpos( $phase, 'fallback_' ) !== false || strpos( $phase, 'generic_' ) !== false ) {
+			$max = max( 1, (int) $this->range_max_for_phase( $state ) );
+			return min( 1, $cursor / $max );
+		}
+		return 0;
 	}
 
 	/**
@@ -309,7 +393,7 @@ class OLIMC_Acf_Meta_Scanner {
 				$this->phase_fallback_range( $state, 'user', 'generic_option' );
 				break;
 			case 'generic_option':
-				$this->phase_fallback_range( $state, 'option', 'auxiliary' );
+				$this->phase_fallback_range( $state, 'option', 'aux_featured' );
 				break;
 			case 'fallback_post':
 				$this->phase_fallback_range( $state, 'post', 'fallback_term' );
@@ -321,15 +405,20 @@ class OLIMC_Acf_Meta_Scanner {
 				$this->phase_fallback_range( $state, 'user', 'fallback_option' );
 				break;
 			case 'fallback_option':
-				$this->phase_fallback_range( $state, 'option', 'auxiliary' );
+				$this->phase_fallback_range( $state, 'option', 'aux_featured' );
 				break;
 			case 'auxiliary':
-				$this->phase_auxiliary( $state );
+				// Phase name used before 2.0: continue with the first source.
+				$this->advance( $state, 'aux_featured' );
 				break;
 			case 'classify':
 				$this->phase_classify( $state );
 				break;
 			default:
+				if ( strpos( (string) $state['phase'], 'aux_' ) === 0 ) {
+					$this->phase_aux( $state, substr( (string) $state['phase'], 4 ) );
+					break;
+				}
 				$state['phase'] = 'failed';
 				$state['error'] = 'Unknown scan phase.';
 		}
@@ -358,8 +447,6 @@ class OLIMC_Acf_Meta_Scanner {
 				'generic_term',
 				'generic_user',
 				'generic_option',
-				'auxiliary',
-				'classify',
 			];
 		}
 		return [
@@ -367,8 +454,6 @@ class OLIMC_Acf_Meta_Scanner {
 			'fallback_term',
 			'fallback_user',
 			'fallback_option',
-			'auxiliary',
-			'classify',
 		];
 	}
 
@@ -513,28 +598,55 @@ class OLIMC_Acf_Meta_Scanner {
 	}
 
 	/**
-	 * @param array $state State.
+	 * One auxiliary source per step (content and CSS are read by post ID range).
+	 *
+	 * @param array  $state State.
+	 * @param string $slug  Source slug (see OLIMC_Scanner::auxiliary_source_map()).
 	 */
-	private function phase_auxiliary( array &$state ) {
-		if ( empty( $state['skip_auxiliary'] ) ) {
-			$this->scanner->collect_auxiliary_sources();
-			if ( $this->db_failed() ) {
-				$this->fail( $state, 'Auxiliary scan failed.' );
-				return;
-			}
-			foreach ( $this->scanner->drain_used_ids() as $id ) {
-				$id = (int) $id;
-				if ( $id > 0 ) {
-					$state['used'][ $id ] = 1;
-				}
-			}
-		}
-		if ( ! empty( $state['skip_classify'] ) ) {
-			$state['phase']  = 'done';
-			$state['cursor'] = 0;
+	private function phase_aux( array &$state, $slug ) {
+		$slugs = array_keys( OLIMC_Scanner::auxiliary_source_map() );
+		$idx   = array_search( $slug, $slugs, true );
+		if ( false === $idx ) {
+			$this->fail( $state, 'Unknown auxiliary source.' );
 			return;
 		}
-		$this->advance( $state, 'classify' );
+		$next = isset( $slugs[ $idx + 1 ] ) ? 'aux_' . $slugs[ $idx + 1 ] : 'classify';
+		if ( $next === 'classify' && ! empty( $state['skip_classify'] ) ) {
+			$next = 'done';
+		}
+
+		if ( ! empty( $state['skip_auxiliary'] ) ) {
+			$this->advance( $state, $next );
+			return;
+		}
+
+		$range  = null;
+		$finish = true;
+		if ( in_array( $slug, [ 'content', 'css' ], true ) ) {
+			$max    = isset( $state['max_content'] ) ? (int) $state['max_content'] : 0;
+			$lo     = (int) $state['cursor'] + 1;
+			$hi     = (int) $state['cursor'] + self::RANGE_SPAN;
+			$range  = [ $lo, $hi ];
+			$finish = $hi >= $max;
+		}
+
+		$this->scanner->collect_auxiliary_source( $slug, $range );
+		if ( $this->db_failed() ) {
+			$this->fail( $state, 'Auxiliary scan failed.' );
+			return;
+		}
+		foreach ( $this->scanner->drain_used_ids() as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$state['used'][ $id ] = 1;
+			}
+		}
+
+		if ( $finish ) {
+			$this->advance( $state, $next );
+			return;
+		}
+		$state['cursor'] = (int) $state['cursor'] + self::RANGE_SPAN;
 	}
 
 	/**
@@ -559,30 +671,52 @@ class OLIMC_Acf_Meta_Scanner {
 		$batch  = 40;
 		$offset = (int) $state['cursor'];
 		$wpdb->last_error = '';
-		$ids = $wpdb->get_col(
+		$type_sql = ! empty( $state['images_only'] ) ? " AND post_mime_type LIKE 'image/%'" : '';
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- static fragments only, no user input.
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status != 'trash' ORDER BY ID ASC LIMIT %d OFFSET %d",
+				"SELECT ID, post_parent FROM {$wpdb->posts} WHERE " . OLIMC_Scanner::scannable_attachment_sql() . $type_sql . ' ORDER BY ID ASC LIMIT %d OFFSET %d', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- static fragments only.
 				$batch,
 				$offset
 			)
 		);
-		if ( $this->db_failed() || ! is_array( $ids ) ) {
+		if ( $this->db_failed() || ! is_array( $rows ) ) {
 			$this->fail( $state, 'Could not list attachments.' );
 			return;
 		}
-
-		$whitelist = function_exists( 'get_option' ) ? get_option( 'olimc_whitelist', [] ) : [];
-		if ( ! is_array( $whitelist ) ) {
-			$whitelist = [];
+		$ids = [];
+		$parents = [];
+		foreach ( $rows as $row ) {
+			$ids[] = (int) $row->ID;
+			if ( (int) $row->post_parent > 0 ) {
+				$parents[ (int) $row->ID ] = (int) $row->post_parent;
+			}
 		}
-		$wl = array_fill_keys( array_map( 'intval', $whitelist ), true );
+
+		// Optional setting: a file attached to existing content ("Uploaded to") counts as used.
+		$attached = [];
+		if ( ! empty( $state['count_attached'] ) && $parents !== [] ) {
+			$parent_ids = array_values( array_unique( $parents ) );
+			$placeholders = implode( ',', array_fill( 0, count( $parent_ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders only.
+			$existing = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_status != 'trash' AND ID IN ({$placeholders})", $parent_ids ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders only.
+			if ( $this->db_failed() || ! is_array( $existing ) ) {
+				$this->fail( $state, 'Could not read attached media.' );
+				return;
+			}
+			$existing = array_flip( array_map( 'intval', $existing ) );
+			foreach ( $parents as $child => $parent ) {
+				if ( isset( $existing[ $parent ] ) ) {
+					$attached[ $child ] = true;
+				}
+			}
+		}
 
 		foreach ( $ids as $id ) {
-			$id = (int) $id;
-			if ( $id <= 0 || isset( $state['used'][ $id ] ) || isset( $wl[ $id ] ) ) {
+			if ( $id <= 0 || isset( $state['used'][ $id ] ) || isset( $attached[ $id ] ) ) {
 				continue;
 			}
-			$info = $this->scanner->get_attachment_info( $id );
+			$info = $this->scanner->get_result_row( $id );
 			if ( $info ) {
 				if ( ! isset( $state['pending_delta'] ) || ! is_array( $state['pending_delta'] ) ) {
 					$state['pending_delta'] = [];
@@ -652,11 +786,15 @@ class OLIMC_Acf_Meta_Scanner {
 	 * @param string $message Error message.
 	 */
 	private function fail( array &$state, $message ) {
+		// Remember where the scan stopped so it can resume from the cursor. Nothing is
+		// published from a failed state (may_mark_unused() needs phase done and no error).
+		if ( isset( $state['phase'] ) && 'failed' !== $state['phase'] ) {
+			$state['failed_phase'] = $state['phase'];
+		}
 		$state['phase']          = 'failed';
 		$state['error']          = $message;
 		$state['pending_unused'] = [];
 		$state['pending_delta']  = [];
-		$state['used']           = [];
 	}
 
 	/**
@@ -739,12 +877,14 @@ class OLIMC_Acf_Meta_Scanner {
 			return 0;
 		}
 		$wpdb->last_error = '';
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
 		$value            = $wpdb->get_var(
-			$wpdb->prepare(
+			olimc_prepare(
 				'SELECT MAX(%i) FROM %i',
 				$id_col,
 				$table
 			)
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 		);
 		if ( $this->db_failed() ) {
 			return 0;
@@ -769,7 +909,7 @@ class OLIMC_Acf_Meta_Scanner {
 		}
 		$parts = [];
 		foreach ( $keys as $key ) {
-			$parts[] = $wpdb->prepare(
+			$parts[] = olimc_prepare(
 				'SELECT %i AS meta_value FROM %i WHERE %i = %s AND %i != %s',
 				$value_col,
 				$table,
@@ -806,9 +946,9 @@ class OLIMC_Acf_Meta_Scanner {
 		}
 		$clauses = [];
 		foreach ( $field_keys as $field_key ) {
-			$clauses[] = $wpdb->prepare( '%i = %s', $spec['value'], $field_key );
+			$clauses[] = olimc_prepare( '%i = %s', $spec['value'], $field_key );
 		}
-		$range_sql = $wpdb->prepare(
+		$range_sql = olimc_prepare(
 			'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
 			$spec['key'],
 			$spec['value'],
@@ -840,8 +980,9 @@ class OLIMC_Acf_Meta_Scanner {
 			return null;
 		}
 		$wpdb->last_error = '';
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
 		$rows             = $wpdb->get_results(
-			$wpdb->prepare(
+			olimc_prepare(
 				'SELECT %i AS meta_key, %i AS meta_value FROM %i WHERE %i > %d AND %i <= %d',
 				$spec['key'],
 				$spec['value'],
@@ -850,6 +991,7 @@ class OLIMC_Acf_Meta_Scanner {
 				(int) $lo,
 				$spec['id'],
 				(int) $hi
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 			)
 		);
 		if ( $this->db_failed() || ! is_array( $rows ) ) {

@@ -39,6 +39,9 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 	 * @return mixed
 	 */
 	function get_post_meta( $post_id, $key, $single = false ) {
+		if ( isset( $GLOBALS['olimc_mock_meta'][ (int) $post_id ][ $key ] ) ) {
+			return $GLOBALS['olimc_mock_meta'][ (int) $post_id ][ $key ];
+		}
 		return $single ? '' : [];
 	}
 }
@@ -107,7 +110,7 @@ if ( ! function_exists( 'acf_get_field_groups' ) ) {
 		if ( empty( $GLOBALS['olimc_acf_enabled'] ) ) {
 			return [];
 		}
-		return [ [ 'key' => 'group_concert' ] ];
+		return [ [ 'key' => 'group_event' ] ];
 	}
 }
 if ( ! function_exists( 'acf_get_fields' ) ) {
@@ -119,9 +122,9 @@ if ( ! function_exists( 'acf_get_fields' ) ) {
 		if ( empty( $GLOBALS['olimc_acf_enabled'] ) ) {
 			return [];
 		}
-		if ( $key === 'group_concert' ) {
+		if ( $key === 'group_event' ) {
 			return [
-				[ 'key' => 'field_concert_image', 'name' => 'image', 'type' => 'image' ],
+				[ 'key' => 'field_event_image', 'name' => 'image', 'type' => 'image' ],
 				[ 'key' => 'field_brochure', 'name' => 'brochure', 'type' => 'file' ],
 				[ 'key' => 'field_gallery', 'name' => 'gallery', 'type' => 'gallery' ],
 			];
@@ -161,6 +164,7 @@ if ( ! function_exists( 'esc_sql' ) ) {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/functions.php';
 require_once dirname( __DIR__ ) . '/includes/class-media-usage-parser.php';
 require_once dirname( __DIR__ ) . '/includes/class-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-admin.php';
@@ -219,6 +223,9 @@ class OLIMC_Inuse_Fake_Wpdb {
 	 * @return string
 	 */
 	public function prepare( $sql, ...$args ) {
+		if ( 1 === count( $args ) && is_array( $args[0] ) ) {
+			$args = $args[0];
+		}
 		$index = 0;
 		return preg_replace_callback(
 			'/%[dfsi]/',
@@ -365,7 +372,7 @@ $pdo->prepare( 'INSERT INTO postmeta (post_id, meta_key, meta_value) VALUES (?, 
 $pdo->prepare( 'INSERT INTO postmeta (post_id, meta_key, meta_value) VALUES (?, ?, ?)' )
 	->execute( [ 40, 'image', '104' ] );
 $pdo->prepare( 'INSERT INTO postmeta (post_id, meta_key, meta_value) VALUES (?, ?, ?)' )
-	->execute( [ 40, '_image', 'field_concert_image' ] );
+	->execute( [ 40, '_image', 'field_event_image' ] );
 
 $wpdb = new OLIMC_Inuse_Fake_Wpdb( $pdo );
 OLIMC_Scanner::reset_upload_path_index();
@@ -441,19 +448,10 @@ foreach ( $wpdb->queries as $sql ) {
 }
 olimc_inuse_assert( $likes_with_limit > 0, 'single-ID LIKE queries use LIMIT 1 (' . $likes_with_limit . ')' );
 
-$GLOBALS['olimc_mock_options']['olimc_whitelist'] = [ 105 ];
-olimc_inuse_assert( OLIMC_Admin::is_attachment_whitelisted( 105 ) === true, 'whitelist helper detects the ID' );
-olimc_inuse_assert( OLIMC_Admin::must_keep_attachment_files( 105 ) === true, 'whitelisted media stays protected' );
-unset( $GLOBALS['olimc_mock_options']['olimc_whitelist'] );
-
-olimc_inuse_assert(
-	OLIMC_Admin::used_media_kept_message( 1 ) === '1 used media item was kept.',
-	'singular used-media message'
-);
-olimc_inuse_assert(
-	OLIMC_Admin::used_media_kept_message( 3 ) === '3 used media items were kept.',
-	'plural used-media message'
-);
+$GLOBALS['olimc_mock_meta'][105]['_olimc_protected'] = '1';
+olimc_inuse_assert( OLIMC_Admin::is_attachment_protected( 105 ) === true, 'a kept media is detected' );
+olimc_inuse_assert( OLIMC_Admin::must_keep_attachment_files( 105 ) === true, 'kept media stays protected' );
+unset( $GLOBALS['olimc_mock_meta'][105] );
 
 $GLOBALS['olimc_must_keep_filter'] = function ( $keep, $post_id ) {
 	return (int) $post_id === 105 ? true : $keep;
@@ -473,7 +471,6 @@ OLIMC_Scanner::reset_upload_path_index();
 
 $admin_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-admin.php' );
 olimc_inuse_assert( strpos( $admin_source, "apply_filters('olimc_must_keep_attachment'" ) !== false, 'must_keep exposes olimc_must_keep_attachment' );
-olimc_inuse_assert( strpos( $admin_source, 'used_media_kept_message' ) !== false, 'plugin actions surface the kept-media message' );
 olimc_inuse_assert( strpos( $admin_source, "add_action('delete_attachment', [__CLASS__, 'on_delete_attachment'], 0)" ) !== false, 'delete_attachment still runs at priority 0' );
 olimc_inuse_assert( strpos( $admin_source, "add_filter('pre_delete_attachment'" ) !== false, 'pre_delete_attachment guard is unchanged' );
 

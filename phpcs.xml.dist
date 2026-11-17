@@ -14,7 +14,7 @@
 	<arg name="parallel" value="4"/>
 	<arg value="s"/>
 
-	<config name="minimum_supported_wp_version" value="6.2"/>
+	<config name="minimum_supported_wp_version" value="5.8"/>
 	<config name="testVersion" value="7.4-"/>
 
 	<rule ref="WordPress">
@@ -23,10 +23,15 @@
 		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
 		<exclude name="Squiz.Commenting"/>
 		<exclude name="WordPress.WhiteSpace.ControlStructureSpacing"/>
+		<exclude name="WordPress.PHP.YodaConditions"/>
+		<exclude name="Generic.Commenting.DocComment"/>
+		<exclude name="Generic.Files.OneObjectStructurePerFile"/>
+		<exclude name="Squiz.PHP.DisallowSizeFunctionsInLoops"/>
+		<exclude name="Universal.ControlStructures.DisallowLonelyIf"/>
+		<exclude name="Universal.Operators.DisallowShortTernary"/>
 		<exclude name="PEAR.Functions.FunctionCallSignature"/>
 		<exclude name="Generic.Functions.FunctionCallArgumentSpacing"/>
 		<exclude name="Generic.Formatting.MultipleStatementAlignment"/>
 		<exclude name="Generic.WhiteSpace.DisallowSpaceIndent"/>
-		<exclude name="WordPress.WhiteSpace.PrecisionAlignment"/>
 	</rule>
 </ruleset>

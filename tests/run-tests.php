@@ -50,7 +50,7 @@ OLIMC_Media_Usage_Parser::set_upload_markers(
 
 $known_attachments = [ 61273 => true, 61309 => true, 99 => true, 37455 => true ];
 $resolve_path      = function ( $path ) {
-	if ( strpos( $path, 'concert-poster' ) !== false ) {
+	if ( strpos( $path, 'event-poster' ) !== false ) {
 		return 61273;
 	}
 	return 0;
@@ -59,26 +59,26 @@ $is_attachment = function ( $id ) use ( $known_attachments ) {
 	return isset( $known_attachments[ (int) $id ] );
 };
 
-// Concert CPT — ACF image return format: attachment ID.
+// Event CPT — ACF image return format: attachment ID.
 $ids = OLIMC_Media_Usage_Parser::extract_attachment_ids_from_value( '61273', $resolve_path, $is_attachment );
-olimc_test_assert( in_array( 61273, $ids, true ), 'concert ACF image field (ID return format)' );
+olimc_test_assert( in_array( 61273, $ids, true ), 'event ACF image field (ID return format)' );
 
-// Concert — ACF image array return format (badge image).
+// Event — ACF image array return format (badge image).
 $array_value = serialize(
 	[
 		'ID'    => 61273,
 		'id'    => 61273,
 		'title' => 'Badge',
-		'url'   => 'https://example.com/wp-content/uploads/2026/02/concert-poster-1080-fr.jpg',
+		'url'   => 'https://example.com/wp-content/uploads/2026/02/event-poster-1080-fr.jpg',
 	]
 );
 $ids = OLIMC_Media_Usage_Parser::extract_attachment_ids_from_value( $array_value, $resolve_path, $is_attachment );
-olimc_test_assert( in_array( 61273, $ids, true ), 'concert ACF image field (array return format)' );
+olimc_test_assert( in_array( 61273, $ids, true ), 'event ACF image field (array return format)' );
 
-// Concert — URL return format.
-$url_value = 'https://example.com/wp-content/uploads/2026/02/concert-poster-1080-fr.jpg';
+// Event — URL return format.
+$url_value = 'https://example.com/wp-content/uploads/2026/02/event-poster-1080-fr.jpg';
 $ids       = OLIMC_Media_Usage_Parser::extract_attachment_ids_from_value( $url_value, $resolve_path, $is_attachment );
-olimc_test_assert( in_array( 61273, $ids, true ), 'concert ACF image field (URL return format)' );
+olimc_test_assert( in_array( 61273, $ids, true ), 'event ACF image field (URL return format)' );
 
 // Gallery: serialized list of IDs (regression — previously ignored).
 $gallery = serialize( [ 61273, 61309 ] );

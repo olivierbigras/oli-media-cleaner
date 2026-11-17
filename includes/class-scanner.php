@@ -17,6 +17,8 @@ class OLIMC_Scanner {
     private $usage_check_failed = false;
     /** @var float */
     private $usage_check_deadline = 0.0;
+    /** @var int[]|null Post ID range for a chunked auxiliary source. */
+    private $aux_range = null;
 
     /**
      * Run a full scan. Returns array of unused attachment IDs.
@@ -24,12 +26,26 @@ class OLIMC_Scanner {
      */
     public function get_all_attachment_ids() {
         global $wpdb;
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
         return $wpdb->get_col(
             "SELECT ID FROM {$wpdb->posts}
-             WHERE post_type = 'attachment'
-             AND post_status != 'trash'
-             ORDER BY ID ASC"
+             WHERE " . self::scannable_attachment_sql() . '
+             ORDER BY ID ASC'
         );
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+    }
+
+    /**
+     * SQL condition (on the posts table) for media that are in the library:
+     * not in the WordPress trash and not in the trash of this plugin.
+     *
+     * @param string $alias Optional table alias, with trailing dot.
+     * @return string Static SQL, no user input.
+     */
+    public static function scannable_attachment_sql( $alias = '' ) {
+        global $wpdb;
+        return "{$alias}post_type = 'attachment' AND {$alias}post_status != 'trash'"
+            . " AND NOT EXISTS (SELECT 1 FROM {$wpdb->postmeta} olimc_t WHERE olimc_t.post_id = {$alias}ID AND olimc_t.meta_key = '_olimc_trashed')";
     }
 
     /**
@@ -37,11 +53,12 @@ class OLIMC_Scanner {
      */
     public function get_total_attachment_count() {
         global $wpdb;
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
         return (int) $wpdb->get_var(
             "SELECT COUNT(ID) FROM {$wpdb->posts}
-             WHERE post_type = 'attachment'
-             AND post_status != 'trash'"
+             WHERE " . self::scannable_attachment_sql()
         );
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
     }
 
     /**
@@ -60,18 +77,18 @@ class OLIMC_Scanner {
         $state    = $engine->initial_state();
         $deadline = $this->synchronous_scan_deadline();
         $guard    = 0;
-        while (!in_array($state['phase'], ['done', 'failed'], true) && $guard < 1000000) {
+        while ( ! in_array($state['phase'], [ 'done', 'failed' ], true) && $guard < 1000000) {
             if (microtime(true) >= $deadline) {
                 $state['phase'] = 'failed';
                 $state['error'] = 'Scan stopped before the PHP time limit.';
                 break;
             }
-            $remaining_ms = (int) max(200, ($deadline - microtime(true)) * 1000);
+            $remaining_ms = (int) max(200, ( $deadline - microtime(true) ) * 1000);
             $state        = $engine->step($state, min(2000, $remaining_ms));
             $guard++;
         }
 
-        if (!OLIMC_Acf_Meta_Scanner::may_mark_unused($state)) {
+        if ( ! OLIMC_Acf_Meta_Scanner::may_mark_unused($state)) {
             // Incomplete or failed scan: every known attachment stays "used".
             $ids = $this->get_all_attachment_ids();
             if (empty($ids) && is_array($this->attachment_id_index)) {
@@ -127,7 +144,7 @@ class OLIMC_Scanner {
              AND meta_value = '1'"
         );
 
-        if (!empty($protected_ids)) {
+        if ( ! empty($protected_ids)) {
             $protected = array_merge($protected, array_map('intval', $protected_ids));
         }
 
@@ -176,7 +193,7 @@ class OLIMC_Scanner {
      * @param string $base_url Upload base URL.
      * @return string Normalized pattern.
      */
-    private function normalize_protected_pattern($pattern, $base_url) {
+    private function normalize_protected_pattern( $pattern, $base_url ) {
         $pattern = trim($pattern);
         if (empty($pattern)) {
             return '';
@@ -184,7 +201,7 @@ class OLIMC_Scanner {
 
         // Convert URL to path
         if (preg_match('#^https?://#i', $pattern)) {
-            if (!empty($base_url) && strpos($pattern, $base_url) === 0) {
+            if ( ! empty($base_url) && strpos($pattern, $base_url) === 0) {
                 $pattern = substr($pattern, strlen($base_url));
             } else {
                 // Try to extract path from URL
@@ -199,21 +216,59 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Auxiliary sources, in scan order: slug => collector method.
+     *
+     * The scan engine runs one source per step so the progress bar moves
+     * regularly and no single request reads every source at once.
+     *
+     * @return array<string,string>
+     */
+    public static function auxiliary_source_map() {
+        return [
+            'featured'        => 'collect_featured_images',
+            'content'         => 'collect_post_content_images',
+            'options'         => 'collect_option_images',
+            'woo_gallery'     => 'collect_woocommerce_gallery',
+            'woo_variations'  => 'collect_woocommerce_variations',
+            'identity'        => 'collect_site_identity',
+            'widgets'         => 'collect_widget_images',
+            'elementor'       => 'collect_elementor_images',
+            'taxonomy'        => 'collect_taxonomy_thumbnails',
+            'terms'           => 'collect_term_description_images',
+            'theme'           => 'collect_theme_files',
+            'css'             => 'collect_css_background_images',
+        ];
+    }
+
+    /**
+     * Run one auxiliary source. Post content is read by ID range (see $range).
+     *
+     * @param string     $slug  Source slug from auxiliary_source_map().
+     * @param int[]|null $range Optional [low, high] post ID range (content and css only).
+     * @return bool False when the slug is unknown.
+     */
+    public function collect_auxiliary_source( $slug, $range = null ) {
+        $map = self::auxiliary_source_map();
+        if ( ! isset($map[ $slug ])) {
+            return false;
+        }
+        $this->aux_range = ( is_array($range) && count($range) === 2 ) ? [ (int) $range[0], (int) $range[1] ] : null;
+        $method = $map[ $slug ];
+        try {
+            $this->$method();
+        } finally {
+            $this->aux_range = null;
+        }
+        return true;
+    }
+
+    /**
      * Sources that are not the ACF meta walk (content, WooCommerce, theme files, …).
      */
     public function collect_auxiliary_sources() {
-        $this->collect_featured_images();
-        $this->collect_post_content_images();
-        $this->collect_option_images();
-        $this->collect_woocommerce_gallery();
-        $this->collect_woocommerce_variations();
-        $this->collect_site_identity();
-        $this->collect_widget_images();
-        $this->collect_elementor_images();
-        $this->collect_taxonomy_thumbnails();
-        $this->collect_term_description_images();
-        $this->collect_theme_files();
-        $this->collect_css_background_images();
+        foreach (array_keys(self::auxiliary_source_map()) as $slug) {
+            $this->collect_auxiliary_source($slug);
+        }
     }
 
     /**
@@ -227,12 +282,12 @@ class OLIMC_Scanner {
      */
     public function get_acf_media_field_targets() {
         $this->acf_media_field_key_buffer = [];
-        if (!$this->ensure_acf_loaded()) {
+        if ( ! $this->ensure_acf_loaded()) {
             return null;
         }
 
         $groups = acf_get_field_groups();
-        if (!is_array($groups) || $groups === []) {
+        if ( ! is_array($groups) || $groups === []) {
             return null;
         }
 
@@ -243,18 +298,18 @@ class OLIMC_Scanner {
         $resolved     = false;
 
         foreach ($groups as $group) {
-            if (!is_array($group) || empty($group['key'])) {
+            if ( ! is_array($group) || empty($group['key'])) {
                 continue;
             }
             $fields = function_exists('acf_get_fields') ? acf_get_fields($group['key']) : null;
-            if (!is_array($fields)) {
+            if ( ! is_array($fields)) {
                 continue;
             }
             $resolved = true;
             $this->collect_acf_field_keys_recursive($fields, $image_keys, $file_keys, $gallery_keys, $all_keys);
         }
 
-        if (!$resolved) {
+        if ( ! $resolved) {
             return null;
         }
 
@@ -274,7 +329,7 @@ class OLIMC_Scanner {
      * @return bool Whether the ACF API is available.
      */
     private function ensure_acf_loaded() {
-        if (!function_exists('acf_get_field_groups')) {
+        if ( ! function_exists('acf_get_field_groups')) {
             return false;
         }
         $init_done       = function_exists('did_action') && did_action('init');
@@ -285,8 +340,8 @@ class OLIMC_Scanner {
         // call acf_init() again (that re-registers hooks). Call include_fields
         // directly when it has not run yet. acf_init() is only for a scan that
         // really is running before init.
-        if (!$fields_included && function_exists('acf_include_fields')) {
-            if (!$init_done && !$acf_init_done && function_exists('acf_init')) {
+        if ( ! $fields_included && function_exists('acf_include_fields')) {
+            if ( ! $init_done && ! $acf_init_done && function_exists('acf_init')) {
                 acf_init();
             } else {
                 acf_include_fields();
@@ -319,17 +374,17 @@ class OLIMC_Scanner {
      * @param array      $all_keys      Every field name seen.
      * @param array|null $visited_clones Clone selectors already followed.
      */
-    private function collect_acf_field_keys_recursive($fields, &$image_keys, &$file_keys, &$gallery_keys, &$all_keys, &$visited_clones = null) {
+    private function collect_acf_field_keys_recursive( $fields, &$image_keys, &$file_keys, &$gallery_keys, &$all_keys, &$visited_clones = null ) {
         if ($visited_clones === null) {
             $visited_clones = [];
         }
 
         foreach ($fields as $field) {
-            if (!is_array($field)) {
+            if ( ! is_array($field)) {
                 continue;
             }
 
-            if (!empty($field['name'])) {
+            if ( ! empty($field['name'])) {
                 $all_keys[] = $field['name'];
             }
 
@@ -347,22 +402,22 @@ class OLIMC_Scanner {
                     break;
             }
 
-            if (in_array($type, ['image', 'file', 'gallery'], true) && !empty($field['key']) && is_string($field['key'])) {
+            if (in_array($type, [ 'image', 'file', 'gallery' ], true) && ! empty($field['key']) && is_string($field['key'])) {
                 $this->acf_media_field_key_buffer[] = $field['key'];
             }
 
-            if (!empty($field['sub_fields'])) {
+            if ( ! empty($field['sub_fields'])) {
                 $this->collect_acf_field_keys_recursive($field['sub_fields'], $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
             }
-            if (!empty($field['layouts'])) {
+            if ( ! empty($field['layouts'])) {
                 foreach ($field['layouts'] as $layout) {
-                    if (!empty($layout['sub_fields'])) {
+                    if ( ! empty($layout['sub_fields'])) {
                         $this->collect_acf_field_keys_recursive($layout['sub_fields'], $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
                     }
                 }
             }
 
-            if ($type === 'clone' && !empty($field['clone']) && is_array($field['clone'])) {
+            if ($type === 'clone' && ! empty($field['clone']) && is_array($field['clone'])) {
                 $this->collect_acf_cloned_fields($field['clone'], $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
             }
         }
@@ -378,28 +433,28 @@ class OLIMC_Scanner {
      * @param array $all_keys        Every field name seen.
      * @param array $visited_clones  Clone selectors already followed.
      */
-    private function collect_acf_cloned_fields($clone_selectors, &$image_keys, &$file_keys, &$gallery_keys, &$all_keys, &$visited_clones) {
+    private function collect_acf_cloned_fields( $clone_selectors, &$image_keys, &$file_keys, &$gallery_keys, &$all_keys, &$visited_clones ) {
         foreach ($clone_selectors as $clone_selector) {
-            if (!is_string($clone_selector) || $clone_selector === '') {
+            if ( ! is_string($clone_selector) || $clone_selector === '') {
                 continue;
             }
-            if (isset($visited_clones[$clone_selector])) {
+            if (isset($visited_clones[ $clone_selector ])) {
                 continue;
             }
-            $visited_clones[$clone_selector] = true;
+            $visited_clones[ $clone_selector ] = true;
 
             $cloned_fields = function_exists('acf_get_fields') ? acf_get_fields($clone_selector) : null;
-            if (!empty($cloned_fields) && is_array($cloned_fields)) {
+            if ( ! empty($cloned_fields) && is_array($cloned_fields)) {
                 $this->collect_acf_field_keys_recursive($cloned_fields, $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
                 continue;
             }
 
-            if (!function_exists('acf_get_field')) {
+            if ( ! function_exists('acf_get_field')) {
                 continue;
             }
             $cloned_field = acf_get_field($clone_selector);
-            if (!empty($cloned_field) && is_array($cloned_field)) {
-                $this->collect_acf_field_keys_recursive([$cloned_field], $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
+            if ( ! empty($cloned_field) && is_array($cloned_field)) {
+                $this->collect_acf_field_keys_recursive([ $cloned_field ], $image_keys, $file_keys, $gallery_keys, $all_keys, $visited_clones);
             }
         }
     }
@@ -414,7 +469,7 @@ class OLIMC_Scanner {
      * @param string $field_name ACF field name.
      * @return bool
      */
-    public function acf_meta_key_matches_field($meta_key, $field_name) {
+    public function acf_meta_key_matches_field( $meta_key, $field_name ) {
         if ($meta_key === $field_name) {
             return true;
         }
@@ -425,8 +480,8 @@ class OLIMC_Scanner {
     /**
      * Check if a specific attachment ID is used.
      */
-    public function is_used($attachment_id) {
-        return in_array((int) $attachment_id, $this->used_ids, true);
+    public function is_used( $attachment_id ) {
+        return in_array( (int) $attachment_id, $this->used_ids, true);
     }
 
     /**
@@ -437,7 +492,7 @@ class OLIMC_Scanner {
      * @param int $id Attachment ID.
      * @return bool|null true if used, false if unused, null on SQL error or timeout.
      */
-    public function is_attachment_in_use_now($id) {
+    public function is_attachment_in_use_now( $id ) {
         $id = (int) $id;
         if ($id <= 0) {
             return false;
@@ -510,9 +565,9 @@ class OLIMC_Scanner {
      *
      * @param mixed $ids_or_hit Column of IDs, a single value, or a boolean.
      */
-    private function finish_usage_query($ids_or_hit) {
+    private function finish_usage_query( $ids_or_hit ) {
         global $wpdb;
-        if (isset($wpdb) && is_object($wpdb) && !empty($wpdb->last_error)) {
+        if (isset($wpdb) && is_object($wpdb) && ! empty($wpdb->last_error)) {
             if ($this->usage_check_id !== null) {
                 $this->usage_check_failed = true;
             }
@@ -537,7 +592,7 @@ class OLIMC_Scanner {
      * @param mixed $value Query result.
      * @return bool
      */
-    private function value_is_usage_hit($value) {
+    private function value_is_usage_hit( $value ) {
         if ($value === true) {
             return true;
         }
@@ -556,7 +611,7 @@ class OLIMC_Scanner {
      * @param int $id Attachment ID.
      * @return string[]|null Null on database error.
      */
-    private function attachment_relative_paths($id) {
+    private function attachment_relative_paths( $id ) {
         global $wpdb;
         $wpdb->last_error = '';
         $rows = $wpdb->get_results($wpdb->prepare(
@@ -567,7 +622,7 @@ class OLIMC_Scanner {
             '_wp_attachment_metadata',
             '_wp_attachment_backup_sizes'
         ));
-        if (!empty($wpdb->last_error)) {
+        if ( ! empty($wpdb->last_error)) {
             return null;
         }
         $file = '';
@@ -594,12 +649,12 @@ class OLIMC_Scanner {
      * @param int $id Attachment ID.
      * @return string[]|null
      */
-    private function like_needles_for_attachment($id) {
+    private function like_needles_for_attachment( $id ) {
         $id = (int) $id;
         $needles = [
             'wp-image-' . $id . '"',
             'wp-image-' . $id . ' ',
-            "wp-image-" . $id . "'",
+            'wp-image-' . $id . "'",
             '"id":' . $id . ',',
             '"id":' . $id . '}',
             '"id": ' . $id . ',',
@@ -632,18 +687,18 @@ class OLIMC_Scanner {
      * @param string[] $needles Raw substrings to wrap with %.
      * @return string|null Prepared SQL fragment, or null if nothing to match.
      */
-    private function prepared_like_or(array $columns, array $needles) {
+    private function prepared_like_or( array $columns, array $needles ) {
         global $wpdb;
         $parts = [];
         foreach ($columns as $column) {
-            if (!$this->is_safe_identifier($column)) {
+            if ( ! $this->is_safe_identifier($column)) {
                 continue;
             }
             foreach ($needles as $needle) {
                 if ($needle === '') {
                     continue;
                 }
-                $parts[] = $wpdb->prepare(
+                $parts[] = olimc_prepare(
                     '%i LIKE %s',
                     $column,
                     '%' . $wpdb->esc_like($needle) . '%'
@@ -662,7 +717,7 @@ class OLIMC_Scanner {
      * @param string $key Identifier.
      * @return bool
      */
-    private function is_safe_identifier($key) {
+    private function is_safe_identifier( $key ) {
         return is_string($key) && $key !== '' && (bool) preg_match('/^[A-Za-z0-9_]+$/', $key);
     }
 
@@ -672,9 +727,9 @@ class OLIMC_Scanner {
      * @param string $content Post content, excerpt, or term description.
      * @return array<int|string>
      */
-    private function attachment_ids_from_html($content) {
+    private function attachment_ids_from_html( $content ) {
         $ids = [];
-        if (!is_string($content) || $content === '') {
+        if ( ! is_string($content) || $content === '') {
             return $ids;
         }
         if (preg_match_all('/wp-image-(\d+)/', $content, $matches)) {
@@ -709,9 +764,9 @@ class OLIMC_Scanner {
      * @param string $serialized Serialized PHP.
      * @return array<int|string>
      */
-    private function attachment_ids_from_serialized($serialized) {
+    private function attachment_ids_from_serialized( $serialized ) {
         $ids = [];
-        if (!is_string($serialized) || $serialized === '') {
+        if ( ! is_string($serialized) || $serialized === '') {
             return $ids;
         }
         if (preg_match_all('/"attachment_id";i:(\d+)/', $serialized, $matches)) {
@@ -732,12 +787,12 @@ class OLIMC_Scanner {
      * @param int   $id    Attachment ID.
      * @return bool
      */
-    private function meta_value_references_attachment($value, $id) {
+    private function meta_value_references_attachment( $value, $id ) {
         $id = (int) $id;
         if (is_array($value) || is_object($value)) {
             $value = function_exists('maybe_serialize') ? maybe_serialize($value) : serialize($value);
         }
-        if (!is_string($value) && !is_numeric($value)) {
+        if ( ! is_string($value) && ! is_numeric($value)) {
             return false;
         }
         $value = (string) $value;
@@ -757,7 +812,7 @@ class OLIMC_Scanner {
             return true;
         }
         $paths = $this->attachment_relative_paths($id);
-        if (!is_array($paths)) {
+        if ( ! is_array($paths)) {
             return false;
         }
         foreach ($paths as $path) {
@@ -775,7 +830,7 @@ class OLIMC_Scanner {
         if ($this->usage_check_id === null) {
             return;
         }
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
 
@@ -792,7 +847,7 @@ class OLIMC_Scanner {
         global $wpdb;
         $key_parts = [];
         foreach ($names as $name) {
-            if (!is_string($name) || $name === '') {
+            if ( ! is_string($name) || $name === '') {
                 continue;
             }
             $key_parts[] = $wpdb->prepare('meta_key = %s', $name);
@@ -802,7 +857,7 @@ class OLIMC_Scanner {
             return;
         }
 
-        $id_len = (string) strlen((string) $id);
+        $id_len = (string) strlen( (string) $id);
         $value_sql = $wpdb->prepare(
             '(
                 meta_value = %s
@@ -815,20 +870,20 @@ class OLIMC_Scanner {
             (string) $id,
             '%' . $wpdb->esc_like('i:' . $id . ';') . '%',
             '%' . $wpdb->esc_like('s:' . $id_len . ':"' . $id . '"') . '%',
-            $wpdb->esc_like((string) $id) . ',%',
-            '%,' . $wpdb->esc_like((string) $id) . ',%',
-            '%,' . $wpdb->esc_like((string) $id)
+            $wpdb->esc_like( (string) $id) . ',%',
+            '%,' . $wpdb->esc_like( (string) $id) . ',%',
+            '%,' . $wpdb->esc_like( (string) $id)
         );
         $where_sql = '(' . implode(' OR ', $key_parts) . ') AND ' . $value_sql;
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
         $row = $wpdb->get_results(
             "SELECT meta_key, meta_value FROM {$wpdb->postmeta} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
-        if (!empty($wpdb->last_error)) {
+        if ( ! empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
         }
-        if (!empty($row)) {
+        if ( ! empty($row)) {
             foreach ($row as $candidate) {
                 $key = isset($candidate->meta_key) ? (string) $candidate->meta_key : '';
                 foreach ($names as $name) {
@@ -842,12 +897,12 @@ class OLIMC_Scanner {
             }
         }
 
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $opt_parts = [];
         foreach ($names as $name) {
-            if (!is_string($name) || $name === '') {
+            if ( ! is_string($name) || $name === '') {
                 continue;
             }
             $opt_parts[] = $wpdb->prepare('option_name = %s', $name);
@@ -868,11 +923,11 @@ class OLIMC_Scanner {
         $opt_row = $wpdb->get_results(
             "SELECT option_name, option_value FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
-        if (!empty($wpdb->last_error)) {
+        if ( ! empty($wpdb->last_error)) {
             $this->usage_check_failed = true;
             return;
         }
-        if (!empty($opt_row)) {
+        if ( ! empty($opt_row)) {
             foreach ($opt_row as $candidate) {
                 if ($this->meta_value_references_attachment($candidate->option_value, $id)) {
                     $this->usage_check_hit = true;
@@ -889,7 +944,7 @@ class OLIMC_Scanner {
         if ($this->usage_check_id === null) {
             return;
         }
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         global $wpdb;
@@ -898,13 +953,13 @@ class OLIMC_Scanner {
             $this->usage_check_failed = true;
             return;
         }
-        $paths = array_values(array_filter($paths, function ($path) {
+        $paths = array_values(array_filter($paths, function ( $path ) {
             return is_string($path) && $path !== '';
         }));
         if ($paths === []) {
             return;
         }
-        $like_sql = $this->prepared_like_or(['option_value'], $paths);
+        $like_sql = $this->prepared_like_or([ 'option_value' ], $paths);
         if ($like_sql === null) {
             return;
         }
@@ -975,9 +1030,11 @@ class OLIMC_Scanner {
     /**
      * Get attachment info for display.
      */
-    public function get_attachment_info($attachment_id) {
+    public function get_attachment_info( $attachment_id ) {
         $post = get_post($attachment_id);
-        if (!$post) return null;
+        if ( ! $post) {
+			return null;
+        }
 
         $mime = get_post_mime_type($attachment_id);
         $is_image = strpos($mime, 'image') !== false;
@@ -1007,10 +1064,33 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Compact row for the results table (no URLs, they are built when a page is shown).
+     *
+     * @param int $attachment_id Attachment ID.
+     * @return array|null
+     */
+    public function get_result_row( $attachment_id ) {
+        $post = get_post($attachment_id);
+        if ( ! $post) {
+            return null;
+        }
+        $mime = (string) get_post_mime_type($attachment_id);
+        $file = (string) get_post_meta($attachment_id, '_wp_attached_file', true);
+        return [
+            'id'       => (int) $attachment_id,
+            'title'    => (string) $post->post_title,
+            'file'     => $file,
+            'mime'     => $mime,
+            'size'     => (int) $this->calculate_total_size($attachment_id, $mime),
+            'uploaded' => (string) $post->post_date,
+        ];
+    }
+
+    /**
      * Calculate total disk size of an attachment (original + all thumbnails).
      */
-    public function calculate_total_size($attachment_id, $mime = '') {
-        if (!$mime) {
+    public function calculate_total_size( $attachment_id, $mime = '' ) {
+        if ( ! $mime) {
             $mime = get_post_mime_type($attachment_id);
         }
 
@@ -1022,29 +1102,29 @@ class OLIMC_Scanner {
             $basedir = $upload_dir['basedir'];
 
             // Main file
-            if (!empty($meta['file'])) {
+            if ( ! empty($meta['file'])) {
                 $main_path = $basedir . '/' . $meta['file'];
-                $total += wp_filesize($main_path);
+                $total += olimc_filesize($main_path);
                 $dir = dirname($main_path);
             }
 
             // Thumbnails
-            if (!empty($meta['sizes'])) {
+            if ( ! empty($meta['sizes'])) {
                 foreach ($meta['sizes'] as $size) {
-                    if (!empty($size['file']) && isset($dir)) {
-                        $total += wp_filesize($dir . '/' . $size['file']);
+                    if ( ! empty($size['file']) && isset($dir)) {
+                        $total += olimc_filesize($dir . '/' . $size['file']);
                     }
                 }
             }
 
             // Original image (if scaled)
-            if (!empty($meta['original_image']) && isset($dir)) {
-                $total += wp_filesize($dir . '/' . $meta['original_image']);
+            if ( ! empty($meta['original_image']) && isset($dir)) {
+                $total += olimc_filesize($dir . '/' . $meta['original_image']);
             }
         } else {
             $file = get_attached_file($attachment_id);
             if ($file) {
-                $total = wp_filesize($file);
+                $total = olimc_filesize($file);
             }
         }
 
@@ -1055,7 +1135,7 @@ class OLIMC_Scanner {
 
     private function collect_featured_images() {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         if ($this->usage_check_id !== null) {
@@ -1079,7 +1159,7 @@ class OLIMC_Scanner {
 
     private function collect_post_content_images() {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         if ($this->usage_check_id !== null) {
@@ -1090,13 +1170,17 @@ class OLIMC_Scanner {
         if ($like === null) {
             return;
         }
+        $range = $this->aux_range === null ? [ 0, PHP_INT_MAX ] : $this->aux_range;
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT post_content, post_excerpt FROM {$wpdb->posts}
              WHERE (post_content LIKE %s OR post_excerpt LIKE %s)
              AND post_status != 'trash'
-             AND post_type NOT IN ('revision', 'attachment')",
+             AND post_type NOT IN ('revision', 'attachment')
+             AND ID BETWEEN %d AND %d",
             $like,
-            $like
+            $like,
+            $range[0],
+            $range[1]
         ));
 
         $attachment_ids = [];
@@ -1118,14 +1202,14 @@ class OLIMC_Scanner {
      *
      * @param int $id Attachment ID.
      */
-    private function collect_post_content_images_for_id($id) {
+    private function collect_post_content_images_for_id( $id ) {
         global $wpdb;
         $needles = $this->like_needles_for_attachment($id);
         if ($needles === null) {
             $this->usage_check_failed = true;
             return;
         }
-        $where_sql = $this->prepared_like_or(['post_content', 'post_excerpt'], $needles);
+        $where_sql = $this->prepared_like_or([ 'post_content', 'post_excerpt' ], $needles);
         if ($where_sql === null) {
             return;
         }
@@ -1137,21 +1221,21 @@ class OLIMC_Scanner {
     }
 
     private function collect_option_images() {
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $ids = [];
         $theme_mods = function_exists('get_theme_mods') ? get_theme_mods() : [];
-        if (!is_array($theme_mods)) {
+        if ( ! is_array($theme_mods)) {
             $theme_mods = [];
         }
-        if (!empty($theme_mods['custom_logo'])) {
+        if ( ! empty($theme_mods['custom_logo'])) {
             $ids[] = (int) $theme_mods['custom_logo'];
         }
-        if (!empty($theme_mods['header_image_data']) && !empty($theme_mods['header_image_data']->attachment_id)) {
+        if ( ! empty($theme_mods['header_image_data']) && ! empty($theme_mods['header_image_data']->attachment_id)) {
             $ids[] = (int) $theme_mods['header_image_data']->attachment_id;
         }
-        if (!empty($theme_mods['background_image']) && function_exists('attachment_url_to_postid')) {
+        if ( ! empty($theme_mods['background_image']) && function_exists('attachment_url_to_postid')) {
             $found = attachment_url_to_postid($theme_mods['background_image']);
             if ($found) {
                 $ids[] = (int) $found;
@@ -1172,14 +1256,14 @@ class OLIMC_Scanner {
     /**
      * @param int $id Attachment ID.
      */
-    private function collect_theme_mods_option_for_id($id) {
+    private function collect_theme_mods_option_for_id( $id ) {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $needles = [
             'custom_logo";i:' . $id . ';',
-            's:' . strlen((string) $id) . ':"' . $id . '"',
+            's:' . strlen( (string) $id) . ':"' . $id . '"',
             'i:' . $id . ';',
         ];
         $paths = $this->attachment_relative_paths($id);
@@ -1188,7 +1272,7 @@ class OLIMC_Scanner {
             return;
         }
         $needles = array_merge($needles, $paths);
-        $like_sql = $this->prepared_like_or(['option_value'], $needles);
+        $like_sql = $this->prepared_like_or([ 'option_value' ], $needles);
         if ($like_sql === null) {
             return;
         }
@@ -1202,11 +1286,11 @@ class OLIMC_Scanner {
     }
 
     private function collect_woocommerce_gallery() {
-        if ($this->usage_check_id === null && !class_exists('WooCommerce')) {
+        if ($this->usage_check_id === null && ! class_exists('WooCommerce')) {
             return;
         }
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
 
@@ -1246,11 +1330,11 @@ class OLIMC_Scanner {
     }
 
     private function collect_woocommerce_variations() {
-        if ($this->usage_check_id === null && !class_exists('WooCommerce')) {
+        if ($this->usage_check_id === null && ! class_exists('WooCommerce')) {
             return;
         }
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
 
@@ -1279,7 +1363,7 @@ class OLIMC_Scanner {
     }
 
     private function collect_site_identity() {
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $ids = [];
@@ -1299,15 +1383,15 @@ class OLIMC_Scanner {
     }
 
     private function collect_widget_images() {
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
-        $widget_types = ['widget_media_image', 'widget_media_gallery', 'widget_media_video', 'widget_media_audio', 'widget_custom_html', 'widget_text'];
+        $widget_types = [ 'widget_media_image', 'widget_media_gallery', 'widget_media_video', 'widget_media_audio', 'widget_custom_html', 'widget_text' ];
 
         if ($this->usage_check_id !== null) {
             foreach ($widget_types as $type) {
                 $widgets = function_exists('get_option') ? get_option($type) : null;
-                if (!is_array($widgets)) {
+                if ( ! is_array($widgets)) {
                     continue;
                 }
                 $serialized = serialize($widgets);
@@ -1327,7 +1411,7 @@ class OLIMC_Scanner {
 
         foreach ($widget_types as $type) {
             $widgets = get_option($type);
-            if (!is_array($widgets)) {
+            if ( ! is_array($widgets)) {
                 continue;
             }
 
@@ -1340,9 +1424,9 @@ class OLIMC_Scanner {
     /**
      * @param int $id Attachment ID.
      */
-    private function collect_widget_options_for_id($id) {
+    private function collect_widget_options_for_id( $id ) {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $needles = $this->like_needles_for_attachment($id);
@@ -1352,7 +1436,7 @@ class OLIMC_Scanner {
         }
         $needles[] = '"attachment_id";i:' . $id . ';';
         $needles[] = 'i:' . $id . ';';
-        $like_sql = $this->prepared_like_or(['option_value'], $needles);
+        $like_sql = $this->prepared_like_or([ 'option_value' ], $needles);
         if ($like_sql === null) {
             return;
         }
@@ -1367,7 +1451,7 @@ class OLIMC_Scanner {
 
     private function collect_elementor_images() {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         if ($this->usage_check_id !== null) {
@@ -1376,7 +1460,7 @@ class OLIMC_Scanner {
                 $this->usage_check_failed = true;
                 return;
             }
-            $where_sql = $this->prepared_like_or(['meta_value'], $needles);
+            $where_sql = $this->prepared_like_or([ 'meta_value' ], $needles);
             if ($where_sql === null) {
                 return;
             }
@@ -1397,7 +1481,7 @@ class OLIMC_Scanner {
         foreach ($rows as $json) {
             if (preg_match_all('/"id"\s*:\s*(\d+)/', $json, $matches)) {
                 foreach ($matches[1] as $id) {
-                    if ((int) $id > 0 && (int) $id < 999999999) {
+                    if ( (int) $id > 0 && (int) $id < 999999999) {
                         $this->used_ids[] = $id;
                     }
                 }
@@ -1419,7 +1503,7 @@ class OLIMC_Scanner {
         $theme_dir = get_stylesheet_directory();
         $parent_theme_dir = get_template_directory();
 
-        $dirs = [$theme_dir];
+        $dirs = [ $theme_dir ];
         if ($parent_theme_dir !== $theme_dir) {
             $dirs[] = $parent_theme_dir;
         }
@@ -1432,32 +1516,42 @@ class OLIMC_Scanner {
     /**
      * Recursively scan a directory for files referencing the current upload location.
      */
-    private function scan_directory_for_uploads($dir) {
-        if (!is_dir($dir)) return;
+    private function scan_directory_for_uploads( $dir ) {
+        if ( ! is_dir($dir)) {
+			return;
+        }
 
-        $extensions = ['php', 'css', 'js', 'html', 'htm', 'json'];
-        $skip_dirs = ['node_modules', '.git', 'vendor', 'dist', 'build'];
+        $extensions = [ 'php', 'css', 'js', 'html', 'htm', 'json' ];
+        $skip_dirs = [ 'node_modules', '.git', 'vendor', 'dist', 'build' ];
 
         $iterator = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
-        $filter = new RecursiveCallbackFilterIterator($iterator, function($current, $key, $iterator) use ($skip_dirs) {
+        $filter = new RecursiveCallbackFilterIterator($iterator, function ( $current, $key, $iterator ) use ( $skip_dirs ) {
             if ($current->isDir()) {
-                return !in_array($current->getFilename(), $skip_dirs);
+                return ! in_array($current->getFilename(), $skip_dirs);
             }
             return true;
         });
         $files = new RecursiveIteratorIterator($filter);
 
         foreach ($files as $file) {
-            if (!$file->isFile()) continue;
+            if ( ! $file->isFile()) {
+				continue;
+            }
 
             $ext = strtolower($file->getExtension());
-            if (!in_array($ext, $extensions)) continue;
+            if ( ! in_array($ext, $extensions)) {
+				continue;
+            }
 
             // Skip very large files (> 1MB)
-            if ($file->getSize() > 1048576) continue;
+            if ($file->getSize() > 1048576) {
+				continue;
+            }
 
             $content = @file_get_contents($file->getPathname());
-            if (!$content) continue;
+            if ( ! $content) {
+				continue;
+            }
 
             $this->merge_upload_paths_from_text($content);
 
@@ -1479,14 +1573,18 @@ class OLIMC_Scanner {
         if ($like === null) {
             return;
         }
+        $range = $this->aux_range === null ? [ 0, PHP_INT_MAX ] : $this->aux_range;
         $rows = $wpdb->get_col($wpdb->prepare(
             "SELECT post_content FROM {$wpdb->posts}
              WHERE post_content LIKE %s
              AND post_content LIKE %s
              AND post_status != 'trash'
-             AND post_type NOT IN ('revision', 'attachment')",
+             AND post_type NOT IN ('revision', 'attachment')
+             AND ID BETWEEN %d AND %d",
             '%' . $wpdb->esc_like('background') . '%',
-            $like
+            $like,
+            $range[0],
+            $range[1]
         ));
 
         foreach ($rows as $content) {
@@ -1500,16 +1598,17 @@ class OLIMC_Scanner {
      */
     private function collect_taxonomy_thumbnails() {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         if ($this->usage_check_id !== null) {
             $termmeta = isset($wpdb->termmeta) ? $wpdb->termmeta : $wpdb->prefix . 'termmeta';
-            if (!$this->is_safe_identifier($termmeta)) {
+            if ( ! $this->is_safe_identifier($termmeta)) {
                 $this->usage_check_failed = true;
                 return;
             }
-            $hit = $wpdb->get_var($wpdb->prepare(
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
+            $hit = $wpdb->get_var(olimc_prepare(
                 'SELECT meta_value FROM %i
                  WHERE meta_key = %s
                  AND meta_value = %d
@@ -1518,6 +1617,7 @@ class OLIMC_Scanner {
                 'thumbnail_id',
                 $this->usage_check_id
             ));
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
             $this->finish_usage_query($hit);
             return;
         }
@@ -1536,11 +1636,11 @@ class OLIMC_Scanner {
      */
     private function collect_term_description_images() {
         global $wpdb;
-        if (!$this->begin_usage_query()) {
+        if ( ! $this->begin_usage_query()) {
             return;
         }
         $term_taxonomy = isset($wpdb->term_taxonomy) ? $wpdb->term_taxonomy : $wpdb->prefix . 'term_taxonomy';
-        if (!$this->is_safe_identifier($term_taxonomy)) {
+        if ( ! $this->is_safe_identifier($term_taxonomy)) {
             if ($this->usage_check_id !== null) {
                 $this->usage_check_failed = true;
             }
@@ -1552,11 +1652,11 @@ class OLIMC_Scanner {
                 $this->usage_check_failed = true;
                 return;
             }
-            $like_sql = $this->prepared_like_or(['description'], $needles);
+            $like_sql = $this->prepared_like_or([ 'description' ], $needles);
             if ($like_sql === null) {
                 return;
             }
-            $from_sql = $wpdb->prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
+            $from_sql = olimc_prepare('SELECT term_taxonomy_id FROM %i WHERE (', $term_taxonomy);
             $where_sql = $from_sql . $like_sql . ') LIMIT 1';
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
             $hit = $wpdb->get_var($where_sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
@@ -1566,12 +1666,14 @@ class OLIMC_Scanner {
         $like = $this->upload_content_like();
         $rows = [];
         if ($like !== null) {
-            $rows = $wpdb->get_col($wpdb->prepare(
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
+            $rows = $wpdb->get_col(olimc_prepare(
                 'SELECT description FROM %i
                  WHERE description LIKE %s',
                 $term_taxonomy,
                 $like
             ));
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
         }
 
         foreach ($rows as $description) {
@@ -1611,12 +1713,12 @@ class OLIMC_Scanner {
      * @param array<int, mixed> $used Used attachment IDs.
      * @return array<int, int>|null Map of attachment ID => 1, or null on database error.
      */
-    public function ids_sharing_files_with_used(array $used) {
+    public function ids_sharing_files_with_used( array $used ) {
         $normalized = [];
         foreach ($used as $id => $_unused) {
             $id = (int) $id;
             if ($id > 0) {
-                $normalized[$id] = 1;
+                $normalized[ $id ] = 1;
             }
         }
         if ($normalized === []) {
@@ -1637,17 +1739,17 @@ class OLIMC_Scanner {
                 }
                 $hit = false;
                 foreach ($ids as $id) {
-                    if (isset($normalized[$id]) || isset($added[$id])) {
+                    if (isset($normalized[ $id ]) || isset($added[ $id ])) {
                         $hit = true;
                         break;
                     }
                 }
-                if (!$hit) {
+                if ( ! $hit) {
                     continue;
                 }
                 foreach ($ids as $id) {
-                    if (!isset($normalized[$id]) && !isset($added[$id])) {
-                        $added[$id] = 1;
+                    if ( ! isset($normalized[ $id ]) && ! isset($added[ $id ])) {
+                        $added[ $id ] = 1;
                         $changed = true;
                     }
                 }
@@ -1664,7 +1766,7 @@ class OLIMC_Scanner {
      * @param int $attachment_id Attachment ID.
      * @return string[]|null
      */
-    public function shared_relative_upload_paths($attachment_id) {
+    public function shared_relative_upload_paths( $attachment_id ) {
         $attachment_id = (int) $attachment_id;
         $index = $this->upload_path_index();
         if ($index === null) {
@@ -1690,7 +1792,7 @@ class OLIMC_Scanner {
      * @param string[] $relatives Paths relative to the uploads directory.
      * @return bool
      */
-    public static function absolute_path_matches_relative($absolute, array $relatives) {
+    public static function absolute_path_matches_relative( $absolute, array $relatives ) {
         $absolute = str_replace('\\', '/', (string) $absolute);
         $basedir = self::upload_basedir();
         if ($basedir !== '') {
@@ -1729,13 +1831,13 @@ class OLIMC_Scanner {
      * @param string $absolute Absolute path.
      * @return bool|null
      */
-    public function absolute_file_is_shared($absolute) {
+    public function absolute_file_is_shared( $absolute ) {
         $index = $this->upload_path_index();
         if ($index === null) {
             return null;
         }
-        $candidates = [$absolute];
-        foreach (['.webp', '.avif'] as $extension) {
+        $candidates = [ $absolute ];
+        foreach ([ '.webp', '.avif' ] as $extension) {
             if (is_string($absolute) && strlen($absolute) > strlen($extension) && substr($absolute, -strlen($extension)) === $extension) {
                 $candidates[] = substr($absolute, 0, -strlen($extension));
             }
@@ -1745,7 +1847,7 @@ class OLIMC_Scanner {
                 if (count($ids) < 2) {
                     continue;
                 }
-                if (self::absolute_path_matches_relative($candidate, [$path])) {
+                if (self::absolute_path_matches_relative($candidate, [ $path ])) {
                     return true;
                 }
             }
@@ -1790,7 +1892,7 @@ class OLIMC_Scanner {
             '_wp_attachment_metadata',
             '_wp_attachment_backup_sizes'
         ));
-        if (!empty($wpdb->last_error) || !is_array($rows)) {
+        if ( ! empty($wpdb->last_error) || ! is_array($rows)) {
             self::$upload_path_index_cache = null;
             self::$upload_path_index_ready = true;
             return null;
@@ -1799,8 +1901,8 @@ class OLIMC_Scanner {
         $by_id = [];
         foreach ($rows as $row) {
             $id = (int) $row->post_id;
-            if (!isset($by_id[$id])) {
-                $by_id[$id] = [
+            if ( ! isset($by_id[ $id ])) {
+                $by_id[ $id ] = [
                     'file' => '',
                     'meta' => '',
                     'backup' => '',
@@ -1808,22 +1910,22 @@ class OLIMC_Scanner {
             }
             $key = isset($row->meta_key) ? (string) $row->meta_key : '';
             if ($key === '_wp_attached_file') {
-                $by_id[$id]['file'] = (string) $row->meta_value;
+                $by_id[ $id ]['file'] = (string) $row->meta_value;
             } elseif ($key === '_wp_attachment_metadata') {
-                $by_id[$id]['meta'] = $row->meta_value;
+                $by_id[ $id ]['meta'] = $row->meta_value;
             } elseif ($key === '_wp_attachment_backup_sizes') {
-                $by_id[$id]['backup'] = $row->meta_value;
+                $by_id[ $id ]['backup'] = $row->meta_value;
             }
         }
         $index = [];
         foreach ($by_id as $id => $parts) {
             $paths = $this->relative_paths_for_attachment_row($parts['file'], $parts['meta'], $parts['backup']);
             foreach ($paths as $path) {
-                $index[$path][] = (int) $id;
+                $index[ $path ][] = (int) $id;
             }
         }
         foreach ($index as $path => $list) {
-            $index[$path] = array_values(array_unique($list));
+            $index[ $path ] = array_values(array_unique($list));
         }
         self::$upload_path_index_cache = $index;
         self::$upload_path_index_ready = true;
@@ -1834,11 +1936,11 @@ class OLIMC_Scanner {
      * @return string Uploads basedir, or an empty string when WordPress is not loaded.
      */
     private static function upload_basedir() {
-        if (!function_exists('wp_upload_dir')) {
+        if ( ! function_exists('wp_upload_dir')) {
             return '';
         }
         $uploads = wp_upload_dir(null, false);
-        if (!is_array($uploads) || empty($uploads['basedir']) || !is_string($uploads['basedir'])) {
+        if ( ! is_array($uploads) || empty($uploads['basedir']) || ! is_string($uploads['basedir'])) {
             return '';
         }
         return rtrim(str_replace('\\', '/', $uploads['basedir']), '/');
@@ -1850,7 +1952,7 @@ class OLIMC_Scanner {
      * @param mixed  $backup_value  Raw _wp_attachment_backup_sizes value.
      * @return string[]
      */
-    private function relative_paths_for_attachment_row($attached_file, $meta_value, $backup_value = '') {
+    private function relative_paths_for_attachment_row( $attached_file, $meta_value, $backup_value = '' ) {
         $paths = [];
         $attached_file = $this->normalize_relative_upload_path($attached_file);
         if ($attached_file !== '') {
@@ -1858,23 +1960,23 @@ class OLIMC_Scanner {
         }
         $meta = $this->decode_attachment_meta($meta_value);
         $base = $attached_file;
-        if (is_array($meta) && !empty($meta['file']) && is_string($meta['file'])) {
+        if (is_array($meta) && ! empty($meta['file']) && is_string($meta['file'])) {
             $file = $this->normalize_relative_upload_path($meta['file']);
             if ($file !== '') {
                 $paths[] = $file;
                 $base = $file;
             }
         }
-        $dir = ($base !== '' && strpos($base, '/') !== false) ? dirname($base) : '';
+        $dir = ( $base !== '' && strpos($base, '/') !== false ) ? dirname($base) : '';
         if ($dir === '.') {
             $dir = '';
         }
-        if (is_array($meta) && !empty($meta['original_image']) && is_string($meta['original_image'])) {
+        if (is_array($meta) && ! empty($meta['original_image']) && is_string($meta['original_image'])) {
             $paths[] = $this->join_upload_dir($dir, $meta['original_image']);
         }
-        if (is_array($meta) && !empty($meta['sizes']) && is_array($meta['sizes'])) {
+        if (is_array($meta) && ! empty($meta['sizes']) && is_array($meta['sizes'])) {
             foreach ($meta['sizes'] as $size) {
-                if (is_array($size) && !empty($size['file']) && is_string($size['file'])) {
+                if (is_array($size) && ! empty($size['file']) && is_string($size['file'])) {
                     $paths[] = $this->join_upload_dir($dir, $size['file']);
                 }
             }
@@ -1882,7 +1984,7 @@ class OLIMC_Scanner {
         $backup = $this->decode_attachment_meta($backup_value);
         if (is_array($backup)) {
             foreach ($backup as $size) {
-                if (is_array($size) && !empty($size['file']) && is_string($size['file'])) {
+                if (is_array($size) && ! empty($size['file']) && is_string($size['file'])) {
                     $paths[] = $this->join_upload_dir($dir, $size['file']);
                 }
             }
@@ -1901,11 +2003,11 @@ class OLIMC_Scanner {
      * @param mixed $value Meta value.
      * @return array|null
      */
-    private function decode_attachment_meta($value) {
+    private function decode_attachment_meta( $value ) {
         if (is_array($value)) {
             return $value;
         }
-        if (!is_string($value) || $value === '') {
+        if ( ! is_string($value) || $value === '') {
             return null;
         }
         $data = function_exists('maybe_unserialize') ? maybe_unserialize($value) : @unserialize($value);
@@ -1917,7 +2019,7 @@ class OLIMC_Scanner {
      * @param string $file File name or relative path.
      * @return string
      */
-    private function join_upload_dir($dir, $file) {
+    private function join_upload_dir( $dir, $file ) {
         $file = $this->normalize_relative_upload_path($file);
         if ($file === '') {
             return '';
@@ -1932,8 +2034,8 @@ class OLIMC_Scanner {
      * @param string $path Upload path.
      * @return string
      */
-    private function normalize_relative_upload_path($path) {
-        if (!is_string($path)) {
+    private function normalize_relative_upload_path( $path ) {
+        if ( ! is_string($path)) {
             return '';
         }
         $path = str_replace('\\', '/', trim($path));
@@ -1946,15 +2048,15 @@ class OLIMC_Scanner {
      * Find attachment ID from a partial upload path (e.g. "2025/06/photo.jpg").
      * Caches lookups for performance.
      */
-    private function find_attachment_by_path($path) {
+    private function find_attachment_by_path( $path ) {
         global $wpdb;
         // Clean path
         $path = trim($path, '"\'\\/ ');
         // Remove thumbnail size suffix for lookup (e.g. photo-300x200.jpg -> photo.jpg)
         $clean = preg_replace('/-\d+x\d+(\.\w+)$/', '$1', $path);
 
-        if (isset($this->path_cache[$clean])) {
-            return $this->path_cache[$clean];
+        if (isset($this->path_cache[ $clean ])) {
+            return $this->path_cache[ $clean ];
         }
 
         $id = $wpdb->get_var($wpdb->prepare(
@@ -1966,7 +2068,7 @@ class OLIMC_Scanner {
         ));
 
         // If not found, try with the original (might be a thumbnail filename)
-        if (!$id && $clean !== $path) {
+        if ( ! $id && $clean !== $path) {
             $id = $wpdb->get_var($wpdb->prepare(
                 "SELECT post_id FROM {$wpdb->postmeta}
                  WHERE meta_key = '_wp_attached_file'
@@ -1976,8 +2078,8 @@ class OLIMC_Scanner {
             ));
         }
 
-        $this->path_cache[$clean] = $id ? (int) $id : 0;
-        return $this->path_cache[$clean];
+        $this->path_cache[ $clean ] = $id ? (int) $id : 0;
+        return $this->path_cache[ $clean ];
     }
 
     /**
@@ -1997,14 +2099,14 @@ class OLIMC_Scanner {
     /**
      * @param string $text Text that may cite an upload URL or path.
      */
-    private function merge_upload_paths_from_text($text) {
+    private function merge_upload_paths_from_text( $text ) {
         if ($this->usage_check_id !== null) {
             $paths = $this->attachment_relative_paths($this->usage_check_id);
             if ($paths === null) {
                 $this->usage_check_failed = true;
                 return;
             }
-            if (!is_string($text) || $text === '') {
+            if ( ! is_string($text) || $text === '') {
                 return;
             }
             foreach ($paths as $path) {

@@ -1,453 +1,948 @@
-# Translation template for Oli Media Cleaner.
 # Copyright (C) 2026 Olivier Bigras
-# This file is distributed under the same license as the Oli Media Cleaner plugin.
+# This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Oli Media Cleaner 1.5.3\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner/\n"
+"Project-Id-Version: Oli Media Cleaner 2.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-29 17:43+0000\n"
+"POT-Creation-Date: 2026-11-17T21:06:04+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: oli-media-cleaner\n"
-"X-Generator: Oli Media Cleaner i18n builder\n"
 
-#. Description of the plugin
-msgid ""
-"Scan and remove unused media files from your WordPress site to free "
-"up disk space. Deep scans post content, ACF fields, WooCommerce, "
-"Elementor, theme files, widgets, and more."
-msgstr ""
-
-#. translators: Admin menu title
-msgid "Media Cleaner"
-msgstr ""
-
+#. Plugin Name of the plugin
+#: oli-media-cleaner.php
 msgid "Oli Media Cleaner"
 msgstr ""
 
-msgid "Scanning..."
+#. Plugin URI of the plugin
+#: oli-media-cleaner.php
+msgid "https://github.com/olivierbigras/oli-media-cleaner"
 msgstr ""
 
-msgid "Scan complete!"
+#. Description of the plugin
+#: oli-media-cleaner.php
+msgid "Find unused media, move them to a safe trash, restore anytime. Local only: no ads, no tracking, nothing sent out."
 msgstr ""
 
-msgid "Trash this file?"
+#. Author of the plugin
+#: oli-media-cleaner.php
+msgid "Olivier Bigras"
 msgstr ""
 
-msgid "Permanently delete this file? This cannot be undone."
+#. Author URI of the plugin
+#: oli-media-cleaner.php
+msgid "https://olivierbigras.com"
 msgstr ""
 
-msgid "Trash all selected files?"
+#: includes/class-admin.php:66
+msgid "Donate"
 msgstr ""
 
-msgid "Permanently delete all selected files? This cannot be undone."
+#: includes/class-admin.php:66
+#: includes/class-list-table.php:244
+msgid "(opens in a new tab)"
 msgstr ""
 
-msgid "No files selected."
+#. translators: %s: media name
+#: includes/class-admin.php:86
+#: includes/class-list-table.php:92
+#: includes/class-list-table.php:281
+msgid "Keep"
 msgstr ""
 
-msgid "Trash ALL unused images? This will process all pages in batches."
+#: includes/class-admin.php:88
+msgid "Keep this media (never report it as unused)"
 msgstr ""
 
-msgid "Permanently delete ALL trashed files? This cannot be undone."
+#: includes/class-ajax.php:43
+#: includes/class-screen.php:177
+#: includes/class-screen.php:601
+#: assets/js/admin.js:663
+#: assets/js/admin.js:737
+msgid "You do not have permission to clean the media library."
 msgstr ""
 
-msgid "Remove selected items from whitelist?"
+#: includes/class-ajax.php:52
+msgid "Your session has expired. Reload the page and try again."
 msgstr ""
 
-msgid "Scan failed"
+#: includes/class-ajax.php:93
+#: includes/class-ajax.php:113
+msgid "Another scan is already running. Wait a few minutes, then try again."
 msgstr ""
 
-msgid "Network error"
+#: includes/class-ajax.php:275
+msgid "Only files in the trash can be deleted permanently."
 msgstr ""
 
-msgid "Batch scan error"
+#: includes/class-ajax.php:438
+msgid "The uploads folder is not writable."
 msgstr ""
 
-msgid "Network error during scan"
+#: includes/class-list-table.php:55
+msgid "Preview"
 msgstr ""
 
-msgid "Re-Scan"
-msgstr ""
-
-msgid "Scan for Unused Media"
-msgstr ""
-
-#. translators: %1$d: progress percent, %2$d: unused file count
-msgid "%1$d%% — %2$d unused found"
-msgstr ""
-
-#. translators: %d: unused file count
-msgid "%d unused files."
-msgstr ""
-
-#. translators: %d: unused file count
-msgid "Found %d unused files."
-msgstr ""
-
-msgid "Trashing..."
-msgstr ""
-
-msgid "Deleting..."
-msgstr ""
-
-msgid "Starting..."
-msgstr ""
-
-msgid "Error trashing files"
-msgstr ""
-
-msgid "Error deleting files"
-msgstr ""
-
-#. translators: %1$d: progress percent, %2$d: processed count, %3$d: total count
-msgid "%1$d%% — %2$d / %3$d trashed"
-msgstr ""
-
-#. translators: %d: number of files
-msgid "Done! %d files moved to trash."
-msgstr ""
-
-#. translators: %1$d: progress percent, %2$d: processed count, %3$d: total count
-msgid "%1$d%% — %2$d / %3$d permanently deleted"
-msgstr ""
-
-#. translators: %d: number of files
-msgid "Done! %d files permanently deleted."
-msgstr ""
-
-msgid "Error saving settings"
-msgstr ""
-
-#. translators: %1$d: selected count, %2$s: total size
-msgid "%1$d selected (%2$s)"
-msgstr ""
-
-#. translators: %d: number of items
-msgid "%d items"
-msgstr ""
-
-msgid "Trash All Unused"
-msgstr ""
-
-msgid "Empty Trash"
-msgstr ""
-
-#. translators: %s: localized date of the last scan
-msgid "Last scan: %s"
-msgstr ""
-
-msgid "Unused"
-msgstr ""
-
-msgid "Whitelist"
-msgstr ""
-
-msgid "Trash"
-msgstr ""
-
-msgid "Select All"
-msgstr ""
-
-msgid "Trash Selected"
-msgstr ""
-
-msgid "Whitelist Selected"
-msgstr ""
-
-msgid "Remove from Whitelist"
-msgstr ""
-
-msgid "Restore Selected"
-msgstr ""
-
-msgid "Delete Permanently"
-msgstr ""
-
-msgid "Images"
-msgstr ""
-
-msgid "Documents"
-msgstr ""
-
-msgid "Video"
-msgstr ""
-
-msgid "Audio"
-msgstr ""
-
-msgid "All Types"
-msgstr ""
-
-msgid "Other"
-msgstr ""
-
-msgid "Search files..."
-msgstr ""
-
-msgid "Search"
-msgstr ""
-
-msgid "Show"
-msgstr ""
-
-msgid "per page"
-msgstr ""
-
-msgid "Scheduled Auto-Cleanup"
-msgstr ""
-
-msgid "Enable Auto-Cleanup"
-msgstr ""
-
-msgid "Automatically scan and trash unused images on a schedule"
-msgstr ""
-
-msgid "Frequency"
-msgstr ""
-
-msgid "Daily"
-msgstr ""
-
-msgid "Twice Daily"
-msgstr ""
-
-msgid "Weekly"
-msgstr ""
-
-msgid "Next Scheduled Run"
-msgstr ""
-
-msgid "Not scheduled"
-msgstr ""
-
-msgid "Save Settings"
-msgstr ""
-
-msgid "Total Media"
-msgstr ""
-
-msgid "In Use"
-msgstr ""
-
-msgid "Space to Free"
-msgstr ""
-
-msgid "Whitelisted"
-msgstr ""
-
-msgid "No unused media found. Run a scan to detect unused files."
-msgstr ""
-
-msgid "No whitelisted items."
-msgstr ""
-
-msgid "Trash is empty."
-msgstr ""
-
+#: includes/class-list-table.php:56
 msgid "File"
 msgstr ""
 
-msgid "Name"
+#: includes/class-list-table.php:59
+msgid "Why it is kept"
 msgstr ""
 
+#: includes/class-list-table.php:61
 msgid "Size"
 msgstr ""
 
+#: includes/class-list-table.php:62
 msgid "Type"
 msgstr ""
 
-msgid "Date"
+#: includes/class-list-table.php:64
+msgid "Trashed on"
 msgstr ""
 
-msgid "Actions"
+#: includes/class-list-table.php:66
+msgid "Uploaded"
 msgstr ""
 
-msgid "View"
+#: includes/class-list-table.php:91
+#: assets/js/admin.js:820
+msgid "Move to trash"
 msgstr ""
 
-msgid "Edit"
+#. translators: %s: media name
+#: includes/class-list-table.php:96
+#: includes/class-list-table.php:287
+msgid "Stop keeping"
 msgstr ""
 
-msgid "Remove"
-msgstr ""
-
+#. translators: %s: media name
+#: includes/class-list-table.php:99
+#: includes/class-list-table.php:291
 msgid "Restore"
 msgstr ""
 
-msgid "Delete"
+#. translators: %s: media name
+#: includes/class-list-table.php:100
+#: includes/class-list-table.php:293
+#: assets/js/admin.js:826
+msgid "Delete permanently"
 msgstr ""
 
-msgid "Permission denied."
-msgstr ""
-
-msgid "Invalid nonce."
-msgstr ""
-
-#. translators: %1$d: number of used media, %2$d: total attachments
-msgid "Found %1$d used media. Scanning %2$d total attachments..."
-msgstr ""
-
-msgid "Invalid ID."
-msgstr ""
-
-msgid "File moved to trash."
-msgstr ""
-
-msgid "Could not trash file."
-msgstr ""
-
-msgid "File permanently deleted."
-msgstr ""
-
-msgid "Could not delete file."
-msgstr ""
-
-msgid "Added to whitelist."
-msgstr ""
-
-msgid "Removed from whitelist."
-msgstr ""
-
-msgid "File restored."
-msgstr ""
-
-msgid "Could not restore file."
-msgstr ""
-
-#. translators: %1$s: frequency label, %2$s: next run date
-msgid "Auto-cleanup enabled (%1$s). Next run: %2$s"
-msgstr ""
-
-msgid "Auto-cleanup disabled."
-msgstr ""
-
-#. translators: %d: number of files
-msgid "%d file moved to trash."
-msgid_plural "%d files moved to trash."
+#. translators: %s: number of items
+#: includes/class-list-table.php:153
+#, php-format
+msgid "%s item"
+msgid_plural "%s items"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of files
-msgid "%d file permanently deleted."
-msgid_plural "%d files permanently deleted."
+#: includes/class-list-table.php:160
+msgid "No result for these filters."
+msgstr ""
+
+#: includes/class-list-table.php:162
+#: includes/class-screen.php:371
+msgid "No unused media."
+msgstr ""
+
+#: includes/class-list-table.php:164
+msgid "No kept media. Keep a file so it is never reported as unused."
+msgstr ""
+
+#: includes/class-list-table.php:166
+msgid "The trash is empty. Files you move to the trash appear here and stay restorable."
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:213
+#, php-format
+msgid "Select “%s”"
+msgstr ""
+
+#. translators: 1: width in pixels, 2: height in pixels
+#: includes/class-list-table.php:252
+#, php-format
+msgid "%1$s × %2$s px"
+msgstr ""
+
+#: includes/class-list-table.php:256
+msgid "Former WordPress trash"
+msgstr ""
+
+#: includes/class-list-table.php:273
+msgid "View"
+msgstr ""
+
+#: includes/class-list-table.php:276
+msgid "Edit"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:281
+#, php-format
+msgid "Keep “%s”"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:283
+#: includes/class-screen.php:333
+#: includes/class-screen.php:441
+#: includes/class-screen.php:530
+#: includes/class-screen.php:617
+msgid "Trash"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:283
+#, php-format
+msgid "Move “%s” to the trash"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:287
+#, php-format
+msgid "Stop keeping “%s”"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:291
+#, php-format
+msgid "Restore “%s”"
+msgstr ""
+
+#. translators: %s: media name
+#: includes/class-list-table.php:293
+#, php-format
+msgid "Permanently delete “%s”"
+msgstr ""
+
+#: includes/class-list-table.php:304
+msgid "Kept by you"
+msgstr ""
+
+#. translators: %s: the protected path pattern that matched
+#: includes/class-list-table.php:307
+#, php-format
+msgid "Matches the pattern: %s"
+msgstr ""
+
+#: includes/class-list-table.php:362
+#: includes/class-list-table.php:365
+#: includes/class-screen.php:520
+msgid "All types"
+msgstr ""
+
+#: includes/class-list-table.php:366
+msgid "Images"
+msgstr ""
+
+#: includes/class-list-table.php:367
+msgid "Documents"
+msgstr ""
+
+#: includes/class-list-table.php:368
+msgid "Audio"
+msgstr ""
+
+#: includes/class-list-table.php:369
+msgid "Video"
+msgstr ""
+
+#: includes/class-list-table.php:370
+msgid "Other"
+msgstr ""
+
+#: includes/class-list-table.php:378
+#: includes/class-list-table.php:379
+msgid "All dates"
+msgstr ""
+
+#: includes/class-list-table.php:386
+#: includes/class-list-table.php:389
+msgid "All sizes"
+msgstr ""
+
+#: includes/class-list-table.php:390
+msgid "1 MB and larger"
+msgstr ""
+
+#: includes/class-list-table.php:391
+msgid "5 MB and larger"
+msgstr ""
+
+#: includes/class-list-table.php:392
+msgid "20 MB and larger"
+msgstr ""
+
+#: includes/class-list-table.php:398
+msgid "Filter"
+msgstr ""
+
+#: includes/class-list-table.php:407
+msgid "Reset filters"
+msgstr ""
+
+#: includes/class-scan.php:36
+#: assets/js/admin.js:291
+msgid "Preparing"
+msgstr ""
+
+#: includes/class-scan.php:38
+#: assets/js/admin.js:292
+msgid "Custom fields and ACF"
+msgstr ""
+
+#: includes/class-scan.php:40
+#: assets/js/admin.js:293
+msgid "Other metadata"
+msgstr ""
+
+#: includes/class-scan.php:42
+#: assets/js/admin.js:294
+msgid "Content, theme and widgets"
+msgstr ""
+
+#: includes/class-scan.php:44
+#: assets/js/admin.js:295
+msgid "Sorting results"
+msgstr ""
+
+#: includes/class-scan.php:350
+msgid "theme files"
+msgstr ""
+
+#: includes/class-scan.php:351
+msgid "widgets"
+msgstr ""
+
+#: includes/class-screen.php:35
+#: includes/class-screen.php:334
+msgid "Settings"
+msgstr ""
+
+#: includes/class-screen.php:48
+#: includes/class-screen.php:49
+#: includes/class-screen.php:181
+msgid "Media Cleaner"
+msgstr ""
+
+#: includes/class-screen.php:68
+msgid "Items per page"
+msgstr ""
+
+#: includes/class-screen.php:214
+msgid "Back up your site before cleaning. The trash keeps your files, but it is not a backup."
+msgstr ""
+
+#: includes/class-screen.php:217
+msgid "New in 2.0: the trash now sets files aside. Run a new scan."
+msgstr ""
+
+#: includes/class-screen.php:249
+msgid "Start scan"
+msgstr ""
+
+#. translators: %s: date and time of the last scan
+#: includes/class-screen.php:252
+#, php-format
+msgid "Last scan: %s"
+msgstr ""
+
+#: includes/class-screen.php:254
+msgid "No scan yet"
+msgstr ""
+
+#. translators: %s: list of the sources read by the scan
+#: includes/class-screen.php:267
+#, php-format
+msgid "Sources read: %s."
+msgstr ""
+
+#: includes/class-screen.php:268
+#: includes/class-screen.php:269
+msgid "See details"
+msgstr ""
+
+#. translators: %s: list of plugins whose media the scan cannot read
+#: includes/class-screen.php:276
+#, php-format
+msgid "Detected but not read: %s. Media used only by this plugin may be reported as unused by mistake."
+msgstr ""
+
+#: includes/class-screen.php:287
+msgid "Post content and excerpts"
+msgstr ""
+
+#: includes/class-screen.php:288
+msgid "Featured images, site logo and site icon"
+msgstr ""
+
+#: includes/class-screen.php:289
+msgid "Custom fields (ACF fields, galleries, repeaters, flexible content, clones, options pages) and other metadata"
+msgstr ""
+
+#: includes/class-screen.php:290
+msgid "WooCommerce galleries and variations, Elementor data"
+msgstr ""
+
+#: includes/class-screen.php:291
+msgid "Widgets, term thumbnails and term descriptions"
+msgstr ""
+
+#: includes/class-screen.php:292
+msgid "Theme files and CSS"
+msgstr ""
+
+#: includes/class-screen.php:310
+msgid "Media"
+msgstr ""
+
+#: includes/class-screen.php:311
+msgid "Unused"
+msgstr ""
+
+#: includes/class-screen.php:312
+msgid "Space to free"
+msgstr ""
+
+#: includes/class-screen.php:313
+msgid "In the trash"
+msgstr ""
+
+#: includes/class-screen.php:331
+#: includes/class-screen.php:443
+#: includes/class-screen.php:615
+msgid "To review"
+msgstr ""
+
+#: includes/class-screen.php:332
+#: includes/class-screen.php:438
+#: includes/class-screen.php:616
+msgid "Kept"
+msgstr ""
+
+#: includes/class-screen.php:336
+msgid "Media Cleaner sections"
+msgstr ""
+
+#: includes/class-screen.php:367
+msgid "No scan yet."
+msgstr ""
+
+#: includes/class-screen.php:367
+msgid "Run a scan to find the media your site no longer uses. Nothing is erased during a scan."
+msgstr ""
+
+#: includes/class-screen.php:371
+msgid "Your media library is clean. Run a new scan after your next big change."
+msgstr ""
+
+#: includes/class-screen.php:375
+msgid "This list predates your latest changes (plugin, theme or a scan older than 14 days). Run a new scan before moving files to the trash."
+msgstr ""
+
+#. translators: %s: percentage of the media library reported as unused
+#: includes/class-screen.php:381
+#, php-format
+msgid "%s of your media are reported. This often means a source cannot be read. Check a few files before acting."
+msgstr ""
+
+#: includes/class-screen.php:386
+msgid "These files are set aside, not erased. If your site still needs one, an image will be missing: restore it here. Empty the trash only after checking your site."
+msgstr ""
+
+#: includes/class-screen.php:396
+msgid "Search media"
+msgstr ""
+
+#: includes/class-screen.php:397
+msgid "Search"
+msgstr ""
+
+#: includes/class-screen.php:402
+msgid "Restore all"
+msgstr ""
+
+#: includes/class-screen.php:403
+#: assets/js/admin.js:829
+msgid "Empty the trash"
+msgstr ""
+
+#: includes/class-screen.php:422
+msgid "Export as CSV"
+msgstr ""
+
+#. translators: 1: percentage, 2: step number, 3: number of steps
+#: includes/class-screen.php:462
+#: assets/js/admin.js:366
+#, php-format,js-format
+msgid "The scan stopped at %1$s (step %2$d of %3$d). No file was marked as unused."
+msgstr ""
+
+#: includes/class-screen.php:463
+#: includes/class-screen.php:471
+#: assets/js/admin.js:362
+msgid "Scan in progress"
+msgstr ""
+
+#: includes/class-screen.php:465
+#: includes/class-screen.php:475
+#: assets/js/admin.js:371
+msgid "Resume scan"
+msgstr ""
+
+#: includes/class-screen.php:465
+#: includes/class-screen.php:475
+#: assets/js/admin.js:374
+msgid "Start over"
+msgstr ""
+
+#: includes/class-screen.php:466
+#: assets/js/admin.js:382
+msgid "Technical details"
+msgstr ""
+
+#. translators: %s: percentage reached when the scan paused
+#: includes/class-screen.php:474
+#, php-format
+msgid "The scan is paused at %s. Resume it or start over."
+msgstr ""
+
+#. translators: 1: step number, 2: number of steps, 3: step name
+#: includes/class-screen.php:480
+#: assets/js/admin.js:330
+#, php-format,js-format
+msgid "Step %1$d of %2$d: %3$s"
+msgstr ""
+
+#. translators: 1: percentage, 2: step number, 3: number of steps
+#: includes/class-screen.php:482
+#: assets/js/admin.js:331
+#, php-format,js-format
+msgid "%1$s, step %2$d of %3$d"
+msgstr ""
+
+#: includes/class-screen.php:483
+#: assets/js/admin.js:528
+msgid "Scan progress"
+msgstr ""
+
+#: includes/class-screen.php:492
+msgid "Nothing is marked as unused until the scan is finished."
+msgstr ""
+
+#: includes/class-screen.php:492
+msgid "If you leave this page, the scan pauses. You can resume it later."
+msgstr ""
+
+#: includes/class-screen.php:493
+msgid "Cancel scan"
+msgstr ""
+
+#: includes/class-screen.php:504
+#: assets/js/admin.js:530
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-screen.php:517
+msgid "Scan"
+msgstr ""
+
+#: includes/class-screen.php:518
+msgid "Attached media"
+msgstr ""
+
+#: includes/class-screen.php:518
+msgid "Count a file attached to a content item (“Uploaded to”) as used"
+msgstr ""
+
+#: includes/class-screen.php:518
+msgid "Safer: some attached files are not displayed, but they will not be reported."
+msgstr ""
+
+#: includes/class-screen.php:519
+msgid "Media types"
+msgstr ""
+
+#: includes/class-screen.php:521
+msgid "Images only"
+msgstr ""
+
+#: includes/class-screen.php:524
+msgid "Keep list"
+msgstr ""
+
+#: includes/class-screen.php:524
+msgid "Protected paths"
+msgstr ""
+
+#: includes/class-screen.php:526
+msgid "Test patterns"
+msgstr ""
+
+#: includes/class-screen.php:527
+msgid "One path, URL or pattern per line. * matches within one folder, ** across folders. Paths are relative to the uploads folder. Thumbnails and WebP/AVIF copies are protected with the original."
+msgstr ""
+
+#: includes/class-screen.php:530
+msgid "Empty the trash automatically"
+msgstr ""
+
+#: includes/class-screen.php:532
+msgid "Never, I will empty it myself"
+msgstr ""
+
+#: includes/class-screen.php:533
+msgid "After 30 days"
+msgstr ""
+
+#: includes/class-screen.php:534
+msgid "After 90 days"
+msgstr ""
+
+#: includes/class-screen.php:539
+msgid "Automatic emptying permanently deletes files without asking again."
+msgstr ""
+
+#: includes/class-screen.php:541
+msgid "Scheduled scan"
+msgstr ""
+
+#: includes/class-screen.php:543
+msgid "WP-Cron is disabled on this site. The scheduled scan depends on a server task."
+msgstr ""
+
+#: includes/class-screen.php:546
+msgid "Scan automatically on a schedule"
+msgstr ""
+
+#: includes/class-screen.php:546
+msgid "The scheduled scan only refreshes the list. Nothing is moved to the trash automatically."
+msgstr ""
+
+#: includes/class-screen.php:547
+msgid "Frequency"
+msgstr ""
+
+#: includes/class-screen.php:549
+msgid "Daily"
+msgstr ""
+
+#: includes/class-screen.php:550
+msgid "Twice daily"
+msgstr ""
+
+#: includes/class-screen.php:551
+msgid "Weekly"
+msgstr ""
+
+#: includes/class-screen.php:558
+msgid "Next run"
+msgstr ""
+
+#: includes/class-screen.php:558
+msgid "Not scheduled"
+msgstr ""
+
+#: includes/class-screen.php:561
+msgid "Advanced"
+msgstr ""
+
+#: includes/class-screen.php:561
+msgid "Careful mode (slow hosting): smaller batches and a short pause between requests"
+msgstr ""
+
+#: includes/class-screen.php:563
+msgid "Data"
+msgstr ""
+
+#: includes/class-screen.php:563
+msgid "Uninstall"
+msgstr ""
+
+#: includes/class-screen.php:563
+msgid "Delete the plugin data when it is uninstalled"
+msgstr ""
+
+#: includes/class-screen.php:563
+msgid "Files in the trash are restored to the media library first. They are never deleted."
+msgstr ""
+
+#: includes/class-screen.php:565
+#: includes/class-screen.php:566
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/class-screen.php:567
+msgid "Copy report"
+msgstr ""
+
+#: includes/class-screen.php:567
+msgid "The report stays on your site until you copy it yourself."
+msgstr ""
+
+#: includes/class-screen.php:568
+msgid "This plugin sends no data outside your site."
+msgstr ""
+
+#: includes/class-screen.php:569
+msgid "Save settings"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "Title"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "File name"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "MIME type"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "Size (bytes)"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "Readable size"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "Upload date"
+msgstr ""
+
+#: includes/class-screen.php:646
+msgid "Status"
+msgstr ""
+
+#: includes/class-settings.php:80
+msgid "Settings saved."
+msgstr ""
+
+#. translators: %s: the URL that was refused.
+#: includes/class-settings.php:160
+#: assets/js/admin.js:1061
+#, php-format,js-format
+msgid "The address %s is not on this site and was not saved."
+msgstr ""
+
+#: includes/class-settings.php:190
+msgid "One value was not valid. The previous value was kept."
+msgstr ""
+
+#: assets/js/admin.js:98
+msgid "Undo"
+msgstr ""
+
+#: assets/js/admin.js:108
+msgid "Dismiss this notice."
+msgstr ""
+
+#: assets/js/admin.js:168
+#, js-format
+msgid "%s file moved to the trash."
+msgid_plural "%s files moved to the trash."
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of items
-msgid "%d item added to whitelist."
-msgid_plural "%d items added to whitelist."
+#: assets/js/admin.js:171
+#, js-format
+msgid "%s file restored to the media library."
+msgid_plural "%s files restored to the media library."
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of items
-msgid "%d item removed from whitelist."
-msgid_plural "%d items removed from whitelist."
+#: assets/js/admin.js:174
+#, js-format
+msgid "%s file permanently deleted."
+msgid_plural "%s files permanently deleted."
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of files
-msgid "%d file restored."
-msgid_plural "%d files restored."
+#: assets/js/admin.js:177
+#, js-format
+msgid "%s file kept."
+msgid_plural "%s files kept."
 msgstr[0] ""
 msgstr[1] ""
 
-
-# Protection system strings (1.5.21)
-msgid "Protect from deletion"
-msgstr ""
-
-msgid "Protect this file from being listed as unused or deleted by Media Cleaner"
-msgstr ""
-
-msgid "When checked, Media Cleaner will never flag this file as unused and will refuse any deletion attempts."
-msgstr ""
-
-msgid "Protection Settings"
-msgstr ""
-
-msgid "Protect specific files from being listed as unused or deleted. Enter one path, URL, or glob pattern per line."
-msgstr ""
-
-msgid "Protected Paths"
-msgstr ""
-
-#. translators: Example patterns for protected paths
-msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
-msgstr ""
-
-msgid "Use * wildcards for glob patterns. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."
-msgstr ""
-
-msgid "Per-File Protection"
-msgstr ""
-
-msgid "Individual files can also be protected using the \"Protect from deletion\" checkbox in the attachment edit screen or media modal."
-msgstr ""
-
-msgid "Save Protection Settings"
-msgstr ""
-
-msgid "Protection settings saved."
-msgstr ""
-
-msgid "This file is protected and cannot be trashed."
-msgstr ""
-
-msgid "This file is protected and cannot be deleted."
-msgstr ""
-
-#. translators: %d: number of files
-msgid "%d protected file skipped."
-msgid_plural "%d protected files skipped."
+#: assets/js/admin.js:180
+#, js-format
+msgid "%s kept file was skipped."
+msgid_plural "%s kept files were skipped."
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of media items that are still in use
-msgid "%d used media item was kept."
-msgid_plural "%d used media items were kept."
+#: assets/js/admin.js:183
+#, js-format
+msgid "%1$s file could not be moved. %2$s"
+msgid_plural "%1$s files could not be moved. %2$s"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "No files were trashed."
+#: assets/js/admin.js:189
+msgid "The request did not complete. Nothing was changed. Reload the page and try again."
 msgstr ""
 
-msgid "No files were deleted."
-msgstr ""
-
-msgid "%d protected file in trash cannot be deleted."
-msgid_plural "%d protected files in trash cannot be deleted."
+#: assets/js/admin.js:338
+#, js-format
+msgid "%1$s of %2$s file checked"
+msgid_plural "%1$s of %2$s files checked"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: %d: number of files
-msgid "%d protected file in trash was not deleted."
-msgid_plural "%d protected files in trash were not deleted."
+#: assets/js/admin.js:342
+#, js-format
+msgid "Elapsed: %s"
+msgstr ""
+
+#: assets/js/admin.js:415
+#, js-format
+msgid "Scan complete: %1$s unused file (%2$s). Nothing was changed."
+msgid_plural "Scan complete: %1$s unused files (%2$s). Nothing was changed."
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: Example patterns for protected paths with ** syntax
-msgid "Examples:\n2024/03/logo-2019.png\n2023/*/header-*.jpg\n2024/**/receipts/*.pdf\nhttps://example.com/wp-content/uploads/2024/03/logo.png"
+#: assets/js/admin.js:569
+#: assets/js/admin.js:752
+#, js-format
+msgid "%1$s of %2$s files moved"
 msgstr ""
 
-msgid "Use * wildcards for glob patterns: * matches within one directory segment, ** matches across segments. Paths are relative to the uploads directory. Derivatives (thumbnails, WebP) are automatically protected when the original is protected."
+#: assets/js/admin.js:572
+#, js-format
+msgid "%1$s of %2$s files deleted"
 msgstr ""
 
-msgid "Pattern Match Counts:"
+#: assets/js/admin.js:575
+#, js-format
+msgid "%1$s of %2$s files restored"
 msgstr ""
 
-#. translators: %d: number of files
-msgid "%d file"
+#: assets/js/admin.js:654
+#, js-format
+msgid "“%s” is now in use and was not moved. Run a new scan."
 msgstr ""
 
-#. translators: %d: number of files
-msgid "%d files"
+#: assets/js/admin.js:679
+#, js-format
+msgid "%s file could not be restored. A file with the same name already exists."
+msgid_plural "%s files could not be restored. Files with the same name already exist."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:693
+#, js-format
+msgid "%s file could not be restored."
+msgid_plural "%s files could not be restored."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:709
+#, js-format
+msgid "%s kept file was restored instead of deleted."
+msgid_plural "%s kept files were restored instead of deleted."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:726
+#, js-format
+msgid "%s file could not be deleted because your site still uses it."
+msgid_plural "%s files could not be deleted because your site still uses them."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:746
+#, js-format
+msgid "%s file is no longer kept."
+msgid_plural "%s files are no longer kept."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:819
+#, js-format
+msgid "Move %s file to the trash?"
+msgid_plural "Move %s files to the trash?"
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:825
+#, js-format
+msgid "Permanently delete %s file?"
+msgid_plural "Permanently delete %s files?"
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:829
+msgid "Empty the trash?"
 msgstr ""
 
-msgid "No matches (possible typo?)"
+#: assets/js/admin.js:856
+#, js-format
+msgid "These files (%s) are set aside and removed from the media library. If your site still uses them, they will appear as missing: you can then restore them from the trash."
+msgstr ""
+
+#: assets/js/admin.js:859
+msgid "The files and their thumbnails will be erased from the server. This cannot be undone. A recent backup is recommended."
+msgstr ""
+
+#: assets/js/admin.js:862
+msgid "I checked some examples in the list and I have a recent backup."
+msgstr ""
+
+#: assets/js/admin.js:864
+msgid "I understand that this is permanent."
+msgstr ""
+
+#: assets/js/admin.js:870
+#, js-format
+msgid "and %s more"
+msgid_plural "and %s more"
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:925
+#, js-format
+msgid "All %s results are selected."
+msgstr ""
+
+#: assets/js/admin.js:926
+msgid "Clear selection"
+msgstr ""
+
+#: assets/js/admin.js:940
+#, js-format
+msgid "%s file is selected on this page."
+msgid_plural "%s files are selected on this page."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:942
+#, js-format
+msgid "Select all %s results"
+msgstr ""
+
+#: assets/js/admin.js:1051
+#, js-format
+msgid "%s file matches."
+msgid_plural "%s files match."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/js/admin.js:1057
+msgid "No match. Check the spelling."
+msgstr ""
+
+#: assets/js/admin.js:1071
+msgid "Report copied."
 msgstr ""

@@ -92,6 +92,14 @@ function protection_test_assert($condition, $message) {
 
 // Load the admin class to get path matching methods
 // We'll test the logic through reflection since methods are private
+require_once $root . '/includes/functions.php';
+require_once $root . '/includes/class-results.php';
+require_once $root . '/includes/class-trash.php';
+require_once $root . '/includes/class-scanner.php';
+require_once $root . '/includes/class-acf-meta-scanner.php';
+require_once $root . '/includes/class-media-usage-parser.php';
+require_once $root . '/includes/class-settings.php';
+require_once $root . '/includes/class-scan.php';
 require_once $root . '/includes/class-admin.php';
 
 // Test path normalization
@@ -272,45 +280,26 @@ protection_test_assert(
     'olimc_protected_paths filter can add patterns'
 );
 
-echo "\n=== Upgrade migration ===\n";
+echo "\n=== Legacy path migration (1.5.24) ===\n";
 
 $mock_options = [];
 $GLOBALS['olimc_test_filters'] = [];
-$mock_options['olimc_version'] = '1.5.23';
 $mock_options['olimc_protected_paths'] = "receipts/**\ncontracts/*.pdf";
 add_filter('olimc_legacy_protected_paths', function () {
     return ['tours/**', 'receipts/**'];
 });
-OLIMC_Admin::maybe_upgrade();
+OLIMC_Admin::migrate_protected_paths_from_legacy();
 protection_test_assert(
     $mock_options['olimc_protected_paths'] === "receipts/**\ncontracts/*.pdf\ntours/**",
-    'upgrade copies previous values into the site option without dropping existing lines'
-);
-protection_test_assert(
-    $mock_options['olimc_version'] === '1.5.24',
-    'upgrade stores the current plugin version'
+    'migration copies previous values into the site option without dropping existing lines'
 );
 
 $mock_options = [];
 $GLOBALS['olimc_test_filters'] = [];
-$mock_options['olimc_version'] = '1.5.23';
-OLIMC_Admin::maybe_upgrade();
+OLIMC_Admin::migrate_protected_paths_from_legacy();
 protection_test_assert(
     $mock_options['olimc_protected_paths'] === '',
-    'upgrade does not hardcode a built-in client list when none is supplied'
-);
-
-$mock_options = [];
-$GLOBALS['olimc_test_filters'] = [];
-$mock_options['olimc_version'] = '1.5.24';
-$mock_options['olimc_protected_paths'] = 'keep-me.png';
-add_filter('olimc_legacy_protected_paths', function () {
-    return ['should-not-run/**'];
-});
-OLIMC_Admin::maybe_upgrade();
-protection_test_assert(
-    $mock_options['olimc_protected_paths'] === 'keep-me.png',
-    'already-migrated sites are left unchanged'
+    'migration does not hardcode a built-in list when none is supplied'
 );
 
 echo "\n=== Summary ===\n";

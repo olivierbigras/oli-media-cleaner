@@ -1,59 +1,52 @@
-/* Oli Media Cleaner – Minimal admin overrides */
-
-.widefat td img { vertical-align: middle; }
-.widefat tbody tr.olimc-loading { opacity: .4; pointer-events: none; }
-.tablenav .actions label { margin-right: 6px; }
-#olimc-trash-all-btn,
-#olimc-empty-trash-btn,
-#olimc-remove-all-whitelist-btn,
-#olimc-bulk-delete-btn { color: #b32d2e; }
-#olimc-pagination { display: flex; align-items: center; gap: 2px; padding: 8px 0; }
-#olimc-pagination .button { min-width: 30px; text-align: center; }
-#olimc-pagination .button.active { background: #2271b1; color: #fff; border-color: #2271b1; }
-#olimc-pagination .olimc-page-info { font-size: 13px; color: #646970; margin: 0 6px; }
-
-.olimc-toast {
-    position: fixed; bottom: 30px; right: 30px;
-    padding: 10px 18px; border-radius: 4px; color: #fff;
-    font-size: 13px; z-index: 99999; opacity: 0;
-    transform: translateY(10px); transition: all .3s;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+/* Oli Media Cleaner 2.0: admin screen. Native WordPress first; no gradient, no font, no image. */
+.olimc-stats{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;padding:0;list-style:none}
+.olimc-stats li{box-sizing:border-box;flex:1 1 150px;margin:0;padding:12px 16px;background:#fff;border:1px solid #c3c4c7}
+.olimc-stats b{display:block;font-size:20px;line-height:1.4;font-weight:600}
+.olimc-scanbar{margin:16px 0 8px}
+.olimc-sources{margin:0 0 12px}
+.olimc-bar{height:12px;overflow:hidden;background:#dcdcde;border-radius:2px}
+.olimc-bar>span{display:block;width:0;height:100%;background:#2271b1;transition:width .3s}
+.olimc-panel{max-width:720px;margin:16px 0;padding:16px 20px;background:#fff;border:1px solid #c3c4c7}
+.olimc-panel h2{margin:0 0 8px;padding:0;font-size:14px}
+.olimc-panel p{margin:8px 0}
+.olimc-counter{display:flex;justify-content:space-between;gap:12px}
+.olimc-steps{margin:8px 0 0;padding:0;list-style:none;color:#50575e}
+.olimc-steps li{display:inline-block;margin:0 12px 0 0}
+.olimc-steps .is-now{color:#1d2327;font-weight:600}
+.olimc-empty{max-width:720px;padding:8px 0}
+.olimc-empty h2{font-size:16px}
+.olimc-table .column-preview{width:64px}
+.olimc-table .column-size,.olimc-table .column-type{width:90px}
+.olimc-table .column-date{width:150px}
+.olimc-thumb{display:block;width:48px;height:48px;object-fit:cover;background:#f0f0f1}
+.olimc-toolbar{margin:8px 0}
+.olimc-bulkbar{margin:8px 0;padding:8px 12px;background:#f0f6fc;border-left:4px solid #2271b1}
+.olimc-bulkbar .button-link{min-height:44px}
+.olimc-danger,.olimc-danger:hover{color:#b32d2e}
+.olimc-danger{border-color:#b32d2e}
+.olimc-wrap [aria-disabled=true]{opacity:.6;cursor:not-allowed}
+.olimc-dialog{width:min(520px,calc(100vw - 32px));padding:24px;border:0;border-radius:2px;box-shadow:0 3px 30px rgba(0,0,0,.35)}
+.olimc-dialog::backdrop{background:rgba(0,0,0,.6)}
+.olimc-dialog h2{margin:0 0 12px;font-size:18px}
+.olimc-dialog ul{margin:12px 0;padding:0;list-style:none}
+.olimc-dialog li{display:flex;gap:8px;align-items:center;margin:4px 0;word-break:break-all}
+.olimc-dialog li img{width:32px;height:32px;object-fit:cover}
+.olimc-dialog footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:20px}
+.olimc-dialog .button-large,.olimc-wrap .button-large{min-height:44px;display:inline-flex;align-items:center}
+.olimc-ok label{display:flex;gap:8px;align-items:center;min-height:44px}
+.olimc-dialog .olimc-danger.button-primary{background:#b32d2e;border-color:#b32d2e;color:#fff}
+.olimc-wrap a:focus-visible,.olimc-wrap button:focus-visible,.olimc-wrap summary:focus-visible,.olimc-dialog button:focus-visible,.olimc-dialog input:focus-visible{outline:2px solid #2271b1;outline-offset:2px;box-shadow:0 0 0 4px #fff}
+.olimc-trash-note{max-width:720px}
+.olimc-mono{font-family:Consolas,Monaco,monospace}
+.olimc-wrap details{max-width:720px;margin:12px 0}
+.olimc-pattern-lines{margin:4px 0}
+@media (max-width:782px){
+.olimc-wrap .button,.olimc-wrap .row-actions a,.olimc-wrap .row-actions button,.olimc-wrap .nav-tab,.olimc-wrap .olimc-bulkbar button,.olimc-dialog .button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.olimc-wrap .row-actions{position:static;display:flex;flex-wrap:wrap;gap:0 12px}
+.olimc-wrap .row-actions span{display:inline-flex}
+.olimc-stats li{flex-basis:calc(50% - 6px)}
+.olimc-panel{padding:12px}
+.olimc-dialog footer .button{flex:1 1 100%}
+.olimc-steps li{display:block}
 }
-.olimc-toast.show { opacity: 1; transform: translateY(0); }
-.olimc-toast.success { background: #00a32a; }
-.olimc-toast.error { background: #d63638; }
-.olimc-toast.info { background: #2271b1; }
-
-/* Scan button spinner */
-.olimc-spinner {
-    display: inline-block;
-    width: 14px; height: 14px;
-    margin-right: 6px;
-    vertical-align: text-bottom;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: olimc-spin .7s linear infinite;
-}
-@keyframes olimc-spin { to { transform: rotate(360deg); } }
-
-/* Progress wrap + status line */
-#olimc-progress-text { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-#olimc-progress-text .olimc-spinner { color: #2271b1; margin-right: 0; }
-
-/* Indeterminate (preparing) state: animated sweep before real % is known */
-#olimc-progress-fill.olimc-indeterminate {
-    width: 100% !important;
-    background-image: linear-gradient(
-        90deg,
-        rgba(34,113,177,.25) 25%,
-        #2271b1 50%,
-        rgba(34,113,177,.25) 75%
-    );
-    background-size: 200% 100%;
-    animation: olimc-sweep 1.1s ease-in-out infinite;
-}
-@keyframes olimc-sweep {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
+@media (prefers-reduced-motion:reduce){.olimc-bar>span{transition:none}}

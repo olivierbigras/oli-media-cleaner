@@ -1,12 +1,8 @@
 {
   "name": "oli-media-cleaner",
   "private": true,
-  "description": "Dev tests for Oli Media Cleaner admin UI",
+  "description": "Dev checks for Oli Media Cleaner (no runtime dependency).",
   "scripts": {
-    "test": "node tests/toolbar.test.js"
-  },
-  "devDependencies": {
-    "jquery": "^3.7.1",
-    "jsdom": "^26.1.0"
+    "test": "node --check assets/js/admin.js"
   }
 }

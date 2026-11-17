@@ -1,107 +1,110 @@
 === Oli Media Cleaner ===
 Contributors: bigrat95
 Donate link: https://www.paypal.com/donate/?hosted_button_id=29SAPKFAHMTNW
-Tags: media, cleanup, unused images, media cleaner, disk space
-Requires at least: 6.2
+Tags: unused media, media library, cleanup, trash, images
+Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.5.26
+Stable tag: 2.0.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Scan and remove unused media files from your WordPress site to free up disk space.
+Find unused media, move them to a safe trash, restore anytime. Local only: no ads, no tracking, nothing sent out.
 
 == Description ==
 
-**Oli Media Cleaner** scans your entire WordPress site to find media files that are no longer in use. It performs a deep analysis across multiple sources to accurately determine which files are safe to remove.
+**Oli Media Cleaner** finds the files of your media library that your site no longer uses, and lets you clean them up in five calm steps:
 
-= What Gets Scanned =
+1. **Scan.** Nothing is changed during a scan. It runs in small steps, shows a progress bar, and can be paused and resumed.
+2. **Review.** Look at the list (search, filters, sort, CSV export). Keep any file you want to protect.
+3. **Trash.** Move the files you do not need to the plugin's trash. Your site is checked again, file by file, just before each move.
+4. **Restore.** Changed your mind, or an image is missing on your site? Restore it from the trash in one click.
+5. **Empty the trash.** Only files in the trash can be deleted permanently, and the plugin asks for confirmation first.
 
-* **Post & page content** — all post types, Gutenberg blocks, classic editor
-* **Featured images** — all post types including WooCommerce product variations
-* **Custom fields (post meta)** — any plugin or theme that stores attachment IDs or URLs
-* **ACF (Advanced Custom Fields)** — image, file, gallery, repeater, flexible content, group, clone fields, and Options pages
-* **WooCommerce** — product galleries, variation images
-* **Elementor** — page builder widget data
-* **Theme files** — PHP, CSS, JS templates scanned for hardcoded image references
-* **CSS background images** — inline styles in post content
-* **Widgets** — image, gallery, text, custom HTML widgets
-* **Site identity** — site logo, site icon, theme mods
-* **Serialized data** — deep scan of complex plugin data structures
+= What is read during a scan =
 
-= Features =
+* Post and page content (all post types, blocks and classic editor), excerpts
+* Featured images, site logo and site icon
+* Custom fields: ACF (image, file, gallery, repeater, flexible content, group, clone, options pages) and other post, term, user and option metadata
+* WooCommerce product galleries and variations, Elementor data
+* Widgets, term thumbnails and term descriptions
+* Theme files and CSS (hard-coded image references)
 
-* **Batch scanning** — processes 50 attachments per batch to avoid timeouts
-* **Whitelist** — protect files you want to keep even if unused
-* **Bulk actions** — trash, whitelist, restore, or permanently delete multiple files at once
-* **CSV export** — export the current view (respects search, type filter, and sort) for offline analysis in Excel, Numbers, or Google Sheets
-* **Trash All** — one-click batch trash of all unused images with progress bar (handles thousands)
-* **Scheduled auto-cleanup** — enable daily, twice daily, or weekly automatic scan and trash via WP-Cron
-* **Progress bar** — real-time scanning progress
-* **No external dependencies** — uses native WordPress admin styles, no Bootstrap or jQuery UI
-* **Zero custom database tables** — stores data in WordPress options
-* **Clean uninstall** — removes all plugin data on deletion
+= What is not read =
 
-= How to Use =
+* Files used only by a plugin that stores its data outside the WordPress database, in a format the scan cannot understand. When the plugin detects such a plugin, it tells you on the screen.
+* Anything on another site, a CDN or a remote storage.
 
-1. Go to **Media Cleaner** under **Media** in the WordPress admin sidebar
-2. Click **Scan for Unused Media**
-3. Review the results in the **Unused** tab
-4. **Whitelist** any files you want to keep
-5. **Trash** files you don't need
-6. Go to the **Trash** tab to permanently delete or restore files
+Back up your site before cleaning. The trash keeps your files, but it is not a backup.
+
+= Built to be quiet and safe =
+
+* No ads, no upsell, no rating request, no tracking, no remote call: nothing leaves your site.
+* Native WordPress screens (list table, tabs, notices), keyboard friendly, readable with a screen reader, usable on a phone.
+* The scheduled scan only refreshes the list. It never moves or deletes anything.
+* A file used by two media entries is never deleted while the other one needs it.
+* Fully translated: French (Canada and France).
 
 == Installation ==
 
-1. Upload the `oli-media-cleaner` folder to `/wp-content/plugins/`
-2. Activate the plugin through the **Plugins** menu in WordPress
-3. Go to **Media Cleaner** under **Media** in the admin sidebar
-4. Click **Scan for Unused Media** to start
+1. Upload the `oli-media-cleaner` folder to `/wp-content/plugins/`, or install it from the **Plugins** screen.
+2. Activate the plugin.
+3. Open **Media > Media Cleaner** and click **Start scan**.
 
 == Frequently Asked Questions ==
 
-= Is it safe to delete unused media? =
+= Is it safe? =
 
-The plugin moves files to WordPress trash first. You can review and restore them before permanently deleting. We recommend making a full backup before any bulk deletion.
+Nothing is changed during a scan. Files you trash are set aside, not erased, and you can restore them. Make a backup before cleaning anyway: the trash is not a backup.
 
-= Does it work with ACF? =
+= Why is an image missing on my site after I used the trash? =
 
-Yes. The plugin uses the ACF API to discover all field groups and recursively scans image, file, gallery, repeater, flexible content, group, and clone fields — including ACF Options pages.
+The file was used by something the scan could not read. Open the **Trash** tab and restore it. Then tell us what plugin or theme uses it so we can read it in a future version.
 
-= Does it work with WooCommerce? =
+= Which sources does the scan read? =
 
-Yes. Product featured images, gallery images, and variation images are all detected as "in use."
+Content, featured images, custom fields (including ACF), WooCommerce, Elementor, widgets, term data, theme files and CSS. The list is on the screen, under the **Start scan** button.
 
-= Does it work with Elementor? =
+= What happens when I uninstall the plugin? =
 
-Yes. The plugin scans Elementor's `_elementor_data` post meta for image references.
+Media in the trash are restored to the media library first, then the plugin data is removed. No media file is ever deleted by the uninstall. You can keep the data by unchecking the option in **Settings**.
 
-= Does it scan theme files? =
+= Does the plugin send my data anywhere? =
 
-Yes. All PHP, CSS, and JS files in the active theme (and parent theme) are scanned for hardcoded references to `wp-content/uploads/`.
+No. It makes no remote request and loads no external resource.
 
-= What about images hardcoded in theme templates? =
+= Does the scheduled scan delete anything? =
 
-Those are detected by the theme file scanner. It finds both URL paths and `wp_get_attachment_image()` function calls.
+No. It only refreshes the list. Moving files to the trash is always your action.
 
-= Can I whitelist images? =
+= Does it create a database table? =
 
-Yes. You can whitelist individual images or use bulk select to whitelist multiple at once. Whitelisted images are never flagged as unused.
-
-= Which languages are supported? =
-
-The plugin ships with complete translations for every locale listed on [translate.wordpress.org](https://translate.wordpress.org/projects/wp-plugins/oli-media-cleaner/) (except joke locales such as Emoji and Pirate). Unique translations cover major languages including French, German, Spanish, Italian, Portuguese, Dutch, Japanese, Chinese, Korean, Russian, Polish, Arabic, Turkish, Hebrew, Hindi, Indonesian, Vietnamese, Thai, and many more, plus regional variants (Swiss German, Latin American Spanish, Brazilian vs European Portuguese, and others). Improvements can still be contributed on GlotPress.
-
-= Does it create custom database tables? =
-
-No. The plugin uses WordPress options only. Clean and lightweight.
+Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that large libraries stay fast. It is removed on uninstall.
 
 == Screenshots ==
 
-1. Dashboard with stats, scan button, and unused media list using generic sample files
-2. Pagination controls and scheduled scan settings
+1. The list of unused media, with filters and bulk actions
+2. A scan in progress, with its five steps
+3. The confirmation dialog before moving files to the trash
+4. The trash tab: restore, or delete permanently
+5. Settings: kept files, automatic emptying, scheduled scan
+6. The same list on a phone
 
 == Changelog ==
+
+= 2.0.0 =
+* NEW: Redesigned screen on native WordPress components: tabs "To review", "Kept", "Trash" and "Settings", WordPress list table with screen options, notices instead of pop-ups.
+* NEW: The scan runs in five visible steps with a progress bar, a counter and an elapsed time. It can be paused, resumed or cancelled. Nothing is marked as unused until it is complete.
+* NEW: Single trash with "Undo". Grouped actions and permanent deletion ask for confirmation in an accessible dialog. A checkbox is required for large selections and for emptying the trash.
+* NEW: "Select all results" across pages, and results stored in a dedicated table for large libraries.
+* NEW: The list is flagged as out of date after a change of plugin, theme or media, or after 14 days; every file is checked again live before it is moved.
+* NEW: Settings: kept paths with a "Test patterns" button, automatic emptying (never, 30 or 90 days), scheduled scan (analysis only), careful mode, data removal on uninstall, diagnostics report.
+* NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
+* CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
+* CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).
+* CHANGE: Requires WordPress 5.8 (was 6.2).
+* REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.
+* REMOVED: All translations except French (Canada and France), which are rewritten for the new screen.
 
 = 1.5.26 =
 * FIX: Stop wrapping SQL fragments or ID lists with esc_sql() before $wpdb->prepare() (WP 4.8.3+ placeholder escaping broke those queries)
@@ -149,14 +152,14 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 * CHANGE: AJAX and cron keep separate scan state, a lock, and a pending-results option so they cannot overwrite each other or rewrite the full unused list on every batch
 
 = 1.5.17 =
-* FIX: ACF image fields (including the default array return format on custom post types such as concert) are detected with indexed meta_key lookups from acf_get_field_groups() / acf_get_fields(), instead of one LIKE query per stored key
+* FIX: ACF image fields (including the default array return format on custom post types such as event) are detected with indexed meta_key lookups from acf_get_field_groups() / acf_get_fields(), instead of one LIKE query per stored key
 * FIX: Load ACF local JSON and PHP field groups before scanning, so cron does not miss field groups that are not registered yet
 * FIX: Nested repeater, flexible content, group and clone fields (for example content_blocks_4_image_carousel_images) are resolved from the ACF reference meta, then loaded in batches
 * FIX: If ACF is inactive or field groups cannot be resolved, a chunked raw-meta scan is used. An incomplete or failed scan marks nothing as unused
 * CHANGE: Scans resume across AJAX and cron requests. Scheduled runs still only scan — they never trash or delete media
 
 = 1.5.16 =
-* FIX: Reliable ACF attachment detection from raw post meta (including `_field` references), even when ACF is inactive — fixes false “unused” results for CPT fields such as concert `image` (ID, array, and URL return formats)
+* FIX: Reliable ACF attachment detection from raw post meta (including `_field` references), even when ACF is inactive — fixes false “unused” results for CPT fields such as event `image` (ID, array, and URL return formats)
 * FIX: Gallery and repeater/flexible/clone sub-fields, options pages, term meta, and user meta are scanned with a generic fallback for any attachment ID stored in meta
 * CHANGE: Scheduled auto-cleanup now runs a scan only; media are never trashed or deleted automatically (manual confirmation still required in the admin)
 * CHANGE: Trash and delete confirmations show a filename preview; trash actions remind you that files go to Media Trash first
@@ -268,92 +271,8 @@ No. The plugin uses WordPress options only. Clean and lightweight.
 
 == Upgrade Notice ==
 
+= 2.0.0 =
+New interface and a new trash. Your list of kept media is carried over. Run a new scan after updating: the previous results are dropped. Requires WordPress 5.8+.
+
 = 1.5.26 =
-Fixes SQL queries that combined esc_sql() with $wpdb->prepare(). Screenshots replaced with generic demo media.
-
-= 1.5.25 =
-Plugin Check 2.1.0 compliance. Requires WordPress 6.2+. No change to scan or deletion behavior.
-
-= 1.5.22 =
-Maintenance release: GitHub links updated. No functional change.
-
-= 1.5.21 =
-Protection system for files referenced outside WordPress. Add paths/URLs/globs to settings or use per-file checkboxes to prevent deletion.
-
-= 1.5.20 =
-Shared files stay on disk even if an attachment is trashed or deleted outside this plugin, including by Imagify. A previous scan result is no longer treated as proof that a file is in use.
-
-= 1.5.19 =
-Fixes linked files missed inside HTML, and stops permanent delete from removing a file that another attachment still uses. Update before deleting anything the 1.5.18 scan flagged.
-
-= 1.5.18 =
-Fixes missed ACF fields whose names contain a hyphen, and upload URLs on Bedrock (/app/uploads). Non-ACF meta is scanned again. Update before deleting anything the 1.5.17 scan flagged.
-
-= 1.5.17 =
-Fixes ACF media detection on large sites (no per-key LIKE scans). Failed scans no longer flag media as unused.
-
-= 1.5.16 =
-Critical fix for ACF image/file usage detection; scheduled tasks no longer trash media automatically.
-
-= 1.5.15 =
-CSV export now includes a Status column and covers Unused, Whitelist, and Trash in one file.
-
-= 1.5.14 =
-"Trash All Unused" is now always available on the Unused tab when there are unused items.
-
-= 1.5.13 =
-Clearer bulk actions: selection-only buttons on Whitelist/Trash, Remove All from Whitelist, stronger Empty Trash warning.
-
-= 1.5.12 =
-Adds Settings and Donate links on the Plugins screen, plus an optional support notice in the Media Cleaner UI.
-
-= 1.5.11 =
-Your "per page" choice is now remembered, so pagination stays consistent after reloads instead of resetting to 20.
-
-= 1.5.10 =
-Removes the redundant second "Select All" checkbox; the table header checkbox selects all.
-
-= 1.5.9 =
-Adds a CSV export of the current (filtered) list for offline analysis in a spreadsheet.
-
-= 1.5.8 =
-"Trash Selected" and "Whitelist Selected" now appear only when at least one item is selected.
-
-= 1.5.7 =
-Adds a "Restore All" button to the Trash tab for one-click bulk restore of every trashed file.
-
-= 1.5.6 =
-The "Trash All Unused" button now only shows when more than one item is selected.
-
-= 1.5.5 =
-Fixes the file type filter being empty until a page refresh after scanning, and adds clearer "working" feedback while a scan starts up.
-
-= 1.5.4 =
-Confirms compatibility with WordPress 7.1 and removes the "untested with your version of WordPress" warning.
-
-= 1.5.3 =
-Adds bundled translations for 200+ WordPress.org locales, English (Canada/UK) support, and a complete translation template for GlotPress.
-
-= 1.5.2 =
-Fixes bulk action buttons not appearing when switching to the Trash or Whitelist tab.
-
-= 1.5.1 =
-Fixes false unused-media positives for ACF galleries stored inside clone fields.
-
-= 1.5.0 =
-Adds Empty Trash, taxonomy image scanning, and live tab count updates.
-
-= 1.4.0 =
-Fixes all WordPress Plugin Check errors for WP.org compliance.
-
-= 1.3.0 =
-Adds column sorting and file type filter.
-
-= 1.2.0 =
-Adds search functionality to filter images.
-
-= 1.1.0 =
-Adds Trash All button and scheduled auto-cleanup.
-
-= 1.0.0 =
-Initial release.
+Fixes SQL queries that combined esc_sql() with $wpdb->prepare().

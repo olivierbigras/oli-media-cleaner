@@ -41,7 +41,7 @@ class OLIMC_Media_Usage_Parser {
 			if ( empty( $uploads[ $key ] ) || ! is_string( $uploads[ $key ] ) ) {
 				continue;
 			}
-			$value = rtrim( $uploads[ $key ], "/\\" );
+			$value = rtrim( $uploads[ $key ], '/\\' );
 			if ( $value === '' ) {
 				continue;
 			}
@@ -95,7 +95,7 @@ class OLIMC_Media_Usage_Parser {
 				$parsed = wp_parse_url( strpos( $marker, '//' ) === 0 ? 'http:' . $marker : $marker, PHP_URL_PATH );
 				$path   = is_string( $parsed ) ? $parsed : '';
 			}
-			$path = rtrim( (string) $path, "/\\" );
+			$path = rtrim( (string) $path, '/\\' );
 			if ( $path !== '' && ( $best === '' || strlen( $path ) < strlen( $best ) ) ) {
 				$best = $path;
 			}

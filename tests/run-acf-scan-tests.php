@@ -105,6 +105,7 @@ if ( ! function_exists( '_n' ) ) {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/functions.php';
 require_once dirname( __DIR__ ) . '/includes/class-media-usage-parser.php';
 require_once dirname( __DIR__ ) . '/includes/class-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-acf-meta-scanner.php';
@@ -152,6 +153,9 @@ class OLIMC_Fake_Wpdb {
 	}
 
 	public function prepare( $sql, ...$args ) {
+		if ( 1 === count( $args ) && is_array( $args[0] ) ) {
+			$args = $args[0];
+		}
 		$index = 0;
 		return preg_replace_callback(
 			'/%[dfsi]/',
@@ -224,7 +228,7 @@ function acf_get_field_groups() {
 		return [];
 	}
 	return [
-		[ 'key' => 'group_concert' ],
+		[ 'key' => 'group_event' ],
 		[ 'key' => 'group_blocks' ],
 		[ 'key' => 'group_options' ],
 	];
@@ -238,9 +242,9 @@ function acf_get_fields( $key ) {
 	if ( empty( $GLOBALS['olimc_acf_enabled'] ) ) {
 		return [];
 	}
-	if ( $key === 'group_concert' ) {
+	if ( $key === 'group_event' ) {
 		return [
-			[ 'key' => 'field_concert_image', 'name' => 'image', 'type' => 'image' ],
+			[ 'key' => 'field_event_image', 'name' => 'image', 'type' => 'image' ],
 			[ 'key' => 'field_brochure', 'name' => 'brochure', 'type' => 'file' ],
 			[ 'key' => 'field_portrait', 'name' => 'portrait', 'type' => 'image' ],
 			[
@@ -316,11 +320,11 @@ $GLOBALS['olimc_acf_enabled'] = true;
 $scanner                      = new OLIMC_Scanner();
 $targets                      = $scanner->get_acf_media_field_targets();
 olimc_scan_assert( is_array( $targets ), 'ACF API resolves field groups' );
-olimc_scan_assert( in_array( 'image', $targets['names'], true ), 'concert image field name collected' );
+olimc_scan_assert( in_array( 'image', $targets['names'], true ), 'event image field name collected' );
 olimc_scan_assert( in_array( 'images', $targets['names'], true ), 'cloned gallery field name collected' );
 olimc_scan_assert( in_array( 'photo', $targets['names'], true ), 'repeater image sub-field collected' );
 olimc_scan_assert( in_array( 'shot', $targets['names'], true ), 'group image sub-field collected' );
-olimc_scan_assert( in_array( 'field_concert_image', $targets['keys'], true ), 'concert image field key collected' );
+olimc_scan_assert( in_array( 'field_event_image', $targets['keys'], true ), 'event image field key collected' );
 olimc_scan_assert( in_array( 'field_carousel_images', $targets['keys'], true ), 'clone gallery field key collected' );
 olimc_scan_assert( in_array( 'highlight-image', $targets['names'], true ), 'hyphenated ACF field name collected' );
 olimc_scan_assert(
@@ -336,6 +340,7 @@ $pdo = new PDO( 'sqlite::memory:' );
 $pdo->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 $pdo->exec( 'CREATE TABLE posts (ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT)' );
 $pdo->exec( 'CREATE TABLE postmeta (meta_id INTEGER PRIMARY KEY, post_id INTEGER, meta_key TEXT, meta_value TEXT)' );
+$pdo->exec( 'CREATE INDEX postmeta_post_id ON postmeta (post_id)' );
 $pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 $pdo->exec( 'CREATE TABLE usermeta (umeta_id INTEGER PRIMARY KEY, user_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 $pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
@@ -373,8 +378,8 @@ $builder_value = serialize( [ 'id' => 221 ] );
 $seed = [
 	[ 500001, 'image', '100' ],
 	[ 500002, 'image', $array_value ],
-	[ 500003, 'image', 'https://example.com/wp-content/uploads/2026/02/url-pastille.jpg' ],
-	[ 500004, '_wp_attached_file', '2026/02/url-pastille.jpg' ],
+	[ 500003, 'image', 'https://example.com/wp-content/uploads/2026/02/url-badge.jpg' ],
+	[ 500004, '_wp_attached_file', '2026/02/url-badge.jpg' ],
 	[ 500005, 'images', $gallery_value ],
 	[ 500006, '_content_blocks_4_image_carousel_images', 'field_carousel_images' ],
 	[ 500007, 'content_blocks_4_image_carousel_images', $clone_value ],
@@ -533,36 +538,39 @@ olimc_scan_assert( $failed['pending_unused'] === [], 'a failed scan has no unuse
 olimc_scan_assert( $failed['pending_delta'] === [], 'a failed scan has no pending delta' );
 
 $admin_source  = file_get_contents( dirname( __DIR__ ) . '/includes/class-admin.php' );
-$cron_start    = strpos( $admin_source, 'function run_scheduled_cleanup' );
-$cron_end      = strpos( $admin_source, 'function persist_scan_progress' );
-$cron_body     = substr( $admin_source, $cron_start, $cron_end - $cron_start );
+$scan_source   = file_get_contents( dirname( __DIR__ ) . '/includes/class-scan.php' );
+$ajax_source   = file_get_contents( dirname( __DIR__ ) . '/includes/class-ajax.php' );
+$cron_start    = strpos( $scan_source, 'function run_scheduled' );
+$cron_end      = strpos( $scan_source, 'function reschedule_soon' );
+$cron_body     = substr( $scan_source, $cron_start, $cron_end - $cron_start );
 olimc_scan_assert( strpos( $cron_body, 'wp_trash_post' ) === false, 'cron never trashes posts' );
 olimc_scan_assert( strpos( $cron_body, 'wp_delete_attachment' ) === false, 'cron never deletes attachments' );
-olimc_scan_assert( strpos( $cron_body, 'reschedule_scan_soon' ) !== false, 'incomplete cron reschedules itself' );
-olimc_scan_assert( strpos( $cron_body, "state_option_key('cron')" ) !== false, 'cron uses its own state option' );
-olimc_scan_assert( strpos( $admin_source, "state_option_key('ajax')" ) !== false, 'AJAX uses its own state option' );
-olimc_scan_assert( strpos( $admin_source, 'acquire_lock' ) !== false, 'AJAX and cron take a scan lock' );
-olimc_scan_assert( strpos( $admin_source, "unset(\$state['pending_delta'], \$state['pending_unused'])" ) !== false, 'progress option does not keep the unused list' );
-olimc_scan_assert( strpos( $admin_source, "current_user_can('manage_options')" ) !== false, 'AJAX requires manage_options' );
-olimc_scan_assert( strpos( $admin_source, "check_ajax_referer('olimc_nonce'" ) !== false, 'AJAX checks the nonce' );
+olimc_scan_assert( strpos( $cron_body, 'OLIMC_Trash' ) === false, 'cron never touches the trash' );
+olimc_scan_assert( strpos( $cron_body, 'reschedule_soon' ) !== false, 'incomplete cron reschedules itself' );
+olimc_scan_assert( strpos( $scan_source, 'state_option_key( self::owner( $owner ) )' ) !== false || strpos( $scan_source, 'state_option_key( $owner )' ) !== false, 'each owner (ajax, cron) has its own state option' );
+olimc_scan_assert( strpos( $scan_source, 'acquire_lock' ) !== false, 'AJAX and cron take a scan lock' );
+olimc_scan_assert( strpos( $scan_source, "unset( \$state['pending_delta'], \$state['pending_unused'] )" ) !== false, 'progress option does not keep the unused list' );
+olimc_scan_assert( strpos( $ajax_source, 'current_user_can( OLIMC_Admin::capability() )' ) !== false, 'AJAX checks the capability' );
+olimc_scan_assert( strpos( $ajax_source, "check_ajax_referer( 'olimc_nonce', 'nonce', false )" ) !== false, 'AJAX checks the nonce' );
 
 $scanner_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-scanner.php' );
 olimc_scan_assert( strpos( $scanner_source, 'acf_include_fields' ) !== false, 'local ACF JSON is loaded via acf_include_fields' );
 olimc_scan_assert( strpos( $scanner_source, '!$init_done && !$acf_init_done && function_exists(\'acf_init\')' ) !== false, 'acf_init() runs only before init' );
 olimc_scan_assert( strpos( $scanner_source, 'max(5, $max - 5)' ) !== false, 'synchronous scans stop before max_execution_time' );
 $js = file_get_contents( dirname( __DIR__ ) . '/assets/js/admin.js' );
-olimc_scan_assert( strpos( $js, 'confirmWithPreview' ) !== false, 'delete and trash still preview the filename' );
+olimc_scan_assert( strpos( $js, 'confirmDialog' ) !== false && strpos( $js, 'showModal' ) !== false, 'destructive actions use the native dialog' );
+olimc_scan_assert( strpos( $js, 'sample: d.sample' ) !== false, 'the dialog lists examples of the files' );
 
 $engine_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-acf-meta-scanner.php' );
 olimc_scan_assert( strpos( $engine_source, 'function is_safe_meta_key' ) === false, 'meta keys are no longer filtered by a character whitelist' );
 olimc_scan_assert( strpos( $engine_source, 'generic_post' ) !== false, 'ACF mode still walks non-ACF meta' );
 
-$pastille = '2026/02/concert-badge-1080-en.jpg';
-$thumb    = 'concert-badge-1080-en-150x150.jpg';
+$badge = '2026/02/event-badge-1080-en.jpg';
+$thumb    = 'event-badge-1080-en-150x150.jpg';
 $thumb_rel = '2026/02/' . $thumb;
 $used_meta = serialize(
 	[
-		'file'  => $pastille,
+		'file'  => $badge,
 		'sizes' => [
 			'thumbnail' => [ 'file' => $thumb ],
 		],
@@ -571,12 +579,13 @@ $used_meta = serialize(
 $share_pdo = new PDO( 'sqlite::memory:' );
 $share_pdo->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 $share_pdo->exec( 'CREATE TABLE postmeta (meta_id INTEGER PRIMARY KEY, post_id INTEGER, meta_key TEXT, meta_value TEXT)' );
+$share_pdo->exec( 'CREATE INDEX postmeta_post_id ON postmeta (post_id)' );
 $share_pdo->exec( 'CREATE TABLE posts (ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_content TEXT, post_excerpt TEXT)' );
 $share_pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 $share_pdo->exec( 'CREATE TABLE term_taxonomy (term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT, description TEXT)' );
 $share_pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 $share_insert = $share_pdo->prepare( 'INSERT INTO postmeta (meta_id, post_id, meta_key, meta_value) VALUES (?, ?, ?, ?)' );
-$backup_name = 'concert-badge-backup.jpg';
+$backup_name = 'event-badge-backup.jpg';
 $backup_rel  = '2026/02/' . $backup_name;
 $backup_meta = serialize(
 	[
@@ -584,9 +593,9 @@ $backup_meta = serialize(
 	]
 );
 $share_rows   = [
-	[ 1, 61216, '_wp_attached_file', $pastille ],
+	[ 1, 61216, '_wp_attached_file', $badge ],
 	[ 2, 61216, '_wp_attachment_metadata', $used_meta ],
-	[ 3, 59384, '_wp_attached_file', $pastille ],
+	[ 3, 59384, '_wp_attached_file', $badge ],
 	[ 4, 70001, '_wp_attached_file', $thumb_rel ],
 	[ 5, 80001, '_wp_attached_file', '2024/01/unique-file.jpg' ],
 	[ 6, 61216, '_wp_attachment_backup_sizes', $backup_meta ],
@@ -615,9 +624,9 @@ foreach ( $share_db->queries as $sql ) {
 olimc_scan_assert( $share_likes === 0, 'shared-file lookup uses no LIKE (' . count( $share_db->queries ) . ' queries)' );
 olimc_scan_assert( count( $share_db->queries ) === 1, 'shared-file lookup is one indexed meta_key query' );
 $shared_paths = $share_scanner->shared_relative_upload_paths( 59384 );
-olimc_scan_assert( $shared_paths === [ $pastille ], 'delete keeps the file still referenced by attachment 61216' );
+olimc_scan_assert( $shared_paths === [ $badge ], 'delete keeps the file still referenced by attachment 61216' );
 olimc_scan_assert( $share_scanner->shared_relative_upload_paths( 80001 ) === [], 'a unique file may be deleted' );
-$absolute = '/var/www/html/wp-content/uploads/' . $pastille;
+$absolute = '/var/www/html/wp-content/uploads/' . $badge;
 olimc_scan_assert(
 	OLIMC_Scanner::absolute_path_matches_relative( $absolute, $shared_paths ),
 	'wp_delete_file path matches the shared relative upload'
