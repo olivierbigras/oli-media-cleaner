@@ -871,8 +871,14 @@
 			var body =
 				act === 'trash'
 					? sprintf(
-						/* translators: %s: total size of the selected files */ __( 'These files (%s) are set aside and removed from the media library. If your site still uses them, they will appear as missing: you can then restore them from the trash.', 'oli-media-cleaner' ),
-						d.size_label
+						/* translators: %s: number of files. Provisional until real quarantine. */
+						_n(
+							'This file is marked as trashed by this plugin. It stays in the Media Library and online until the trash is emptied. You can restore it at any time.',
+							'These %s files are marked as trashed by this plugin. They stay in the Media Library and online until the trash is emptied. You can restore them at any time.',
+							d.count,
+							'oli-media-cleaner'
+						),
+						fmt( d.count )
 					)
 					: __( 'The files and their thumbnails will be erased from the server. This cannot be undone. A recent backup is recommended.', 'oli-media-cleaner' );
 			var check = null;
@@ -902,7 +908,10 @@
 		return btn && btn.getAttribute( 'aria-disabled' ) === 'true';
 	}
 
+	var applyWasDisabled = false;
+
 	function updateStaleGuards() {
+		var nowDisabled = false;
 		$$( '#olimc-bulk .bulkactions' ).forEach( function ( box ) {
 			var sel = $( 'select', box );
 			var btn = $( 'input[type=submit], button[type=submit]', box );
@@ -910,6 +919,7 @@
 				return;
 			}
 			if ( stale && sel.value === 'trash' ) {
+				nowDisabled = true;
 				btn.setAttribute( 'aria-disabled', 'true' );
 				btn.setAttribute( 'aria-describedby', 'olimc-stale' );
 			} else {
@@ -917,6 +927,12 @@
 				btn.removeAttribute( 'aria-describedby' );
 			}
 		} );
+		if ( nowDisabled !== applyWasDisabled ) {
+			applyWasDisabled = nowDisabled;
+			if ( nowDisabled ) {
+				speak( __( 'This list predates your latest changes (plugin, theme or a scan older than 14 days). Run a new scan before moving files to the trash.', 'oli-media-cleaner' ), 'polite' );
+			}
+		}
 		var allBtn = $( '#olimc-selall' );
 		if ( allBtn ) {
 			if ( stale ) {

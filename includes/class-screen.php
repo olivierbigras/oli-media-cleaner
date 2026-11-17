@@ -396,7 +396,8 @@ class OLIMC_Screen {
 		}
 
 		if ( 'trash' === $tab ) {
-			self::notice( 'info', esc_html__( 'These files are set aside, not erased. If your site still needs one, an image will be missing: restore it here. Empty the trash only after checking your site.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
+			// translators: provisional until real quarantine.
+			self::notice( 'info', esc_html__( 'These files are marked, not deleted, and stay online. Empty the trash only after checking your site.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
 		}
 
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-list-table.php';
@@ -432,7 +433,7 @@ class OLIMC_Screen {
 				),
 				'olimc_export'
 			);
-			echo ' <a class="button olimc-btn" href="' . esc_url( $csv ) . '">' . esc_html__( 'Export as CSV', 'oli-media-cleaner' ) . '</a>';
+			echo ' <a class="button olimc-btn olimc-export" href="' . esc_url( $csv ) . '">' . esc_html__( 'Export as CSV', 'oli-media-cleaner' ) . '</a>';
 		}
 		echo '</div>';
 

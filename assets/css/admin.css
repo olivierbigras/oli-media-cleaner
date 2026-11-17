@@ -23,6 +23,7 @@
 .olimc-toolbar{margin:8px 0}
 .olimc-bulkbar{margin:8px 0;padding:8px 12px;background:#f0f6fc;border-left:4px solid var(--wp-admin-theme-color,#2271b1)}
 .olimc-bulkbar .button-link{min-height:44px}
+.wp-core-ui .olimc-wrap .olimc-export{min-height:44px;display:inline-flex;align-items:center;box-sizing:border-box}
 .olimc-danger,.olimc-danger:hover{color:#b32d2e}
 .olimc-danger{border-color:#b32d2e}
 .olimc-wrap [aria-disabled=true]{opacity:.6;cursor:not-allowed}
