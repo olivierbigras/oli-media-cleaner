@@ -1105,9 +1105,17 @@
 				e.preventDefault();
 				var d = $( '#olimc-sources-detail' );
 				d.open = ! d.open;
-				link.setAttribute( 'aria-expanded', d.open ? 'true' : 'false' );
 			}
 		} );
+		var det = $( '#olimc-sources-detail' );
+		if ( det ) {
+			det.addEventListener( 'toggle', function () {
+				var l = $( '.olimc-sources-link' );
+				if ( l ) {
+					l.setAttribute( 'aria-expanded', det.open ? 'true' : 'false' );
+				}
+			} );
+		}
 		var notes = $$( '.notice:not(.olimc-result)', notices );
 		notes.forEach( function ( n ) {
 			var t = n.textContent.trim();

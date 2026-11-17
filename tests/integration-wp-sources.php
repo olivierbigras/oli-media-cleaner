@@ -42,7 +42,7 @@ function olimc_src_media( $name ) {
 wp_set_current_user( 1 );
 $ids    = [];
 $cleanup = [];
-$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc' ];
+$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc', 'shortcode_a', 'shortcode_b', 'blockgal_a', 'blockgal_b', 'blockimg', 'wpimage' ];
 foreach ( $names as $n ) {
 	$ids[ $n ] = olimc_src_media( 'olimc-src-' . $n );
 }
@@ -52,6 +52,11 @@ $url = static function ( $n ) use ( $ids ) {
 
 // Post content (block with an id and an <img> with the URL).
 $cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src post', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<!-- wp:image {"id":' . $ids['content'] . '} --><img src="' . esc_url( $url( 'content' ) ) . '" class="wp-image-' . $ids['content'] . '"/><!-- /wp:image -->' ] );
+// Media cited only by ID, with no upload URL anywhere in the content.
+$cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src shortcode', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '[gallery ids="' . $ids['shortcode_a'] . ',' . $ids['shortcode_b'] . '"]' ] );
+$cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src block gallery', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<!-- wp:gallery {"ids":[' . $ids['blockgal_a'] . ',' . $ids['blockgal_b'] . '],"linkTo":"none"} --><figure class="wp-block-gallery"></figure><!-- /wp:gallery -->' ] );
+$cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src block image', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<!-- wp:image {"id":' . $ids['blockimg'] . ',"sizeSlug":"large"} --><figure class="wp-block-image"></figure><!-- /wp:image -->' ] );
+$cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src class only', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<p><img class="wp-image-' . $ids['wpimage'] . '" alt=""></p>' ] );
 // Featured image.
 $p = wp_insert_post( [ 'post_title' => 'olimc-src featured', 'post_status' => 'publish', 'post_type' => 'post' ] );
 set_post_thumbnail( $p, $ids['featured'] );

@@ -279,7 +279,7 @@ class OLIMC_Screen {
 		/* translators: %s: list of the sources read by the scan */
 		echo wp_kses( sprintf( esc_html__( 'Sources read: %s.', 'oli-media-cleaner' ), implode( ', ', $names ) ), [ 'strong' => [] ] );
 		echo ' <a href="#olimc-sources-detail" class="olimc-sources-link" aria-expanded="false" aria-controls="olimc-sources-detail">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</a></p>';
-		echo '<details id="olimc-sources-detail" class="olimc-sources-detail"><summary class="screen-reader-text">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</summary><ul class="ul-disc">';
+		echo '<details id="olimc-sources-detail" class="olimc-sources-detail"><summary class="screen-reader-text" tabindex="-1" aria-hidden="true">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</summary><ul class="ul-disc">';
 		foreach ( self::source_details() as $line ) {
 			echo '<li>' . esc_html( $line ) . '</li>';
 		}
