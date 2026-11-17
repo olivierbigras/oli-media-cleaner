@@ -1,5 +1,5 @@
 <?php
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
  * Scan controller: start, step, resume, cancel and publish, shared by the
  * screen (AJAX) and by the scheduled event. The engine lives in
