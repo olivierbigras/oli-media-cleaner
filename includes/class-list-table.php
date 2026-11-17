@@ -49,6 +49,18 @@ class OLIMC_List_Table extends WP_List_Table {
 		return ( $n >= 1 && $n <= 200 ) ? $n : 20;
 	}
 
+	/**
+	 * row_actions() already prints the toggle button; keep core from adding a second one.
+	 *
+	 * @param object $item        Row.
+	 * @param string $column_name Column.
+	 * @param string $primary     Primary column.
+	 * @return string
+	 */
+	protected function handle_row_actions( $item, $column_name, $primary ) {
+		return '';
+	}
+
 	public function get_columns() {
 		$cols = [
 			'cb'      => '<input type="checkbox" />',

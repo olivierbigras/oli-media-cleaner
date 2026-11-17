@@ -37,7 +37,7 @@
 .olimc-dialog .olimc-danger.button-primary{background:#b32d2e;border-color:#b32d2e;color:#fff}
 .olimc-wrap a:focus-visible,.olimc-wrap button:focus-visible,.olimc-wrap summary:focus-visible,.olimc-dialog button:focus-visible,.olimc-dialog input:focus-visible{outline:2px solid #2271b1;outline-offset:2px;box-shadow:0 0 0 4px #fff}
 .olimc-trash-note{max-width:720px}
-.olimc-mono{font-family:Consolas,Monaco,monospace}
+.olimc-mono{font-family:Consolas,Monaco,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
 .olimc-wrap details{max-width:720px;margin:12px 0}
 .olimc-pattern-lines{margin:4px 0}
 @media (max-width:782px){
