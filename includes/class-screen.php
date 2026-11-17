@@ -524,7 +524,7 @@ class OLIMC_Screen {
 	 */
 	private static function render_dialog() {
 		echo '<dialog class="olimc-dialog" id="olimc-dialog" aria-labelledby="olimc-dlg-title" aria-describedby="olimc-dlg-body">';
-		echo '<h2 id="olimc-dlg-title"></h2><p id="olimc-dlg-body"></p><ul id="olimc-dlg-list"></ul><p id="olimc-dlg-more" class="description"></p>';
+		echo '<h2 id="olimc-dlg-title"></h2><p id="olimc-dlg-body"></p><p id="olimc-dlg-size" hidden></p><ul id="olimc-dlg-list"></ul><p id="olimc-dlg-more" class="description"></p>';
 		echo '<p id="olimc-dlg-ok" class="olimc-ok" hidden><label><input type="checkbox" id="olimc-dlg-check"> <span id="olimc-dlg-check-label"></span></label></p>';
 		echo '<footer><button type="button" class="button button-large" id="olimc-dlg-cancel">' . esc_html__( 'Cancel', 'oli-media-cleaner' ) . '</button> <button type="button" class="button button-primary button-large" id="olimc-dlg-confirm"></button></footer>';
 		echo '</dialog>';

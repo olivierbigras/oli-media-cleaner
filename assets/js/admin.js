@@ -216,6 +216,9 @@
 		}
 		$( '#olimc-dlg-title' ).textContent = o.title;
 		$( '#olimc-dlg-body' ).textContent = o.body;
+		var sizeLine = $( '#olimc-dlg-size' );
+		sizeLine.textContent = o.size || '';
+		sizeLine.hidden = ! o.size;
 		var list = $( '#olimc-dlg-list' );
 		list.textContent = '';
 		( o.sample || [] ).forEach( function ( s ) {
@@ -890,6 +893,7 @@
 			var ok = await confirmDialog( {
 				title: t.title,
 				body: body,
+				size: act === 'trash' && d.size_label ? sprintf( /* translators: %s: total size of the selected files, already formatted (e.g. 21.6 KB) */ __( 'Total size: %s', 'oli-media-cleaner' ), d.size_label ) : '',
 				sample: d.sample,
 				more: d.more > 0 ? sprintf( /* translators: %s: number of other files */ _n( 'and %s more', 'and %s more', d.more, 'oli-media-cleaner' ), d.more_label ) : '',
 				check: check,
@@ -931,6 +935,8 @@
 			applyWasDisabled = nowDisabled;
 			if ( nowDisabled ) {
 				speak( __( 'This list predates your latest changes (plugin, theme or a scan older than 14 days). Run a new scan before moving files to the trash.', 'oli-media-cleaner' ), 'polite' );
+			} else {
+				speak( __( 'The list is up to date. You can apply the action.', 'oli-media-cleaner' ), 'polite' );
 			}
 		}
 		var allBtn = $( '#olimc-selall' );
