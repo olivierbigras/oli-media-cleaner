@@ -42,10 +42,11 @@ function olimc_src_media( $name ) {
 wp_set_current_user( 1 );
 $ids    = [];
 $cleanup = [];
-$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc', 'shortcode_a', 'shortcode_b', 'blockgal_a', 'blockgal_b', 'blockimg', 'wpimage' ];
+$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc', 'shortcode_a', 'shortcode_b', 'blockgal_a', 'blockgal_b', 'blockimg', 'wpimage', 'gal_attached', 'gal_idattr' ];
 foreach ( $names as $n ) {
 	$ids[ $n ] = olimc_src_media( 'olimc-src-' . $n );
 }
+$ids['plainchild'] = olimc_src_media( 'olimc-src-plainchild' ); // Control: attached to a post without any gallery.
 $url = static function ( $n ) use ( $ids ) {
 	return wp_get_attachment_url( $ids[ $n ] );
 };
@@ -57,6 +58,17 @@ $cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src shortcode', '
 $cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src block gallery', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<!-- wp:gallery {"ids":[' . $ids['blockgal_a'] . ',' . $ids['blockgal_b'] . '],"linkTo":"none"} --><figure class="wp-block-gallery"></figure><!-- /wp:gallery -->' ] );
 $cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src block image', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<!-- wp:image {"id":' . $ids['blockimg'] . ',"sizeSlug":"large"} --><figure class="wp-block-image"></figure><!-- /wp:image -->' ] );
 $cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src class only', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '<p><img class="wp-image-' . $ids['wpimage'] . '" alt=""></p>' ] );
+// [gallery] without ids shows the media attached to the post (post_parent), also through id="N".
+$gp = wp_insert_post( [ 'post_title' => 'olimc-src default gallery', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => 'Photos: [gallery columns="3"]' ] );
+$cleanup['posts'][] = $gp;
+wp_update_post( [ 'ID' => $ids['gal_attached'], 'post_parent' => $gp ] );
+$gq = wp_insert_post( [ 'post_title' => 'olimc-src parent of gallery by id', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => 'No gallery here.' ] );
+$cleanup['posts'][] = $gq;
+wp_update_post( [ 'ID' => $ids['gal_idattr'], 'post_parent' => $gq ] );
+$cleanup['posts'][] = wp_insert_post( [ 'post_title' => 'olimc-src gallery by id', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => '[gallery id="' . $gq . '" size="thumbnail"]' ] );
+$pc = wp_insert_post( [ 'post_title' => 'olimc-src plain parent', 'post_status' => 'publish', 'post_type' => 'post', 'post_content' => 'Nothing to show.' ] );
+$cleanup['posts'][] = $pc;
+wp_update_post( [ 'ID' => $ids['plainchild'], 'post_parent' => $pc ] );
 // Featured image.
 $p = wp_insert_post( [ 'post_title' => 'olimc-src featured', 'post_status' => 'publish', 'post_type' => 'post' ] );
 set_post_thumbnail( $p, $ids['featured'] );
@@ -107,6 +119,10 @@ olimc_src( ! empty( $v['done'] ), 'scan completes' );
 $table  = $wpdb->prefix . 'olimc_results';
 $listed = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT attachment_id FROM {$table} WHERE scan_id = %s", OLIMC_Results::published_id() ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 olimc_src( in_array( $ids['unused'], $listed, true ), 'control: the unreferenced media is listed' );
+olimc_src( in_array( $ids['plainchild'], $listed, true ), 'control: media attached to a post without a gallery is listed' );
+olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_attached'] ), 'live check: media attached to a post with [gallery] is in use' );
+olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_idattr'] ), 'live check: media shown by [gallery id="N"] is in use' );
+olimc_src( false === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['plainchild'] ), 'live check: control media is not in use' );
 foreach ( $names as $n ) {
 	if ( 'unused' === $n ) {
 		continue;

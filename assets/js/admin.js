@@ -219,6 +219,7 @@
 		var sizeLine = $( '#olimc-dlg-size' );
 		sizeLine.textContent = o.size || '';
 		sizeLine.hidden = ! o.size;
+		dialog.setAttribute( 'aria-describedby', o.size ? 'olimc-dlg-body olimc-dlg-size' : 'olimc-dlg-body' );
 		var list = $( '#olimc-dlg-list' );
 		list.textContent = '';
 		( o.sample || [] ).forEach( function ( s ) {

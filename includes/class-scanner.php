@@ -723,6 +723,54 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Posts whose attached media a [gallery] shortcode shows without listing IDs
+     * (no ids or include attribute: WordPress then uses the media attached to the post, or to the post named by id).
+     *
+     * @param string $content Post content or excerpt.
+     * @param int    $post_id Post holding the content (0 when unknown).
+     * @return int[]
+     */
+    private function gallery_default_parents( $content, $post_id ) {
+        $parents = [];
+        if ( ! is_string($content) || stripos($content, '[gallery') === false) {
+            return $parents;
+        }
+        if (preg_match_all('/\[gallery\b([^\]]*)\]/i', $content, $m)) {
+            foreach ($m[1] as $attrs) {
+                if (preg_match('/\b(?:ids|include)\s*=/i', $attrs)) {
+                    continue;
+                }
+                if (preg_match('/\bid\s*=\s*["\']?(\d+)/i', $attrs, $idm)) {
+                    $parents[] = (int) $idm[1];
+                } elseif ($post_id > 0) {
+                    $parents[] = $post_id;
+                }
+            }
+        }
+        return $parents;
+    }
+
+    /**
+     * IDs of the media attached to the given posts.
+     *
+     * @param int[] $post_ids Parent post IDs.
+     * @return int[]
+     */
+    private function attachments_of_posts( array $post_ids ) {
+        global $wpdb;
+        $post_ids = array_values(array_unique(array_filter(array_map('intval', $post_ids))));
+        $found    = [];
+        foreach (array_chunk($post_ids, 500) as $chunk) {
+            $list  = implode(',', $chunk); // Integers only.
+            $rows  = $wpdb->get_col(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_parent IN ({$list})" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the list is made of integers.
+            );
+            $found = array_merge($found, is_array($rows) ? $rows : []);
+        }
+        return $found;
+    }
+
+    /**
      * Attachment IDs mentioned in HTML / block markup / gallery shortcodes.
      *
      * @param string $content Post content, excerpt, or term description.
@@ -1180,7 +1228,7 @@ class OLIMC_Scanner {
         }
         $range = $this->aux_range === null ? [ 0, PHP_INT_MAX ] : $this->aux_range;
         $rows  = $wpdb->get_results(
-            "SELECT post_content, post_excerpt FROM {$wpdb->posts} WHERE ({$where_sql}) AND post_status != 'trash' AND post_type NOT IN ('revision', 'attachment') AND ID BETWEEN " . (int) $range[0] . ' AND ' . (int) $range[1] // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments; the bounds are integers.
+            "SELECT ID, post_content, post_excerpt FROM {$wpdb->posts} WHERE ({$where_sql}) AND post_status != 'trash' AND post_type NOT IN ('revision', 'attachment') AND ID BETWEEN " . (int) $range[0] . ' AND ' . (int) $range[1] // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments; the bounds are integers.
         );
 
         $attachment_ids = [];
@@ -1194,13 +1242,21 @@ class OLIMC_Scanner {
                 );
             }
             $this->prefetch_paths($all_paths);
+            $gallery_parents = [];
             foreach ($rows as $row) {
                 $attachment_ids = array_merge(
                     $attachment_ids,
                     $this->attachment_ids_from_html(isset($row->post_content) ? $row->post_content : ''),
                     $this->attachment_ids_from_html(isset($row->post_excerpt) ? $row->post_excerpt : '')
                 );
+                $row_id = isset($row->ID) ? (int) $row->ID : 0;
+                $gallery_parents = array_merge(
+                    $gallery_parents,
+                    $this->gallery_default_parents(isset($row->post_content) ? $row->post_content : '', $row_id),
+                    $this->gallery_default_parents(isset($row->post_excerpt) ? $row->post_excerpt : '', $row_id)
+                );
             }
+            $attachment_ids = array_merge($attachment_ids, $this->attachments_of_posts($gallery_parents));
         }
 
         $this->finish_usage_query($attachment_ids);
@@ -1227,6 +1283,40 @@ class OLIMC_Scanner {
             "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'draft', 'private', 'future') AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
         $this->finish_usage_query($hit);
+        $this->collect_gallery_parent_usage_for_id($id);
+    }
+
+    /**
+     * A [gallery] without ids shows the media attached to a post: is this media attached to a post that shows it?
+     *
+     * @param int $id Attachment ID.
+     */
+    private function collect_gallery_parent_usage_for_id( $id ) {
+        global $wpdb;
+        $parent = (int) $wpdb->get_var($wpdb->prepare("SELECT post_parent FROM {$wpdb->posts} WHERE ID = %d", (int) $id));
+        if ($parent <= 0) {
+            return;
+        }
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT ID, post_content FROM {$wpdb->posts}
+             WHERE post_status IN ('publish', 'draft', 'private', 'future')
+             AND post_type NOT IN ('revision', 'attachment')
+             AND post_content LIKE %s
+             AND (ID = %d OR post_content LIKE %s)",
+            '%' . $wpdb->esc_like('[gallery') . '%',
+            $parent,
+            '%' . $wpdb->esc_like( (string) $parent ) . '%'
+        ));
+        if ( ! is_array($rows)) {
+            return;
+        }
+        foreach ($rows as $row) {
+            if (in_array($parent, $this->gallery_default_parents($row->post_content, (int) $row->ID), true)) {
+                $this->finish_usage_query( (int) $row->ID );
+                return;
+            }
+        }
+        $this->finish_usage_query(null);
     }
 
     private function collect_option_images() {
