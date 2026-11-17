@@ -391,7 +391,7 @@ class OLIMC_Screen {
 			if ( $total > 0 && (int) $info['count'] / $total >= 0.3 ) {
 				$pct = (int) round( (int) $info['count'] / $total * 100 );
 				/* translators: %s: percentage of the media library reported as unused */
-				self::notice( 'warning', esc_html( sprintf( __( '%s of your media are reported. This often means a source cannot be read. Check a few files before acting.', 'oli-media-cleaner' ), number_format_i18n( $pct ) . "\u{202F}%" ) ) );
+				self::notice( 'warning', esc_html( sprintf( __( '%s of your media are reported. This often means a source cannot be read. Check a few files before acting.', 'oli-media-cleaner' ), self::pct_text( $pct ) ) ) );
 			}
 		}
 
@@ -457,6 +457,17 @@ class OLIMC_Screen {
 	}
 
 	/**
+	 * A percentage in the language of the site (the French form puts a narrow no-break space before the sign).
+	 *
+	 * @param int $pct Whole percentage.
+	 * @return string
+	 */
+	private static function pct_text( $pct ) {
+		/* translators: %s: a number; the percent sign is part of the string, e.g. 42% */
+		return sprintf( __( '%s%%', 'oli-media-cleaner' ), number_format_i18n( $pct ) );
+	}
+
+	/**
 	 * Progress panel for a scan that exists on the server (paused or failed).
 	 * A scan started in this page is driven by the script, which reuses this markup.
 	 *
@@ -466,14 +477,14 @@ class OLIMC_Screen {
 		$view   = OLIMC_Scan::view( $state );
 		$mode   = $view['failed'] ? 'failed' : ( ! empty( $_GET['olimc_run'] ) ? 'running' : 'paused' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
 		$pct    = (int) $view['percent'];
-		$pct_t  = number_format_i18n( $pct ) . "\u{202F}%";
+		$pct_t  = self::pct_text( $pct );
 		$label  = OLIMC_Scan::step_label( $view['step'] );
 		echo '<section class="olimc-panel" id="olimc-panel" data-mode="' . esc_attr( $mode ) . '" data-percent="' . esc_attr( (string) $pct ) . '" data-step="' . esc_attr( (string) $view['step'] ) . '" data-total="' . esc_attr( (string) $view['total'] ) . '" aria-labelledby="olimc-panel-title">';
 
 		if ( 'failed' === $mode ) {
 			/* translators: 1: percentage, 2: step number, 3: number of steps */
 			$msg = sprintf( __( 'The scan stopped at %1$s (step %2$d of %3$d). No file was marked as unused.', 'oli-media-cleaner' ), $pct_t, $view['step'], OLIMC_Scan::STEPS );
-			echo '<h2 id="olimc-panel-title" tabindex="-1" class="screen-reader-text">' . esc_html__( 'Scan in progress', 'oli-media-cleaner' ) . '</h2>';
+			echo '<h2 id="olimc-panel-title" tabindex="-1" class="screen-reader-text">' . esc_html__( 'Scan stopped', 'oli-media-cleaner' ) . '</h2>';
 			echo '<div class="notice notice-error inline"><p>' . esc_html( $msg ) . '</p></div>';
 			echo '<p><button type="button" class="button button-primary button-large" id="olimc-scan-resume">' . esc_html__( 'Resume scan', 'oli-media-cleaner' ) . '</button> <button type="button" class="button button-large" id="olimc-scan-restart">' . esc_html__( 'Start over', 'oli-media-cleaner' ) . '</button></p>';
 			echo '<details><summary>' . esc_html__( 'Technical details', 'oli-media-cleaner' ) . '</summary><pre class="olimc-mono">' . esc_html( $view['phase'] . ( '' !== $view['detail'] ? ' — ' . $view['detail'] : '' ) ) . '</pre></details>';
@@ -481,7 +492,7 @@ class OLIMC_Screen {
 			return;
 		}
 
-		echo '<h2 id="olimc-panel-title" tabindex="-1">' . esc_html__( 'Scan in progress', 'oli-media-cleaner' ) . '</h2>';
+		echo '<h2 id="olimc-panel-title" tabindex="-1">' . ( 'paused' === $mode ? esc_html__( 'Scan paused', 'oli-media-cleaner' ) : esc_html__( 'Scan in progress', 'oli-media-cleaner' ) ) . '</h2>';
 		if ( 'paused' === $mode ) {
 			/* translators: %s: percentage reached when the scan paused */
 			echo '<p id="olimc-paused">' . esc_html( sprintf( __( 'The scan is paused at %s. Resume it or start over.', 'oli-media-cleaner' ), $pct_t ) ) . '</p>';

@@ -22,7 +22,8 @@
 		return NUM ? NUM.format( n ) : String( n );
 	}
 	function pct( n ) {
-		return fmt( n ) + '\u202f%';
+		/* translators: %s: a number; the percent sign is part of the string, e.g. 42% */
+		return sprintf( __( '%s%%', 'oli-media-cleaner' ), fmt( n ) );
 	}
 	function $( sel, root ) {
 		return ( root || document ).querySelector( sel );
@@ -365,7 +366,7 @@
 		var step = v ? v.step : 1;
 		panel.setAttribute( 'data-mode', 'failed' );
 		panel.textContent = '';
-		var h = el( 'h2', 'screen-reader-text', __( 'Scan in progress', 'oli-media-cleaner' ) );
+		var h = el( 'h2', 'screen-reader-text', __( 'Scan stopped', 'oli-media-cleaner' ) );
 		h.id = 'olimc-panel-title';
 		h.tabIndex = -1;
 		panel.appendChild( h );
@@ -805,7 +806,17 @@
 					var fresh = $( sel, doc );
 					var cur = $( sel );
 					if ( fresh && cur ) {
-						cur.innerHTML = fresh.innerHTML;
+						var nodes = Array.prototype.map.call( fresh.childNodes, function ( node ) {
+							return document.importNode( node, true );
+						} );
+						if ( cur.replaceChildren ) {
+							cur.replaceChildren.apply( cur, nodes );
+						} else {
+							cur.textContent = '';
+							nodes.forEach( function ( node ) {
+								cur.appendChild( node );
+							} );
+						}
 					}
 				} );
 			} )
