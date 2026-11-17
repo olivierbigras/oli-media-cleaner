@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Oli Media Cleaner 2.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner\n"
-"POT-Creation-Date: 2026-11-17T23:20:44+00:00\n"
-"PO-Revision-Date: 2026-11-17 18:20\n"
+"POT-Creation-Date: 2026-11-17T23:23:45+00:00\n"
+"PO-Revision-Date: 2026-11-17 18:23\n"
 "Last-Translator: Olivier Bigras\n"
 "Language-Team: Olivier Bigras\n"
 "Language: fr_FR\n"
@@ -793,7 +793,7 @@ msgid "Settings saved."
 msgstr "Réglages enregistrés."
 
 #. translators: %s: the URL that was refused.
-#: includes/class-settings.php:161 assets/js/admin.js:1102
+#: includes/class-settings.php:161 assets/js/admin.js:1100
 #, php-format, js-format
 msgid "The address %s is not on this site and was not saved."
 msgstr "L’adresse %s n’est pas sur ce site et n’a pas été enregistrée."
@@ -1033,22 +1033,18 @@ msgid_plural "and %s more"
 msgstr[0] "et %s autre"
 msgstr[1] "et %s autres"
 
-#: assets/js/admin.js:939
-msgid "The list is up to date. You can apply the action."
-msgstr "La liste est à jour. Vous pouvez appliquer l’action."
-
 #. translators: %s: number of results
-#: assets/js/admin.js:965
+#: assets/js/admin.js:963
 #, js-format
 msgid "All %s results are selected."
 msgstr "Les %s résultats sont sélectionnés."
 
-#: assets/js/admin.js:966
+#: assets/js/admin.js:964
 msgid "Clear selection"
 msgstr "Annuler la sélection"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:980
+#: assets/js/admin.js:978
 #, js-format
 msgid "%s file is selected on this page."
 msgid_plural "%s files are selected on this page."
@@ -1056,23 +1052,23 @@ msgstr[0] "%s fichier est sélectionné sur cette page."
 msgstr[1] "%s fichiers sont sélectionnés sur cette page."
 
 #. translators: %s: number of results
-#: assets/js/admin.js:982
+#: assets/js/admin.js:980
 #, js-format
 msgid "Select all %s results"
 msgstr "Sélectionner les %s résultats"
 
 #. translators: %s: number of files that match the patterns
-#: assets/js/admin.js:1092
+#: assets/js/admin.js:1090
 #, js-format
 msgid "%s file matches."
 msgid_plural "%s files match."
 msgstr[0] "%s fichier correspond."
 msgstr[1] "%s fichiers correspondent."
 
-#: assets/js/admin.js:1098
+#: assets/js/admin.js:1096
 msgid "No match. Check the spelling."
 msgstr "Aucune correspondance. Vérifiez l’orthographe."
 
-#: assets/js/admin.js:1112
+#: assets/js/admin.js:1110
 msgid "Report copied."
 msgstr "Rapport copié."

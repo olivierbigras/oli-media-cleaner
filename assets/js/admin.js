@@ -935,8 +935,6 @@
 			applyWasDisabled = nowDisabled;
 			if ( nowDisabled ) {
 				speak( __( 'This list predates your latest changes (plugin, theme or a scan older than 14 days). Run a new scan before moving files to the trash.', 'oli-media-cleaner' ), 'polite' );
-			} else {
-				speak( __( 'The list is up to date. You can apply the action.', 'oli-media-cleaner' ), 'polite' );
 			}
 		}
 		var allBtn = $( '#olimc-selall' );

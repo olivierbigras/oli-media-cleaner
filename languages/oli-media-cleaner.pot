@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-17T23:20:44+00:00\n"
+"POT-Creation-Date: 2026-11-17T23:23:45+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: oli-media-cleaner\n"
@@ -752,7 +752,7 @@ msgstr ""
 
 #. translators: %s: the URL that was refused.
 #: includes/class-settings.php:161
-#: assets/js/admin.js:1102
+#: assets/js/admin.js:1100
 #, php-format,js-format
 msgid "The address %s is not on this site and was not saved."
 msgstr ""
@@ -961,22 +961,18 @@ msgid_plural "and %s more"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:939
-msgid "The list is up to date. You can apply the action."
-msgstr ""
-
 #. translators: %s: number of results
-#: assets/js/admin.js:965
+#: assets/js/admin.js:963
 #, js-format
 msgid "All %s results are selected."
 msgstr ""
 
-#: assets/js/admin.js:966
+#: assets/js/admin.js:964
 msgid "Clear selection"
 msgstr ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:980
+#: assets/js/admin.js:978
 #, js-format
 msgid "%s file is selected on this page."
 msgid_plural "%s files are selected on this page."
@@ -984,23 +980,23 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of results
-#: assets/js/admin.js:982
+#: assets/js/admin.js:980
 #, js-format
 msgid "Select all %s results"
 msgstr ""
 
 #. translators: %s: number of files that match the patterns
-#: assets/js/admin.js:1092
+#: assets/js/admin.js:1090
 #, js-format
 msgid "%s file matches."
 msgid_plural "%s files match."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:1098
+#: assets/js/admin.js:1096
 msgid "No match. Check the spelling."
 msgstr ""
 
-#: assets/js/admin.js:1112
+#: assets/js/admin.js:1110
 msgid "Report copied."
 msgstr ""
