@@ -2091,9 +2091,9 @@ class OLIMC_Scanner {
         $found = [];
         foreach ( array_chunk( array_keys( $lookups ), 250 ) as $chunk ) {
             $marks = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
-            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- the list only holds %s placeholders.
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- the list only holds %s placeholders.
             $rows = $wpdb->get_results( $wpdb->prepare( "SELECT meta_value, post_id FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND meta_value IN ({$marks})", $chunk ) );
-            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
             if ( ! is_array( $rows ) ) {
                 return; // The single lookups will run and report the failure themselves.
             }
