@@ -494,7 +494,7 @@ class OLIMC_Acf_Meta_Scanner {
 			$this->fail( $state, 'Meta key lookup failed.' );
 			return;
 		}
-		$this->absorb_values( $state, $rows );
+		$this->absorb_values( $state, $rows, true );
 		$state['cursor'] = $cursor + count( $chunk );
 		if ( $state['cursor'] >= $total ) {
 			$this->advance( $state, $next );
@@ -590,7 +590,9 @@ class OLIMC_Acf_Meta_Scanner {
 			if ( $this->is_plugin_record( isset( $row->meta_key ) ? $row->meta_key : '' ) ) {
 				continue;
 			}
-			$this->absorb_values( $state, [ $row->meta_value ] );
+			// Custom fields (post, term, user): keys count. Option rows of the generic passes: they do not (widgets and theme
+			// mods have their own pass).
+			$this->absorb_values( $state, [ $row->meta_value ], 'option' !== substr( (string) $state['phase'], -6 ) );
 		}
 		$state['cursor'] = $hi;
 		if ( $state['cursor'] >= $max ) {
@@ -758,12 +760,13 @@ class OLIMC_Acf_Meta_Scanner {
 	 * @param array $state State.
 	 * @param array $values Meta values.
 	 */
-	private function absorb_values( array &$state, array $values ) {
+	private function absorb_values( array &$state, array $values, $count_keys = false ) {
 		foreach ( $values as $value ) {
 			$ids = OLIMC_Media_Usage_Parser::extract_attachment_ids_from_value(
 				$value,
 				[ $this->scanner, 'resolve_upload_path_to_id' ],
-				[ $this->scanner, 'is_known_attachment_id' ]
+				[ $this->scanner, 'is_known_attachment_id' ],
+				$count_keys
 			);
 			foreach ( $ids as $id ) {
 				$id = (int) $id;

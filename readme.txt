@@ -82,9 +82,13 @@ The plugin writes an empty `index.php` in every folder, an `.htaccess` that deni
 
 `location ^~ /wp-content/uploads/olimc-trash/ { deny all; return 403; }`
 
-For a multisite or a custom uploads location, use the path of your uploads folder followed by `/olimc-trash/` (each site has its own). On Apache the plugin already creates this `.htaccess` in `wp-content/uploads/olimc-trash/`; the same rule can be set in the server configuration instead:
+On a multisite, each site has its own uploads folder (`wp-content/uploads/sites/<id>/`), so use this rule instead, which covers the main site and the others:
 
-`Require all denied`
+`location ~ ^/wp-content/uploads/(sites/[0-9]+/)?olimc-trash/ { deny all; return 403; }`
+
+For a custom uploads location, use the path of your uploads folder followed by `/olimc-trash/`. On Apache the plugin already creates a `.htaccess` in `wp-content/uploads/olimc-trash/`. To set the rule in the server configuration instead, `Require all denied` is only valid inside a container, for example `<Directory "/path/to/wp-content/uploads/olimc-trash">`, or inside a `.htaccess` placed in that folder:
+
+`<Directory "/path/to/wp-content/uploads/olimc-trash"> Require all denied </Directory>`
 
 Hosts that manage the server for you can usually add the rule on request.
 
@@ -149,6 +153,7 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * NEW: Settings: kept paths with a "Test patterns" button, automatic emptying (never, 30 or 90 days), scheduled scan (analysis only), careful mode, data removal on uninstall, diagnostics report.
 * NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
 * CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
+* CHANGE: A media referenced only by its numeric ID used as an array key (widgets, theme settings, custom fields) counts as used, in the scan as in the live check.
 * CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).
 * CHANGE: Requires WordPress 5.8 (was 6.2).
 * REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.

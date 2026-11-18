@@ -283,7 +283,7 @@ class OLIMC_Quarantine {
 	public static function move_in( $id ) {
 		$id = (int) $id;
 		if ( ! self::lock( $id ) ) {
-			return new WP_Error( 'olimc_busy', 'This media is being processed.' );
+			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
 		}
 		try {
 			return self::do_move_in( $id );
@@ -591,7 +591,7 @@ class OLIMC_Quarantine {
 	public static function move_back( $id ) {
 		$id = (int) $id;
 		if ( ! self::lock( $id ) ) {
-			return new WP_Error( 'olimc_busy', 'This media is being processed.' );
+			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
 		}
 		try {
 			return self::do_move_back( $id );

@@ -878,6 +878,19 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Integers of a serialized value, array keys included ("i:N;").
+     *
+     * @param string $serialized Serialized PHP.
+     * @return int[]
+     */
+    private function serialized_integers( $serialized ) {
+        if ( ! is_string($serialized) || $serialized === '' || ! preg_match_all('/i:(\d+);/', $serialized, $matches)) {
+            return [];
+        }
+        return array_map('intval', array_unique($matches[1]));
+    }
+
+    /**
      * Attachment IDs stored in serialized widget / theme_mod payloads.
      *
      * @param string $serialized Serialized PHP.
@@ -1441,7 +1454,35 @@ class OLIMC_Scanner {
             $this->collect_theme_mods_option_for_id($this->usage_check_id);
             return;
         }
+        $ids = array_merge($ids, $this->theme_mods_option_ids());
         $this->finish_usage_query($ids);
+    }
+
+    /**
+     * Scan mode: IDs and upload paths held by every theme_mods_* option (any theme), keys included,
+     * as the live check reads them.
+     *
+     * @return int[]
+     */
+    private function theme_mods_option_ids() {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name LIKE %s",
+            $wpdb->esc_like('theme_mods_') . '%'
+        ));
+        if ( ! is_array($rows) || ! empty($wpdb->last_error)) {
+            return [];
+        }
+        $ids = [];
+        foreach ($rows as $row) {
+            $raw = (string) $row->option_value;
+            $ids = array_merge($ids, $this->serialized_integers($raw));
+            if (preg_match_all('/s:\d+:"(\d+)"/', $raw, $m)) {
+                $ids = array_merge($ids, array_map('intval', $m[1]));
+            }
+            $this->merge_upload_paths_from_text($raw);
+        }
+        return $ids;
     }
 
     /**
@@ -1596,6 +1637,8 @@ class OLIMC_Scanner {
             $serialized = serialize($widgets);
             $strings    = [];
             $ids        = $this->attachment_ids_from_serialized($serialized);
+            // Every integer, key or value ("i:N;"): the same rule as the live check.
+            $ids = array_merge($ids, $this->serialized_integers($serialized));
             $this->widget_values($widgets, $strings, $ids);
             // The same reader as for post content: ids=, include=, wp-image-N, block "id", data-id, upload paths.
             $ids = array_merge($ids, $this->attachment_ids_from_html(implode("\n", $strings)));

@@ -200,9 +200,10 @@ class OLIMC_Media_Usage_Parser {
 	 * @param mixed    $value            Raw meta value.
 	 * @param callable $resolve_path     function( string $upload_relative_path ): int attachment ID or 0.
 	 * @param callable $is_attachment_id function( int $id ): bool.
+	 * @param bool     $count_keys       Also count a numeric array key that is an attachment ID.
 	 * @return int[]
 	 */
-	public static function extract_attachment_ids_from_value( $value, callable $resolve_path, callable $is_attachment_id ) {
+	public static function extract_attachment_ids_from_value( $value, callable $resolve_path, callable $is_attachment_id, $count_keys = false ) {
 		$found = [];
 
 		if ( is_numeric( $value ) ) {
@@ -237,7 +238,7 @@ class OLIMC_Media_Usage_Parser {
 		if ( self::looks_serialized( $value ) ) {
 			$data = function_exists( 'maybe_unserialize' ) ? maybe_unserialize( $value ) : @unserialize( $value );
 			if ( is_array( $data ) ) {
-				$found = array_merge( $found, self::extract_attachment_ids_from_array( $data, $resolve_path, $is_attachment_id ) );
+				$found = array_merge( $found, self::extract_attachment_ids_from_array( $data, $resolve_path, $is_attachment_id, $count_keys ) );
 			}
 			return array_values( array_unique( array_map( 'intval', $found ) ) );
 		}
@@ -246,7 +247,7 @@ class OLIMC_Media_Usage_Parser {
 		if ( strlen( $value ) > 0 && ( $value[0] === '[' || $value[0] === '{' ) ) {
 			$data = json_decode( $value, true );
 			if ( is_array( $data ) ) {
-				$found = array_merge( $found, self::extract_attachment_ids_from_array( $data, $resolve_path, $is_attachment_id ) );
+				$found = array_merge( $found, self::extract_attachment_ids_from_array( $data, $resolve_path, $is_attachment_id, $count_keys ) );
 			}
 		}
 
@@ -259,12 +260,18 @@ class OLIMC_Media_Usage_Parser {
 	 * @param array    $data             Data.
 	 * @param callable $resolve_path     Path resolver.
 	 * @param callable $is_attachment_id Attachment validator.
+	 * @param bool     $count_keys       Also count a numeric array key that is an attachment ID.
 	 * @return int[]
 	 */
-	public static function extract_attachment_ids_from_array( array $data, callable $resolve_path, callable $is_attachment_id ) {
+	public static function extract_attachment_ids_from_array( array $data, callable $resolve_path, callable $is_attachment_id, $count_keys = false ) {
 		$found = [];
 
 		foreach ( $data as $key => $item ) {
+			// Custom fields: a numeric array key that is an attachment ID counts as a use (same rule as the
+			// live check, which looks for "i:N;" and so also matches keys). Off for generic option scans.
+			if ( $count_keys && is_int( $key ) && $key > 0 && $is_attachment_id( $key ) ) {
+				$found[] = $key;
+			}
 			if ( is_array( $item ) ) {
 				if ( isset( $item['id'] ) && is_numeric( $item['id'] ) ) {
 					$id = (int) $item['id'];
@@ -281,7 +288,7 @@ class OLIMC_Media_Usage_Parser {
 				if ( isset( $item['url'] ) && is_string( $item['url'] ) && self::text_references_uploads( $item['url'] ) ) {
 					$found = array_merge( $found, self::extract_ids_from_uploads_string( $item['url'], $resolve_path ) );
 				}
-				$found = array_merge( $found, self::extract_attachment_ids_from_array( $item, $resolve_path, $is_attachment_id ) );
+				$found = array_merge( $found, self::extract_attachment_ids_from_array( $item, $resolve_path, $is_attachment_id, $count_keys ) );
 			} elseif ( is_numeric( $item ) ) {
 				$id = (int) $item;
 				if ( $id > 0 && $is_attachment_id( $id ) ) {

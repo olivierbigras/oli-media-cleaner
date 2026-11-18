@@ -183,6 +183,8 @@ class OLIMC_Ajax {
 				'id'    => $id,
 				'name'  => wp_basename( (string) get_post_meta( $id, '_wp_attached_file', true ) ),
 				'thumb' => $thumb ? esc_url_raw( $thumb ) : '',
+				// A kept media is restored, not deleted, when the trash is emptied.
+				'kept'  => 'trash' === $tab && OLIMC_Admin::is_attachment_protected( $id ),
 			];
 		}
 		$total = ( new OLIMC_Scanner() )->get_total_attachment_count();
@@ -287,6 +289,7 @@ class OLIMC_Ajax {
 				'cap'      => isset( $res['by']['cap'] ) ? count( $res['by']['cap'] ) : 0,
 				'failed'   => self::failed_list( $res['by'], [ 'fail', 'not_trashed' ] ),
 				'exists'   => isset( $res['by']['exists'] ) ? $res['by']['exists'] : [],
+				'reason'   => self::reason(),
 			]
 		);
 	}

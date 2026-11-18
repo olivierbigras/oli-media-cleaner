@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Oli Media Cleaner 2.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner\n"
-"POT-Creation-Date: 2026-11-18T14:08:20+00:00\n"
-"PO-Revision-Date: 2026-11-18 09:08\n"
+"POT-Creation-Date: 2026-11-18T14:39:07+00:00\n"
+"PO-Revision-Date: 2026-11-18 09:39\n"
 "Last-Translator: Olivier Bigras\n"
 "Language-Team: Olivier Bigras\n"
 "Language: fr_FR\n"
@@ -64,7 +64,7 @@ msgstr "Conserver ce média (ne jamais le signaler comme inutilisé)"
 
 #: includes/class-ajax.php:44 includes/class-screen.php:35
 #: includes/class-screen.php:191 includes/class-screen.php:627
-#: assets/js/admin.js:685 assets/js/admin.js:779
+#: assets/js/admin.js:688 assets/js/admin.js:782
 msgid "You do not have permission to clean the media library."
 msgstr "Vous n’avez pas la permission de nettoyer la médiathèque."
 
@@ -82,12 +82,12 @@ msgstr ""
 "Une autre analyse est déjà en cours. Patientez quelques minutes, puis "
 "réessayez."
 
-#: includes/class-ajax.php:307
+#: includes/class-ajax.php:310
 msgid "Only files in the trash can be deleted permanently."
 msgstr ""
 "Seuls les médias de la corbeille peuvent être supprimés définitivement."
 
-#: includes/class-ajax.php:489
+#: includes/class-ajax.php:492
 msgid "The uploads folder is not writable."
 msgstr "Le dossier des téléversements n’est pas accessible en écriture."
 
@@ -136,7 +136,7 @@ msgstr "Conservés"
 msgid "Trash"
 msgstr "Corbeille"
 
-#: includes/class-list-table.php:120 assets/js/admin.js:886
+#: includes/class-list-table.php:120 assets/js/admin.js:889
 msgid "Move to trash"
 msgstr "Mettre à la corbeille"
 
@@ -152,7 +152,7 @@ msgstr "Restaurer"
 
 #. translators: %s: media name
 #: includes/class-list-table.php:129 includes/class-list-table.php:331
-#: assets/js/admin.js:892
+#: assets/js/admin.js:895
 msgid "Delete permanently"
 msgstr "Supprimer définitivement"
 
@@ -309,23 +309,27 @@ msgstr "Filtrer"
 msgid "Reset filters"
 msgstr "Réinitialiser les filtres"
 
-#: includes/class-scan.php:37 assets/js/admin.js:302
+#: includes/class-quarantine.php:286 includes/class-quarantine.php:594
+msgid "This media is being processed."
+msgstr "Ce média est en cours de traitement."
+
+#: includes/class-scan.php:37 assets/js/admin.js:305
 msgid "Preparing"
 msgstr "Préparation"
 
-#: includes/class-scan.php:39 assets/js/admin.js:303
+#: includes/class-scan.php:39 assets/js/admin.js:306
 msgid "Custom fields and ACF"
 msgstr "Champs personnalisés et ACF"
 
-#: includes/class-scan.php:41 assets/js/admin.js:304
+#: includes/class-scan.php:41 assets/js/admin.js:307
 msgid "Other metadata"
 msgstr "Autres métadonnées"
 
-#: includes/class-scan.php:43 assets/js/admin.js:305
+#: includes/class-scan.php:43 assets/js/admin.js:308
 msgid "Content, theme and widgets"
 msgstr "Contenu, thème et widgets"
 
-#: includes/class-scan.php:45 assets/js/admin.js:306
+#: includes/class-scan.php:45 assets/js/admin.js:309
 msgid "Sorting results"
 msgstr "Classement des résultats"
 
@@ -465,7 +469,7 @@ msgstr ""
 "Votre médiathèque est propre. Relancez une analyse après votre prochain gros"
 " changement."
 
-#: includes/class-screen.php:389 assets/js/admin.js:982
+#: includes/class-screen.php:389 assets/js/admin.js:985
 msgid ""
 "This list predates your latest changes (plugin, theme or a scan older than "
 "14 days). Run a new scan before moving files to the trash."
@@ -506,7 +510,7 @@ msgstr "Rechercher"
 msgid "Restore all"
 msgstr "Tout restaurer"
 
-#: includes/class-screen.php:417 assets/js/admin.js:895
+#: includes/class-screen.php:417 assets/js/admin.js:898
 msgid "Empty the trash"
 msgstr "Vider la corbeille"
 
@@ -521,7 +525,7 @@ msgid "%s%%"
 msgstr "%s %%"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:487 assets/js/admin.js:377
+#: includes/class-screen.php:487 assets/js/admin.js:380
 #, php-format, js-format
 msgid ""
 "The scan stopped at %1$s (step %2$d of %3$d). No file was marked as unused."
@@ -529,21 +533,21 @@ msgstr ""
 "L’analyse s’est arrêtée à %1$s (étape %2$d sur %3$d). Aucun média n’a été "
 "marqué comme inutilisé."
 
-#: includes/class-screen.php:488 assets/js/admin.js:373
+#: includes/class-screen.php:488 assets/js/admin.js:376
 msgid "Scan stopped"
 msgstr "Analyse interrompue"
 
 #: includes/class-screen.php:490 includes/class-screen.php:500
-#: assets/js/admin.js:382
+#: assets/js/admin.js:385
 msgid "Resume scan"
 msgstr "Reprendre l’analyse"
 
 #: includes/class-screen.php:490 includes/class-screen.php:500
-#: assets/js/admin.js:385
+#: assets/js/admin.js:388
 msgid "Start over"
 msgstr "Recommencer"
 
-#: includes/class-screen.php:491 assets/js/admin.js:109 assets/js/admin.js:393
+#: includes/class-screen.php:491 assets/js/admin.js:109 assets/js/admin.js:396
 msgid "Technical details"
 msgstr "Détails techniques"
 
@@ -562,18 +566,18 @@ msgid "The scan is paused at %s. Resume it or start over."
 msgstr "L’analyse est en pause à %s. Reprenez-la ou recommencez."
 
 #. translators: 1: step number, 2: number of steps, 3: step name
-#: includes/class-screen.php:505 assets/js/admin.js:341
+#: includes/class-screen.php:505 assets/js/admin.js:344
 #, php-format, js-format
 msgid "Step %1$d of %2$d: %3$s"
 msgstr "Étape %1$d sur %2$d : %3$s"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:507 assets/js/admin.js:342
+#: includes/class-screen.php:507 assets/js/admin.js:345
 #, php-format, js-format
 msgid "%1$s, step %2$d of %3$d"
 msgstr "%1$s, étape %2$d sur %3$d"
 
-#: includes/class-screen.php:508 assets/js/admin.js:539
+#: includes/class-screen.php:508 assets/js/admin.js:542
 msgid "Scan progress"
 msgstr "Progression de l’analyse"
 
@@ -592,7 +596,7 @@ msgstr ""
 msgid "Cancel scan"
 msgstr "Annuler l’analyse"
 
-#: includes/class-screen.php:529 assets/js/admin.js:541
+#: includes/class-screen.php:529 assets/js/admin.js:544
 msgid "Cancel"
 msgstr "Annuler"
 
@@ -806,7 +810,7 @@ msgid "Settings saved."
 msgstr "Réglages enregistrés."
 
 #. translators: %s: the URL that was refused.
-#: includes/class-settings.php:161 assets/js/admin.js:1145
+#: includes/class-settings.php:161 assets/js/admin.js:1148
 #, php-format, js-format
 msgid "The address %s is not on this site and was not saved."
 msgstr "L’adresse %s n’est pas sur ce site et n’a pas été enregistrée."
@@ -879,8 +883,12 @@ msgstr ""
 "La requête n’a pas abouti. Rien n’a été modifié. Rechargez la page et "
 "réessayez."
 
+#: assets/js/admin.js:237
+msgid "(kept: restored, not deleted)"
+msgstr "(conservé : restauré, non supprimé)"
+
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:349
+#: assets/js/admin.js:352
 #, js-format
 msgid "%1$s of %2$s file checked"
 msgid_plural "%1$s of %2$s files checked"
@@ -888,13 +896,13 @@ msgstr[0] "%1$s fichier sur %2$s vérifié"
 msgstr[1] "%1$s fichiers sur %2$s vérifiés"
 
 #. translators: %s: elapsed time, for example 00:42
-#: assets/js/admin.js:353
+#: assets/js/admin.js:356
 #, js-format
 msgid "Elapsed: %s"
 msgstr "Temps écoulé : %s"
 
 #. translators: %1$s: number of unused files, %2$s: their total size
-#: assets/js/admin.js:426
+#: assets/js/admin.js:429
 #, js-format
 msgid "Scan complete: %1$s unused file (%2$s). Nothing was changed."
 msgid_plural "Scan complete: %1$s unused files (%2$s). Nothing was changed."
@@ -904,32 +912,32 @@ msgstr[1] ""
 "Analyse terminée : %1$s médias inutilisés (%2$s). Rien n’a été modifié."
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:580 assets/js/admin.js:794
+#: assets/js/admin.js:583 assets/js/admin.js:797
 #, js-format
 msgid "%1$s of %2$s files moved"
 msgstr "%1$s médias sur %2$s déplacés"
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:583
+#: assets/js/admin.js:586
 #, js-format
 msgid "%1$s of %2$s files deleted"
 msgstr "%1$s médias sur %2$s supprimés"
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:586
+#: assets/js/admin.js:589
 #, js-format
 msgid "%1$s of %2$s files restored"
 msgstr "%1$s médias sur %2$s restaurés"
 
 #. translators: %s: file name
-#: assets/js/admin.js:676
+#: assets/js/admin.js:679
 #, js-format
 msgid "“%s” is now in use and was not moved. Run a new scan."
 msgstr ""
 "« %s » est maintenant utilisé et n’a pas été déplacé. Relancez l’analyse."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:702
+#: assets/js/admin.js:705
 #, js-format
 msgid ""
 "%s file could not be restored. A file with the same name already exists."
@@ -942,7 +950,7 @@ msgstr[1] ""
 "déjà."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:717
+#: assets/js/admin.js:720
 #, js-format
 msgid "%s file could not be restored."
 msgid_plural "%s files could not be restored."
@@ -950,7 +958,7 @@ msgstr[0] "%s média n’a pas pu être restauré."
 msgstr[1] "%s médias n’ont pas pu être restaurés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:734
+#: assets/js/admin.js:737
 #, js-format
 msgid "%s kept file was restored instead of deleted."
 msgid_plural "%s kept files were restored instead of deleted."
@@ -958,7 +966,7 @@ msgstr[0] "%s média conservé a été restauré au lieu d’être supprimé."
 msgstr[1] "%s médias conservés ont été restaurés au lieu d’être supprimés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:749
+#: assets/js/admin.js:752
 #, js-format
 msgid "%s kept file could not be restored and stays in the trash."
 msgid_plural "%s kept files could not be restored and stay in the trash."
@@ -969,7 +977,7 @@ msgstr[1] ""
 "corbeille."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:767
+#: assets/js/admin.js:770
 #, js-format
 msgid "%s file could not be deleted because your site still uses it."
 msgid_plural ""
@@ -980,7 +988,7 @@ msgstr[1] ""
 "%s médias n’ont pas pu être supprimés, car votre site les utilise encore."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:788
+#: assets/js/admin.js:791
 #, js-format
 msgid "%s file is no longer kept."
 msgid_plural "%s files are no longer kept."
@@ -988,7 +996,7 @@ msgstr[0] "%s média n’est plus conservé."
 msgstr[1] "%s médias ne sont plus conservés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:885
+#: assets/js/admin.js:888
 #, js-format
 msgid "Move %s file to the trash?"
 msgid_plural "Move %s files to the trash?"
@@ -996,19 +1004,19 @@ msgstr[0] "Mettre %s média à la corbeille ?"
 msgstr[1] "Mettre %s médias à la corbeille ?"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:891
+#: assets/js/admin.js:894
 #, js-format
 msgid "Permanently delete %s file?"
 msgid_plural "Permanently delete %s files?"
 msgstr[0] "Supprimer définitivement %s média ?"
 msgstr[1] "Supprimer définitivement %s médias ?"
 
-#: assets/js/admin.js:895
+#: assets/js/admin.js:898
 msgid "Empty the trash?"
 msgstr "Vider la corbeille ?"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:923
+#: assets/js/admin.js:926
 msgid ""
 "This file goes offline and is removed from the Media Library. If your site "
 "still uses it, it will appear as missing: restore it from the trash at any "
@@ -1028,7 +1036,7 @@ msgstr[1] ""
 "restaurer depuis la corbeille à tout moment. Vider la corbeille les supprime"
 " définitivement."
 
-#: assets/js/admin.js:931
+#: assets/js/admin.js:934
 msgid ""
 "The files and their thumbnails will be erased from the server. This cannot "
 "be undone. A recent backup is recommended."
@@ -1036,24 +1044,24 @@ msgstr ""
 "Les fichiers et leurs miniatures seront effacés du serveur. Cette action est"
 " irréversible. Une sauvegarde récente est recommandée."
 
-#: assets/js/admin.js:934
+#: assets/js/admin.js:937
 msgid "I checked some examples in the list and I have a recent backup."
 msgstr ""
 "J’ai vérifié quelques exemples dans la liste et j’ai une sauvegarde récente."
 
-#: assets/js/admin.js:936
+#: assets/js/admin.js:939
 msgid "I understand that this is permanent."
 msgstr "Je comprends que cette action est définitive."
 
 #. translators: %s: total size of the selected files, already formatted (e.g.
 #. 21.6 KB)
-#: assets/js/admin.js:941
+#: assets/js/admin.js:944
 #, js-format
 msgid "Total size: %s"
 msgstr "Taille totale : %s"
 
 #. translators: %s: number of other files
-#: assets/js/admin.js:943
+#: assets/js/admin.js:946
 #, js-format
 msgid "and %s more"
 msgid_plural "and %s more"
@@ -1061,17 +1069,17 @@ msgstr[0] "et %s autre"
 msgstr[1] "et %s autres"
 
 #. translators: %s: number of results
-#: assets/js/admin.js:1008
+#: assets/js/admin.js:1011
 #, js-format
 msgid "All %s results are selected."
 msgstr "Les %s résultats sont sélectionnés."
 
-#: assets/js/admin.js:1009
+#: assets/js/admin.js:1012
 msgid "Clear selection"
 msgstr "Annuler la sélection"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:1023
+#: assets/js/admin.js:1026
 #, js-format
 msgid "%s file is selected on this page."
 msgid_plural "%s files are selected on this page."
@@ -1079,23 +1087,23 @@ msgstr[0] "%s fichier est sélectionné sur cette page."
 msgstr[1] "%s fichiers sont sélectionnés sur cette page."
 
 #. translators: %s: number of results
-#: assets/js/admin.js:1025
+#: assets/js/admin.js:1028
 #, js-format
 msgid "Select all %s results"
 msgstr "Sélectionner les %s résultats"
 
 #. translators: %s: number of files that match the patterns
-#: assets/js/admin.js:1135
+#: assets/js/admin.js:1138
 #, js-format
 msgid "%s file matches."
 msgid_plural "%s files match."
 msgstr[0] "%s fichier correspond."
 msgstr[1] "%s fichiers correspondent."
 
-#: assets/js/admin.js:1141
+#: assets/js/admin.js:1144
 msgid "No match. Check the spelling."
 msgstr "Aucune correspondance. Vérifiez l’orthographe."
 
-#: assets/js/admin.js:1155
+#: assets/js/admin.js:1158
 msgid "Report copied."
 msgstr "Rapport copié."

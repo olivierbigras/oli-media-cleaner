@@ -233,6 +233,9 @@
 				li.appendChild( img );
 			}
 			li.appendChild( el( 'span', 'olimc-mono', s.name ) );
+			if ( s.kept ) {
+				li.appendChild( document.createTextNode( ' ' + __( '(kept: restored, not deleted)', 'oli-media-cleaner' ) ) );
+			}
 			list.appendChild( li );
 		} );
 		var more = $( '#olimc-dlg-more' );
@@ -716,7 +719,7 @@
 					text: sprintf(
 						/* translators: %s: number of files */ _n( '%s file could not be restored.', '%s files could not be restored.', rfail.length, 'oli-media-cleaner' ),
 						fmt( rfail.length )
-					),
+					) + ( reasonOf( parts ) ? ' ' + reasonOf( parts ) : '' ),
 					details: rfail.map( nameOf ),
 				} );
 			}
