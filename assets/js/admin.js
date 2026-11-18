@@ -592,7 +592,8 @@
 	/** Send IDs in batches. Returns the merged server answers. */
 	async function runBatches( route, ids, verbFn ) {
 		var maxSize = cfg.batch || 50;
-		var size = maxSize;
+		// Start modestly, then grow while the server answers fast (and shrink when it does not).
+		var size = Math.min( 50, maxSize );
 		// Aim for well under 10 s per request, and under half of max_execution_time when it is low.
 		var limit = cfg.maxExec > 0 ? Math.min( 10, cfg.maxExec * 0.5 ) : 10;
 		var ui = ids.length > size ? progressUi( ids.length, verbFn ) : null;
@@ -619,7 +620,10 @@
 			if ( ui ) {
 				ui.update( out.processed );
 			}
-			if ( chunk.length > 0 && seconds > 0 ) {
+			if ( parseInt( res.data && res.data.unverified, 10 ) > 0 ) {
+				// The server could not finish its check in time: ask for fewer media at a time.
+				size = Math.max( 5, Math.floor( chunk.length / 2 ) );
+			} else if ( chunk.length > 0 && seconds > 0 ) {
 				size = Math.max( 5, Math.min( maxSize, Math.floor( ( limit * 0.8 ) / ( seconds / chunk.length ) ) ) );
 			}
 			if ( cfg.pause ) {

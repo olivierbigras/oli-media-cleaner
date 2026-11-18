@@ -241,9 +241,21 @@ wp_trash_post( $pub );
 $t( false === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $aid ), 'attached to a post that is in the WordPress trash: not in use' );
 delete_option( 'olimc_count_attached' );
 
-// A batch above the pre-filter limit reads the tables whole, once, with the same answers.
+// A batch of a few media is filtered in SQL for all of them at once; a batch above the limit reads the tables whole, once.
+// Both give the answers of the single check, and the SQL filter with the whole batch returns what each lone filter returns.
+$reset();
+OLIMC_Scanner::begin_batch( $media );
+$ok = true;
+foreach ( $kept as $label => $it ) {
+	if ( $it[3] !== ( new OLIMC_Scanner() )->is_attachment_in_use_now( $it[0] ) ) {
+		$ok = false;
+		echo "  differs (targeted batch): $label\n";
+	}
+}
+OLIMC_Scanner::end_batch();
+$t( $ok, 'a batch of ' . count( $media ) . ' media (tables filtered in SQL for all of them) gives the same answers' );
 $many = $media;
-while ( count( $many ) <= OLIMC_Scanner::META_PREFILTER_MAX + 1 ) {
+while ( count( $many ) <= OLIMC_Scanner::META_TARGETED_MAX ) {
 	$many[] = 900000000 + count( $many );
 }
 $reset();
@@ -252,11 +264,60 @@ $ok = true;
 foreach ( $kept as $label => $it ) {
 	if ( $it[3] !== ( new OLIMC_Scanner() )->is_attachment_in_use_now( $it[0] ) ) {
 		$ok = false;
-		echo "  differs: $label\n";
+		echo "  differs (whole read): $label\n";
 	}
 }
 OLIMC_Scanner::end_batch();
-$t( $ok, 'a batch of more than ' . OLIMC_Scanner::META_PREFILTER_MAX . ' media (tables read whole, once) gives the same answers' );
+$t( $ok, 'a batch of more than ' . OLIMC_Scanner::META_TARGETED_MAX . ' media (tables read whole, once) gives the same answers' );
+$kept_ids = array_map(
+	static function ( $it ) {
+		return $it[0];
+	},
+	array_values( $kept )
+);
+$all_hits = $one->invoke( new OLIMC_Scanner(), $kept_ids, microtime( true ) + 60 );
+$whole    = $one->invoke( new OLIMC_Scanner(), $kept_ids, microtime( true ) + 60, true );
+$t( is_array( $all_hits ) && is_array( $whole ) && array_keys( $all_hits ) === array_keys( $whole ) || ( is_array( $all_hits ) && is_array( $whole ) && ! array_diff_key( $all_hits, $whole ) && ! array_diff_key( $whole, $all_hits ) ), 'the SQL filter for the whole batch finds exactly what the whole read finds' );
+
+// A check that runs out of time answers "unknown", never "unused".
+$reset();
+OLIMC_Scanner::begin_batch( $media );
+$slow = $one->invoke( new OLIMC_Scanner(), $media, microtime( true ) - 1 );
+OLIMC_Scanner::end_batch();
+$t( null === $slow, 'a check whose time is up answers unknown (null), not unused' );
+
+// ── A check that cannot finish is "unverified", not "in use": the media is kept, and the answer says why ──
+$spare = $mk()[0];
+$break = static function ( $query ) {
+	// Make every pre-filter and whole-table read of the meta tables fail, as a database error or a lost connection would.
+	return ( false !== strpos( $query, 'LIKE BINARY' ) || false !== strpos( $query, "SUBSTR(`meta_value`" ) || false !== strpos( $query, "SUBSTR(`option_value`" ) ) ? 'SELECT broken_column FROM olimc_no_such_table' : $query;
+};
+$wpdb->suppress_errors( true );
+add_filter( 'query', $break );
+$reset();
+$r = OLIMC_Trash::trash( $spare );
+$t( ! $r['ok'] && 'unverified' === $r['code'], "P3-A: trashing while the check fails answers 'unverified' (got '{$r['code']}'), not 'used'" );
+$t( OLIMC_Trash::had_unverified() && __( 'The check could not finish. Try again.', 'oli-media-cleaner' ) === ( new ReflectionMethod( 'OLIMC_Ajax', 'reason' ) )->invoke( null ), 'P3-A: the reason shown is "The check could not finish. Try again."' );
+$t( null !== get_post( $spare ) && ! OLIMC_Trash::is_in_trash( $spare ) && is_file( get_attached_file( $spare ) ), 'P3-A: the media is untouched (still in the library, file in place)' );
+remove_filter( 'query', $break );
+$wpdb->suppress_errors( false );
+$reset();
+$r = OLIMC_Trash::trash( $spare );
+$t( $r['ok'], 'P3-A: once the database answers again, the same media can be trashed' );
+add_filter( 'query', $break );
+$wpdb->suppress_errors( true );
+$reset();
+$r = OLIMC_Trash::purge( $spare );
+$t( ! $r['ok'] && 'unverified' === $r['code'] && null !== get_post( $spare ), "P3-A: emptying while the check fails answers 'unverified' and deletes nothing (got '{$r['code']}')" );
+remove_filter( 'query', $break );
+$wpdb->suppress_errors( false );
+OLIMC_Trash::restore( $spare );
+$used_id = $kept_ids ? $kept_ids[ array_search( true, array_column( array_values( $kept ), 3 ), true ) ] : 0;
+if ( $used_id ) {
+	$reset();
+	$r = OLIMC_Trash::trash( $used_id );
+	$t( ! $r['ok'] && 'used' === $r['code'], "P3-A: a media that is really in use still answers 'used' (got '{$r['code']}')" );
+}
 
 // ── Cleanup ──
 foreach ( $cleanups as $f ) {

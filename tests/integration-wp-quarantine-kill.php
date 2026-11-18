@@ -231,6 +231,34 @@ $r = OLIMC_Trash::restore( $id );
 $reset();
 $t( $r['ok'] && $here() === $before && '' === $qdir(), 'a manifest that is already final (state removed) is rolled back too' );
 
+// ── 8. wp olimc rotate-token takes the lock of a dead process at once, like restore() and the screen ──
+if ( 0 !== OLIMC_Trash::count() ) {
+	echo "SKIP: rotate-token checks (other media are in the trash of this site).\n";
+} else {
+	$tok0 = get_option( OLIMC_Quarantine::OPT_TOKEN, '' );
+	$t( $kill(), 'eighth kill' );
+	$reset();
+	$wpdb->update( $wpdb->postmeta, [ 'meta_value' => time() . ':1:' . $host ], [ 'post_id' => $id, 'meta_key' => OLIMC_Quarantine::META_LOCK ] );
+	wp_cache_delete( $id, 'post_meta' );
+	$res = OLIMC_Quarantine::rotate_token();
+	$t( is_wp_error( $res ) && 'olimc_busy' === $res->get_error_code() && $here() !== $before, 'rotate-token: a lock held by a live process still makes it wait (nothing touched)' );
+	$t( $tok0 === get_option( OLIMC_Quarantine::OPT_TOKEN, '' ) && '' === (string) get_option( OLIMC_Quarantine::OPT_ROTATE, '' ), 'rotate-token: and no rotation was started' );
+	// The same media, the lock of a pid that is certainly dead (the child's own lock): the rollback ends, then the rotation runs.
+	delete_post_meta( $id, OLIMC_Quarantine::META_LOCK );
+	OLIMC_Trash::restore( $id );
+	$t( $kill(), 'ninth kill' );
+	$reset();
+	$t( preg_match( '/^\d+:\d+:' . $host . '$/', (string) $lockv() ) === 1, 'ninth kill: a fresh lock of a dead process' );
+	$t0  = microtime( true );
+	$res = OLIMC_Quarantine::rotate_token();
+	$reset();
+	$t( ! is_wp_error( $res ), 'rotate-token: a fresh lock of a dead process does not make it wait 300 s' );
+	$t( microtime( true ) - $t0 < 20 && $here() === $before && '' === $qdir() && null === $lockv(), 'rotate-token: the rollback was finished first (files back, same MD5, lock gone)' );
+	$t( $tok0 !== get_option( OLIMC_Quarantine::OPT_TOKEN, '' ) && '' === (string) get_option( OLIMC_Quarantine::OPT_ROTATE, '' ), 'rotate-token: the token was replaced, no rotation left pending' );
+	update_option( OLIMC_Quarantine::OPT_TOKEN, $tok0, false );
+	delete_option( OLIMC_Quarantine::OPT_ROTATE );
+}
+
 // ── Cleanup ──
 OLIMC_Trash::restore( $id );
 delete_post_meta( $id, OLIMC_Quarantine::META_LOCK );

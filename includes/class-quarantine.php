@@ -459,9 +459,26 @@ class OLIMC_Quarantine {
 			$old = $m[1];
 			$new = $m[2];
 		} else {
-			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(SUBSTRING_INDEX(meta_value, ':', 1) AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			if ( $busy > 0 ) {
-				return self::busy_error();
+			// A fresh lock of a live process means a media is being moved: wait. The lock of a process that is certainly dead (same
+			// server, no such pid) is not a reason to wait 300 s: finish its rollback first, as restore() and the screen do.
+			$locks = $wpdb->get_results( $wpdb->prepare( "SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(SUBSTRING_INDEX(meta_value, ':', 1) AS UNSIGNED) > %d ORDER BY post_id ASC LIMIT 500", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			foreach ( (array) $locks as $row ) {
+				if ( ! self::lock_is_orphan( $row->meta_value ) ) {
+					return self::busy_error();
+				}
+				$back = self::recover( (int) $row->post_id );
+				if ( is_wp_error( $back ) ) {
+					return $back;
+				}
+				// Nothing was left to put back: drop the dead lock, unless someone took it over in the meantime.
+				$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$wpdb->postmeta,
+					[
+						'post_id'    => (int) $row->post_id,
+						'meta_key'   => self::META_LOCK,
+						'meta_value' => (string) $row->meta_value,
+					]
+				);
 			}
 			$old = self::token();
 			$new = bin2hex( random_bytes( 16 ) );

@@ -222,7 +222,7 @@ class OLIMC_Settings {
 				'pause' => 500,
 			]
 			: [
-				'batch' => 50,
+				'batch' => 200,
 				'pause' => 0,
 			];
 	}

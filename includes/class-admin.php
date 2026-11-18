@@ -394,6 +394,23 @@ class OLIMC_Admin {
 
 
     /**
+     * Media whose last check could not finish (time up, database error): kept, but not because they are in use.
+     *
+     * @var array<int,true>
+     */
+    private static $unverified = [];
+
+    /**
+     * Did the last check of this media fail to finish, rather than find a use?
+     *
+     * @param int $post_id Attachment ID.
+     * @return bool
+     */
+    public static function was_unverified( $post_id ) {
+        return isset(self::$unverified[ (int) $post_id ]);
+    }
+
+    /**
      * Shared files, unknown index, protected files, or in-use media must not be deleted or trashed.
      *
      * @param int $post_id Attachment ID.
@@ -402,6 +419,7 @@ class OLIMC_Admin {
     public static function must_keep_attachment_files( $post_id ) {
         $post_id = (int) $post_id;
         $keep = false;
+        unset(self::$unverified[ $post_id ]);
 
         if ($post_id > 0) {
             // Check protection first (cheapest check)
@@ -412,10 +430,16 @@ class OLIMC_Admin {
                 $shared = $scanner->shared_relative_upload_paths($post_id);
                 if ($shared === null || $shared !== []) {
                     $keep = true;
+                    if ($shared === null) {
+                        self::$unverified[ $post_id ] = true;
+                    }
                 } else {
                     $in_use = $scanner->is_attachment_in_use_now($post_id);
                     if ($in_use === true || $in_use === null) {
                         $keep = true;
+                    }
+                    if ($in_use === null) {
+                        self::$unverified[ $post_id ] = true;
                     }
                     $scan_date = get_option('olimc_scan_date', '');
                     if ( ! $keep && empty($scan_date) && $in_use !== false) {

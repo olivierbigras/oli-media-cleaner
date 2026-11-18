@@ -64,6 +64,16 @@ class OLIMC_Trash {
 	const AUDIT_MAX     = 200;
 	const AUDIT_IDS     = 25;
 
+	/** @var bool A check could not finish in this request (time up or database error): its media were kept, not touched. */
+	private static $had_unverified = false;
+
+	/**
+	 * @return bool True when a live check could not finish in this request.
+	 */
+	public static function had_unverified() {
+		return self::$had_unverified;
+	}
+
 	/**
 	 * @var OLIMC_Trash_Backend|null
 	 */
@@ -133,9 +143,13 @@ class OLIMC_Trash {
 		if ( OLIMC_Admin::is_attachment_protected( $id ) ) {
 			return self::result( false, 'kept', $id );
 		}
-		// Live re-check: the list may be old. Unknown (null) counts as used.
+		// Live re-check: the list may be old. Unknown (null) keeps the media, but it is not "in use": the check did not finish.
 		$in_use = ( new OLIMC_Scanner() )->is_attachment_in_use_now( $id );
-		if ( true === $in_use || null === $in_use ) {
+		if ( null === $in_use ) {
+			self::$had_unverified = true;
+			return self::result( false, 'unverified', $id );
+		}
+		if ( true === $in_use ) {
 			return self::result( false, 'used', $id );
 		}
 		$done = self::backend()->trash( $id );
@@ -212,7 +226,14 @@ class OLIMC_Trash {
 		}
 		if ( is_wp_error( $done ) ) {
 			// Another request is working on this media: not a "now in use" case.
-			return self::result( false, 'olimc_busy' === $done->get_error_code() ? 'fail' : 'used', $id );
+			if ( 'olimc_busy' === $done->get_error_code() ) {
+				return self::result( false, 'fail', $id );
+			}
+			if ( OLIMC_Admin::was_unverified( $id ) ) {
+				self::$had_unverified = true;
+				return self::result( false, 'unverified', $id );
+			}
+			return self::result( false, 'used', $id );
 		}
 		OLIMC_Results::remove( $id );
 		return self::result( true, 'ok', $id );
@@ -321,7 +342,7 @@ class OLIMC_Trash {
 			}
 			if ( $r['ok'] ) {
 				$done[] = $id;
-			} elseif ( ! in_array( $r['code'], [ 'not_trashed', 'cap' ], true ) ) {
+			} elseif ( ! in_array( $r['code'], [ 'not_trashed', 'cap', 'unverified' ], true ) ) {
 				// A media that keeps failing (used again, folder not writable) must not block the newer ones
 				// at every run: after AUTOFAIL_MAX attempts it is skipped.
 				update_post_meta( $id, self::META_AUTOFAIL, (int) get_post_meta( $id, self::META_AUTOFAIL, true ) + 1 );

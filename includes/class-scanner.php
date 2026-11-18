@@ -51,14 +51,30 @@ class OLIMC_Scanner {
     /** @var float */
     private static $single_since = 0.0;
 
+    /** @var float Seconds spent in the meta queries of single checks since $single_since. */
+    private static $single_spent = 0.0;
+
+    /** @var bool True when the last meta_hits() stopped because its time was up (not because of an SQL error). */
+    private static $last_timeout = false;
+
+    /** @var bool True when a batch check ran out of time (the media it could not check are "unknown"). */
+    private static $timed_out = false;
+
     /** @var bool True when the batch was made by the second single check, not announced by a caller. */
     private static $auto_batch = false;
 
     /** Seconds during which the whole read made for a loop of single checks is trusted. */
     const AUTO_BATCH_TTL = 20;
 
-    /** Up to this many media the tables are filtered in SQL for each ID; above, they are read once for the whole batch (cheaper from 2 media on). */
-    const META_PREFILTER_MAX = 1;
+    /**
+     * Most media a batch may hold to be filtered in SQL (a few needles per media); a bigger list is read whole.
+     */
+    const META_TARGETED_MAX = 500;
+
+    /**
+     * Seconds spent in checks one media at a time, in one request, after which the tables are read once for all the media.
+     */
+    const AUTO_BATCH_SPEND = 4;
 
     /** @var int|null Attachment ID being checked by is_attachment_in_use_now(). */
     private $usage_check_id = null;
@@ -546,6 +562,17 @@ class OLIMC_Scanner {
         self::$batch_meta    = false;
         self::$auto_batch    = false;
         self::$single_calls  = 0;
+        self::$single_spent  = 0.0;
+        self::$timed_out     = false;
+    }
+
+    /**
+     * Did a check of the current batch run out of time? Its media are then "unknown" (kept, not touched), not "in use".
+     *
+     * @return bool
+     */
+    public static function batch_timed_out() {
+        return self::$timed_out;
     }
 
     public static function end_batch() {
@@ -662,6 +689,7 @@ class OLIMC_Scanner {
         if (microtime(true) - self::$single_since > self::AUTO_BATCH_TTL) {
             // Too old to be trusted: forget the whole read made for a loop of single checks, and start counting again.
             self::$single_calls = 0;
+            self::$single_spent = 0.0;
             self::$single_since = microtime(true);
             if (self::$auto_batch) {
                 self::$batch_set  = null;
@@ -673,8 +701,8 @@ class OLIMC_Scanner {
             $this->collect_meta_sources_from_batch($id);
             return;
         }
-        // A loop of single checks (a bulk delete, a script): from the second on, read the tables once for every media.
-        if (self::$batch_set === null && ++self::$single_calls > self::META_PREFILTER_MAX) {
+        // A loop of single checks (a bulk delete, a script) that has already cost seconds: read the tables once for every media.
+        if (self::$batch_set === null && self::$single_calls > 0 && self::$single_spent > self::AUTO_BATCH_SPEND) {
             global $wpdb;
             $all = $wpdb->get_col("SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment'");
             if (is_array($all) && $all !== [] && empty($wpdb->last_error)) {
@@ -685,7 +713,10 @@ class OLIMC_Scanner {
                 return;
             }
         }
-        $hits = $this->meta_hits([ $id ], $this->usage_check_deadline);
+        ++self::$single_calls;
+        $started = microtime(true);
+        $hits    = $this->meta_hits([ $id ], $this->usage_check_deadline);
+        self::$single_spent += microtime(true) - $started;
         if ($hits === null) {
             $this->usage_check_failed = true;
             return;
@@ -696,14 +727,21 @@ class OLIMC_Scanner {
     }
 
     /**
-     * The answer for one media from the whole read made for its batch (made now if it was not yet).
+     * The answer for one media from the read made for its batch (made now if it was not yet): the tables are filtered in SQL
+     * for the media of the batch when there are few of them, else read whole, within the time the request may take.
      *
      * @param int $id Attachment ID.
      */
     private function collect_meta_sources_from_batch( $id ) {
         if (self::$batch_meta === false) {
             $budget = function_exists('ini_get') ? (int) ini_get('max_execution_time') : 0;
-            self::$batch_meta = $this->meta_hits(array_keys(self::$batch_set), microtime(true) + ( $budget > 0 ? max(5, $budget - 5) : 120 ));
+            // Stay well under the limit: the rest of the batch (files, database writes) still has to run after this read.
+            $seconds = $budget > 0 ? max(4, min($budget * 0.6, $budget - 6)) : 90;
+            $ids     = array_keys(self::$batch_set);
+            self::$batch_meta = $this->meta_hits($ids, microtime(true) + $seconds, ! self::$auto_batch && count($ids) <= self::META_TARGETED_MAX ? false : true);
+            if (self::$batch_meta === null && self::$last_timeout) {
+                self::$timed_out = true;
+            }
         }
         if (self::$batch_meta === null) {
             $this->usage_check_failed = true;
@@ -746,6 +784,7 @@ class OLIMC_Scanner {
      */
     private function meta_hits( array $ids, $deadline = null, $force_full = false ) {
         global $wpdb;
+        self::$last_timeout = false;
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
         if ($ids === []) {
             return [];
@@ -779,13 +818,13 @@ class OLIMC_Scanner {
             return isset($set[ (int) $found ]);
         };
 
-        // SQL pre-filter: the number written as a whole run of digits (the LIKE keeps the regular expression for the few rows
-        // that hold the digits), or the path of the file without its extension and size suffix, in its plain, URL-encoded
-        // and JSON-escaped forms.
-        $full    = $force_full || count($ids) > self::META_PREFILTER_MAX;
-        $regexp  = '';
-        $stems   = [];
-        $gate    = '';
+        // SQL pre-filter, for a few media: a row can only hold the media if its text contains the ID's digits, or the path of
+        // its file without extension and size suffix (plain, URL-encoded and JSON-escaped). The needles are grouped by a shared
+        // prefix so that most rows cost one cheap byte comparison, and the rows that pass go through the scan's own parser, which
+        // decides. A long list of media, or an SQL error, reads the tables whole instead (cheap SQL gate, then the same parser).
+        $full  = $force_full || count($ids) > self::META_TARGETED_MAX;
+        $gate  = '';
+        $stems = [];
         if ($full) {
             // Whole read: only the rows the parser can get anything from (a number or a list of numbers, a serialized or JSON
             // value, an upload URL); plain text is skipped in SQL.
@@ -796,7 +835,6 @@ class OLIMC_Scanner {
             }
             $gate .= ')';
         } else {
-            $regexp = '(^|[^0-9])0*(' . implode('|', $ids) . ')([^0-9]|$)';
             foreach ($files as $file) {
                 $stem = preg_replace('/\.[^.\/]+$/', '', $file);
                 if ( ! is_string($stem) || $stem === '') {
@@ -816,30 +854,24 @@ class OLIMC_Scanner {
         if (isset($wpdb->termmeta)) {
             array_splice($sources, 1, 0, [ [ $wpdb->termmeta, 'meta_id', 'meta_key', 'meta_value', true ] ]);
         }
-        $page = $full ? 500 : 100;
+        $page = $full ? 500 : 200;
         foreach ($sources as $src) {
             list($table, $id_col, $key_col, $val_col, $count_keys) = $src;
             $where = [];
+            if ( ! $full) {
+                // The text test first: it rejects nearly every row, so the key tests below only run on the few that remain.
+                $where[] = $this->needle_sql($val_col, $ids, array_keys($stems));
+            }
             foreach (OLIMC_Acf_Meta_Scanner::plugin_key_prefixes() as $prefix) {
                 $where[] = $wpdb->prepare("`{$key_col}` NOT LIKE %s", $wpdb->esc_like($prefix) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
             }
             if ($full) {
                 $where[] = str_replace('`__V__`', '`' . $val_col . '`', $gate);
-            } else {
-                $or = [];
-                $number_likes = [];
-                foreach ($ids as $one) {
-                    $number_likes[] = $wpdb->prepare("`{$val_col}` LIKE %s", '%' . $wpdb->esc_like( (string) $one) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
-                }
-                $or[] = '((' . implode(' OR ', $number_likes) . ') AND ' . $wpdb->prepare("`{$val_col}` REGEXP %s", $regexp) . ')'; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
-                foreach (array_keys($stems) as $needle) {
-                    $or[] = $wpdb->prepare("`{$val_col}` LIKE %s", '%' . $wpdb->esc_like($needle) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
-                }
-                $where[] = '(' . implode(' OR ', $or) . ')';
             }
             $last = 0;
             do {
                 if ($deadline !== null && microtime(true) >= $deadline) {
+                    self::$last_timeout = true;
                     return null;
                 }
                 $wpdb->last_error = '';
@@ -869,6 +901,87 @@ class OLIMC_Scanner {
             } while (count($rows) === $page);
         }
         return $hits;
+    }
+
+    /**
+     * SQL condition that keeps the rows whose text may hold one of these media: the digits of an ID, or a file path.
+     *
+     * It is a superset: the parser decides. Cheap by design: byte-wise comparison (`LIKE BINARY`), and the needles of a
+     * group (IDs sharing their leading digits, paths sharing their year/month folder) sit behind one test of the shared
+     * part, so a row that holds none of them costs a few comparisons whatever the size of the batch.
+     *
+     * @param string   $col   Value column.
+     * @param int[]    $ids   Attachment IDs.
+     * @param string[] $stems Path needles, each starting with a slash.
+     * @return string
+     */
+    private function needle_sql( $col, array $ids, array $stems ) {
+        global $wpdb;
+        $like = static function ( $needle, $binary ) use ( $wpdb, $col ) {
+            return "`{$col}` LIKE " . ( $binary ? 'BINARY ' : '' ) . $wpdb->prepare('%s', '%' . $wpdb->esc_like($needle) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
+        };
+        $parts = [];
+        foreach (self::group_by_prefix(array_map('strval', $ids)) as $group) {
+            list($prefix, $members) = $group;
+            $any = [];
+            foreach ($members as $one) {
+                $any[] = $like($one, true);
+            }
+            $parts[] = ( $prefix === '' || count($members) === 1 ) ? '(' . implode(' OR ', $any) . ')' : '(' . $like($prefix, true) . ' AND (' . implode(' OR ', $any) . '))';
+        }
+        // Paths: the folder test is byte-wise (year/month folders hold no letters); the name test follows the collation, as the
+        // scan compares paths without regard to case, and only runs on the rows that cite that folder.
+        $by_dir = [];
+        foreach ($stems as $needle) {
+            $cut = strrpos($needle, '/');
+            $dir = false === $cut ? '' : substr($needle, 0, $cut + 1);
+            $by_dir[ ( $dir !== '' && preg_match('/^[0-9\\\\\\/]+$/', $dir) ) ? $dir : '' ][] = $needle;
+        }
+        foreach ($by_dir as $dir => $members) {
+            $any = [];
+            foreach ($members as $one) {
+                $any[] = $like($one, false);
+            }
+            $parts[] = $dir === '' ? '(' . implode(' OR ', $any) . ')' : '(' . $like($dir, true) . ' AND (' . implode(' OR ', $any) . '))';
+        }
+        return '(' . implode(' OR ', $parts) . ')';
+    }
+
+    /**
+     * Groups numbers (as strings) by the leading digits they share, with few enough groups to keep the SQL test cheap.
+     *
+     * @param string[] $numbers Numbers.
+     * @return array<int,array{0:string,1:string[]}> Pairs of prefix and numbers; the prefix is empty when the numbers are tested one by one.
+     */
+    private static function group_by_prefix( array $numbers ) {
+        $by_len = [];
+        foreach (array_unique($numbers) as $number) {
+            $by_len[ strlen($number) ][] = $number;
+        }
+        $out = [];
+        foreach ($by_len as $len => $list) {
+            if ($len <= 2) {
+                $out[] = [ '', $list ]; // Too short to share anything: each one alone.
+                continue;
+            }
+            $best = null;
+            for ($keep = $len - 2; $keep >= max(2, $len - 4); --$keep) {
+                $groups = [];
+                foreach ($list as $number) {
+                    $groups[ substr($number, 0, $keep) ][] = $number;
+                }
+                if ($best === null || count($groups) < count($best)) {
+                    $best = $groups;
+                }
+                if (count($groups) <= 3) {
+                    break;
+                }
+            }
+            foreach ($best as $prefix => $members) {
+                $out[] = [ (string) $prefix, $members ];
+            }
+        }
+        return $out;
     }
 
     /**
@@ -2509,6 +2622,8 @@ class OLIMC_Scanner {
         }
         self::$auto_batch   = false;
         self::$single_calls = 0;
+        self::$single_spent = 0.0;
+        self::$timed_out    = false;
         self::$upload_path_index_cache = null;
         self::$upload_path_index_ready = false;
         self::$stem_index_cache = null;

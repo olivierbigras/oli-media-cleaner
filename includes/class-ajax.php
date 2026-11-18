@@ -293,7 +293,8 @@ class OLIMC_Ajax {
 				'used'    => isset( $res['by']['used'] ) ? $res['by']['used'] : [],
 				'kept'    => isset( $res['by']['kept'] ) ? count( $res['by']['kept'] ) : 0,
 				'cap'     => isset( $res['by']['cap'] ) ? count( $res['by']['cap'] ) : 0,
-				'failed'  => self::failed_list( $res['by'], [ 'fail', 'invalid', 'already' ] ),
+				'failed'  => self::failed_list( $res['by'], [ 'unverified', 'fail', 'invalid', 'already' ] ),
+				'unverified' => isset( $res['by']['unverified'] ) ? count( $res['by']['unverified'] ) : 0,
 				'reason'  => self::reason(),
 			]
 		);
@@ -358,7 +359,8 @@ class OLIMC_Ajax {
 				'deleted' => $res['ok'],
 				'cap'     => isset( $res['by']['cap'] ) ? count( $res['by']['cap'] ) : 0,
 				'kept'    => isset( $res['by']['kept'] ) ? count( $res['by']['kept'] ) : 0,
-				'failed'  => self::failed_list( $res['by'], [ 'used', 'fail' ] ),
+				'failed'  => self::failed_list( $res['by'], [ 'unverified', 'used', 'fail' ] ),
+				'unverified' => isset( $res['by']['unverified'] ) ? count( $res['by']['unverified'] ) : 0,
 				'reason'  => self::reason(),
 			]
 		);
@@ -378,6 +380,7 @@ class OLIMC_Ajax {
 		$deleted  = [];
 		$failed   = [];
 		$cap      = 0;
+		$unverified = 0;
 		OLIMC_Scanner::begin_batch( $ids );
 		foreach ( $ids as $id ) {
 			if ( ! OLIMC_Trash::is_in_trash( $id ) ) {
@@ -402,6 +405,9 @@ class OLIMC_Ajax {
 			} elseif ( 'cap' === $r['code'] ) {
 				++$cap;
 			} else {
+				if ( 'unverified' === $r['code'] ) {
+					++$unverified;
+				}
 				$failed[] = [
 					'id'   => $id,
 					'name' => self::name( $id ),
@@ -420,6 +426,7 @@ class OLIMC_Ajax {
 				'kept_failed'   => $kept_bad,
 				'cap'           => $cap,
 				'failed'        => $failed,
+				'unverified'    => $unverified,
 				'reason'        => self::reason(),
 			]
 		);
@@ -521,6 +528,9 @@ class OLIMC_Ajax {
 	private static function reason() {
 		if ( OLIMC_Quarantine::had_busy() ) {
 			return __( 'This media is being processed.', 'oli-media-cleaner' );
+		}
+		if ( OLIMC_Trash::had_unverified() ) {
+			return __( 'The check could not finish. Try again.', 'oli-media-cleaner' );
 		}
 		$dir = wp_upload_dir( null, false );
 		if ( OLIMC_Quarantine::had_permission_error() || ( ! empty( $dir['basedir'] ) && ! wp_is_writable( $dir['basedir'] ) ) || ! OLIMC_Quarantine::is_writable() ) {
