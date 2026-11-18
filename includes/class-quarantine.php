@@ -317,6 +317,12 @@ class OLIMC_Quarantine {
 		if ( '' === $base ) {
 			return self::perm_error( 'The uploads folder is not available.' );
 		}
+		// A folder left by a move of this same media that was killed midway: put its files back first,
+		// so the plan below sees every file at its original path.
+		$left = $base . '/' . self::dir_rel( $id );
+		if ( is_dir( $left ) ) {
+			self::recover_interrupted( $left, $base );
+		}
 		$plan = self::plan( $id, $base );
 		if ( is_wp_error( $plan ) ) {
 			return $plan;
@@ -350,8 +356,7 @@ class OLIMC_Quarantine {
 		$map['dir'] = self::dir_rel( $id );
 		$dir        = $base . '/' . $map['dir'];
 		if ( is_dir( $dir ) ) {
-			// Left by a move of this same media that was killed midway: put its files back first.
-			self::recover_interrupted( $dir, $base );
+			// Already recovered above; whatever is left is not ours to guess about.
 			if ( ! self::cleanup_dir( $dir ) ) {
 				return new WP_Error( 'olimc_dir', 'A previous quarantine folder for this media is not empty.' );
 			}

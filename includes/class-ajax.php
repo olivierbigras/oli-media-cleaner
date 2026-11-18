@@ -286,7 +286,7 @@ class OLIMC_Ajax {
 				'restored' => $res['ok'],
 				'cap'      => isset( $res['by']['cap'] ) ? count( $res['by']['cap'] ) : 0,
 				'failed'   => self::failed_list( $res['by'], [ 'fail', 'not_trashed' ] ),
-				'exists'   => isset( $res['by']['exists'] ) ? count( $res['by']['exists'] ) : 0,
+				'exists'   => isset( $res['by']['exists'] ) ? $res['by']['exists'] : [],
 			]
 		);
 	}
@@ -340,6 +340,7 @@ class OLIMC_Ajax {
 		self::require_media( $ids );
 		$fresh    = ! OLIMC_Scan::is_stale();
 		$restored = 0;
+		$kept_bad = [];
 		$deleted  = [];
 		$failed   = [];
 		$cap      = 0;
@@ -352,6 +353,12 @@ class OLIMC_Ajax {
 				$r = OLIMC_Trash::restore( $id );
 				if ( $r['ok'] ) {
 					++$restored;
+				} else {
+					// Kept but not restorable (a file with the same name exists, folder not writable): say so.
+					$kept_bad[] = [
+						'id'   => $id,
+						'name' => self::name( $id ),
+					];
 				}
 				continue;
 			}
@@ -375,6 +382,7 @@ class OLIMC_Ajax {
 			[
 				'deleted'       => $deleted,
 				'restored_kept' => $restored,
+				'kept_failed'   => $kept_bad,
 				'cap'           => $cap,
 				'failed'        => $failed,
 				'reason'        => self::reason(),

@@ -2,12 +2,14 @@
 /**
  * Fired when the plugin is uninstalled.
  *
- * Only runs when "Delete the plugin data when it is uninstalled" is checked
- * (the default). Media in the trash are restored first: their files go back
- * to their original paths. No media file is ever deleted here. A media that
+ * Media in the trash are ALWAYS restored first, whether or not "Delete the
+ * plugin data when it is uninstalled" is checked: their files go back to
+ * their original paths. No media file is ever deleted here. A media that
  * cannot be restored (a file with the same name exists, folder not writable)
  * is shown again in the Media Library and its files stay in
- * uploads/olimc-trash with their manifest and a README.
+ * uploads/olimc-trash with their manifest and a README. The checkbox only
+ * decides whether the options, post meta, results table and folder token
+ * are removed.
  *
  * @package Oli_Media_Cleaner
  */
@@ -32,11 +34,7 @@ if ( ! defined( 'OLIMC_BASENAME' ) ) {
 function olimc_uninstall_site() {
 	global $wpdb;
 
-	if ( '0' === (string) get_option( 'olimc_delete_data', '1' ) ) {
-		return;
-	}
-
-	// 1. Put every media of the trash back (no file is deleted).
+	// 1. Put every media of the trash back (no file is deleted), whatever the "delete data" setting.
 	if ( ! class_exists( 'OLIMC_Trash' ) ) {
 		require_once OLIMC_PLUGIN_DIR . 'includes/functions.php';
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-results.php';
@@ -53,6 +51,17 @@ function olimc_uninstall_site() {
 		}
 	}
 
+	// The folder goes only when no media folder is left in it; otherwise a README explains what is there.
+	$olimc_empty = OLIMC_Quarantine::remove_if_empty();
+	if ( ! $olimc_empty ) {
+		OLIMC_Quarantine::write_leftover_note();
+	}
+
+	// The setting only governs the removal of the plugin data (steps 2 to 3).
+	if ( '0' === (string) get_option( 'olimc_delete_data', '1' ) ) {
+		return;
+	}
+
 	// 2. Options, post meta, user meta, transients.
 	$like = $wpdb->esc_like( 'olimc_' ) . '%';
 	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s", $like, '_transient_' . $like, '_transient_timeout_' . $like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
@@ -63,11 +72,6 @@ function olimc_uninstall_site() {
 	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'olimc_results' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 	wp_clear_scheduled_hook( 'olimc_scheduled_cleanup' );
 	wp_clear_scheduled_hook( 'olimc_auto_empty_trash' );
-
-	// 4. The quarantine folder, only when no media folder is left in it.
-	if ( ! OLIMC_Quarantine::remove_if_empty() ) {
-		OLIMC_Quarantine::write_leftover_note();
-	}
 }
 
 if ( is_multisite() ) {

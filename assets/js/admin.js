@@ -690,7 +690,8 @@
 		} else if ( act === 'restore' ) {
 			var restored = merge( parts, 'restored' );
 			var rfail = merge( parts, 'failed' );
-			var exists = sum( parts, 'exists' );
+			var existing = merge( parts, 'exists' );
+			var exists = existing.length;
 			if ( restored.length ) {
 				list.push( { type: 'success', text: msgRestored( restored.length ) } );
 			}
@@ -706,6 +707,7 @@
 						),
 						fmt( exists )
 					),
+					details: existing.map( nameOf ),
 				} );
 			}
 			if ( rfail.length ) {
@@ -715,6 +717,7 @@
 						/* translators: %s: number of files */ _n( '%s file could not be restored.', '%s files could not be restored.', rfail.length, 'oli-media-cleaner' ),
 						fmt( rfail.length )
 					),
+					details: rfail.map( nameOf ),
 				} );
 			}
 		} else if ( act === 'delete' || act === 'empty' ) {
@@ -736,6 +739,22 @@
 						),
 						fmt( keptRestored )
 					),
+				} );
+			}
+			var keptBad = merge( parts, 'kept_failed' );
+			if ( keptBad.length ) {
+				list.push( {
+					type: 'warning',
+					text: sprintf(
+						/* translators: %s: number of files */ _n(
+							'%s kept file could not be restored and stays in the trash.',
+							'%s kept files could not be restored and stay in the trash.',
+							keptBad.length,
+							'oli-media-cleaner'
+						),
+						fmt( keptBad.length )
+					),
+					details: keptBad.map( nameOf ),
 				} );
 			}
 			if ( sum( parts, 'kept' ) ) {
@@ -788,7 +807,21 @@
 		var list = resultNotices( act === 'restore_all' ? 'restore' : act, run );
 		var firstRow = ctx.row;
 		var nextFocus = null;
-		if ( firstRow && ids.length === 1 && run.ok ) {
+		if ( firstRow && ids.length === 1 ) {
+			// The row leaves the list only when the server confirms this media as processed.
+			var doneKey = { trash: 'trashed', restore: 'restored', restore_all: 'restored', delete: 'deleted', empty: 'deleted' }[ act ];
+			var confirmed = run.ok && merge( run.parts, doneKey ).some( function ( x ) {
+				return String( typeof x === 'object' ? x.id : x ) === String( ids[ 0 ] );
+			} );
+			if ( ! confirmed ) {
+				// Failure: the row stays, the notice says why, focus goes back to the row's own button.
+				list.forEach( function ( n, i ) {
+					notice( n.type, n.text, { undo: n.undo, details: n.details, keep: i > 0 } );
+				} );
+				var back = ctx.button && document.body.contains( ctx.button ) ? ctx.button : firstRow.querySelector( '.olimc-act' );
+				( back || $( '.olimc-list-title' ) ).focus();
+				return;
+			}
 			var nextRow = firstRow.nextElementSibling;
 			if ( nextRow ) {
 				nextFocus = nextRow.querySelector( '.olimc-act' );
@@ -1022,7 +1055,7 @@
 				bulk( 'delete', false, [ id ], btn );
 				return;
 			}
-			perform( act, [ id ], { row: row } );
+			perform( act, [ id ], { row: row, button: btn } );
 		} );
 		form.addEventListener( 'change', function ( e ) {
 			if ( e.target.matches( 'input[type=checkbox]' ) ) {

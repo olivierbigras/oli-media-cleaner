@@ -234,6 +234,12 @@ foreach ( array_slice( $names, 0, 3 ) as $nm ) {
 file_put_contents( $qd . '/manifest.json', wp_json_encode( [ 'state' => 'moving', 'files' => $forged ] ) );
 $r = OLIMC_Trash::trash( $id );
 $t( $r['ok'], 'trash() after a killed move succeeds (' . $r['code'] . ')' );
+$left_public = array_filter( $names, function ( $nm ) use ( $dir ) {
+	return file_exists( "$dir/$nm" );
+} );
+$mapk = OLIMC_Quarantine::map( $id );
+$t( [] === $left_public, 'after a killed move and a new trash, no file of the media is left public (' . implode( ',', $left_public ) . ')' );
+$t( is_array( $mapk ) && count( $mapk['files'] ) === count( $names ), 'and the manifest lists every file (' . ( is_array( $mapk ) ? count( $mapk['files'] ) : 0 ) . ' of ' . count( $names ) . ')' );
 $reset();
 $t( OLIMC_Trash::restore( $id )['ok'] && $snap( $dir, $names ) === $before, 'and the media comes back exact (no file lost by the killed move)' );
 // A restore killed midway: files already back are recognised, the rest follows.
@@ -416,6 +422,32 @@ olimc_uninstall_site();
 $t( $snap( $dirw, $namesw ) === $beforew && ! is_dir( $base . '/olimc-trash' ), 'uninstall with everything restorable: files back, quarantine folder removed' );
 wp_delete_attachment( $idw, true );
 
+// ── 12b. Uninstall with "delete data" UNCHECKED: the trash is restored all the same (D22) ──
+list( $idy, $diry, $namesy ) = $make( "olimc-q14-$uniq" );
+list( $idx2, $dirx2, $namesx2 ) = $make( "olimc-q15-$uniq" );
+$beforey = $snap( $diry, $namesy );
+$reset();
+OLIMC_Quarantine::init();
+$t( OLIMC_Trash::trash( $idy )['ok'] && OLIMC_Trash::trash( $idx2 )['ok'], 'two media trashed before an uninstall with the data kept' );
+file_put_contents( "$dirx2/olimc-q15-$uniq-150x150.jpg", 'mine' );
+update_option( 'olimc_delete_data', '0' );
+update_option( 'olimc_protected_paths', 'keep/me/*' );
+$paths_before = get_option( 'olimc_protected_paths' );
+update_post_meta( $idy, '_olimc_protected', 1 );
+$reset();
+olimc_uninstall_site();
+$t( $snap( $diry, $namesy ) === $beforey && 'inherit' === $st( $idy ) && ! OLIMC_Trash::is_in_trash( $idy ), 'delete_data = 0: the trashed media is restored byte for byte, status back' );
+$t( 'inherit' === $st( $idx2 ) && 'mine' === file_get_contents( "$dirx2/olimc-q15-$uniq-150x150.jpg" ), 'delete_data = 0: a media that cannot be restored is shown again, nothing overwritten' );
+$t( is_file( $base . '/olimc-trash/README.txt' ), 'delete_data = 0: its files stay in the quarantine with a README' );
+$t( '0' === (string) get_option( 'olimc_delete_data' ) && '' !== (string) $paths_before && $paths_before === get_option( 'olimc_protected_paths' ) && '1' === (string) get_post_meta( $idy, '_olimc_protected', true ), 'delete_data = 0: options and the kept list are left alone' );
+$t( 0 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'olimc-trash'" ), 'delete_data = 0: no media is left hidden' );
+delete_option( 'olimc_delete_data' );
+delete_option( 'olimc_protected_paths' );
+delete_post_meta( $idy, '_olimc_protected' );
+foreach ( glob( $base . '/olimc-trash/*/*/manifest.json' ) ?: [] as $mfx ) {
+	unlink( $mfx ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+}
+
 // Final clean-up of every fixture of this run (a shared or half-restored one may remain).
 foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_title LIKE %s", 'olimc-q%' . $wpdb->esc_like( $uniq ) . '%' ) ) as $x ) {
 	delete_post_meta( $x, '_wp_attached_file' );
@@ -424,6 +456,13 @@ foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE p
 }
 foreach ( glob( $up['basedir'] . '/*/*/olimc-q*-' . $uniq . '*' ) ?: [] as $leftover ) {
 	unlink( $leftover ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+}
+if ( is_dir( $base . '/olimc-trash' ) ) {
+	$it = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $base . '/olimc-trash', FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
+	foreach ( $it as $f ) {
+		$f->isDir() ? rmdir( $f->getPathname() ) : wp_delete_file( $f->getPathname() );
+	}
+	rmdir( $base . '/olimc-trash' );
 }
 $reset();
 echo $fail ? "\n$fail FAILED\n" : "\nAll quarantine tests passed.\n";
