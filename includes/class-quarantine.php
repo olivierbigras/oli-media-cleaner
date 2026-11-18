@@ -511,7 +511,7 @@ class OLIMC_Quarantine {
 						wp_delete_file( $from . '/' . $own );
 					}
 				}
-				@rmdir( $from ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rmdir_rmdir
+				@rmdir( $from ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
 			}
 		} elseif ( is_dir( $from ) && ! @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
 			delete_option( self::OPT_ROTATE );
