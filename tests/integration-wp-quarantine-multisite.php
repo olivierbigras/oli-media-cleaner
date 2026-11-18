@@ -16,6 +16,10 @@ if ( ! is_multisite() ) {
 	echo "SKIP: not a multisite network\n";
 	return;
 }
+if ( '1' !== getenv( 'OLIMC_TEST_OK' ) ) {
+	echo "Refusing to run: this test erases uploads/olimc-trash. Set OLIMC_TEST_OK=1 to confirm this is a throwaway test site.\n";
+	exit( 1 );
+}
 $fail = 0;
 $t    = function ( $c, $m ) use ( &$fail ) {
 	echo ( $c ? 'OK: ' : 'FAIL: ' ) . $m . "\n";
