@@ -953,7 +953,11 @@ class OLIMC_Quarantine {
 		 * @param int      $id   Attachment ID.
 		 * @param string[] $urls Public URLs of the files that moved (original path, scaled, sizes, WebP/AVIF).
 		 */
-		do_action( $hook, (int) $id, $urls );
+		if ( 'olimc_media_restored' === $hook ) {
+			do_action( 'olimc_media_restored', (int) $id, $urls );
+		} else {
+			do_action( 'olimc_media_trashed', (int) $id, $urls );
+		}
 	}
 
 	/**
