@@ -1,7 +1,7 @@
 <?php
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin tables and core tables are read directly on purpose: scans and results are one-off, large and must not fill the object cache.
 /**
- * AJAX routes. Every route checks the capability and the nonce `olimc_nonce`;
+ * AJAX routes. Every route checks the capability and its own nonce (`olimc_<route>`);
  * routes that act on media also check the capability on each media.
  *
  * @package Oli_Media_Cleaner
@@ -13,8 +13,11 @@ class OLIMC_Ajax {
 
 	const MAX_IDS = 20000;
 
-	public static function init() {
-		$routes = [
+	/**
+	 * @return string[] Names of the routes (wp_ajax_olimc_<name>).
+	 */
+	public static function routes() {
+		return [
 			'scan_start',
 			'scan_step',
 			'scan_cancel',
@@ -28,7 +31,10 @@ class OLIMC_Ajax {
 			'test_patterns',
 			'dismiss',
 		];
-		foreach ( $routes as $route ) {
+	}
+
+	public static function init() {
+		foreach ( self::routes() as $route ) {
 			add_action( 'wp_ajax_olimc_' . $route, [ __CLASS__, 'route_' . $route ] );
 		}
 	}
@@ -46,7 +52,10 @@ class OLIMC_Ajax {
 				403
 			);
 		}
-		if ( ! check_ajax_referer( 'olimc_nonce', 'nonce', false ) ) {
+		// One nonce per action: the one of "trash" does not open "delete".
+		$route = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- this is the nonce check.
+		$route = 0 === strpos( $route, 'olimc_' ) ? substr( $route, 6 ) : '';
+		if ( ! in_array( $route, self::routes(), true ) || ! check_ajax_referer( 'olimc_' . $route, 'nonce', false ) ) {
 			wp_send_json_error(
 				[
 					'code'    => 'nonce',
@@ -261,6 +270,7 @@ class OLIMC_Ajax {
 				return OLIMC_Trash::trash( $id );
 			}
 		);
+		OLIMC_Trash::log( 'trash', $res['ok'] );
 		wp_send_json_success(
 			[
 				'trashed' => $res['ok'],
@@ -283,6 +293,7 @@ class OLIMC_Ajax {
 				return OLIMC_Trash::restore( $id );
 			}
 		);
+		OLIMC_Trash::log( 'restore', $res['ok'] );
 		wp_send_json_success(
 			[
 				'restored' => $res['ok'],
@@ -323,6 +334,7 @@ class OLIMC_Ajax {
 		if ( $fresh ) {
 			OLIMC_Scan::rebase_signature();
 		}
+		OLIMC_Trash::log( 'delete', $res['ok'] );
 		wp_send_json_success(
 			[
 				'deleted' => $res['ok'],
@@ -381,6 +393,7 @@ class OLIMC_Ajax {
 		if ( $fresh ) {
 			OLIMC_Scan::rebase_signature();
 		}
+		OLIMC_Trash::log( 'empty', $deleted );
 		wp_send_json_success(
 			[
 				'deleted'       => $deleted,

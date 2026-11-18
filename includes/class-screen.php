@@ -140,6 +140,19 @@ class OLIMC_Screen {
 	}
 
 	/**
+	 * One nonce per AJAX route.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function nonces() {
+		$out = [];
+		foreach ( OLIMC_Ajax::routes() as $route ) {
+			$out[ $route ] = wp_create_nonce( 'olimc_' . $route );
+		}
+		return $out;
+	}
+
+	/**
 	 * @param string $hook Hook suffix.
 	 */
 	public static function enqueue( $hook ) {
@@ -152,7 +165,7 @@ class OLIMC_Screen {
 		$batch = OLIMC_Settings::batch();
 		$data  = [
 			'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
-			'nonce'      => wp_create_nonce( 'olimc_nonce' ),
+			'nonces'     => self::nonces(),
 			'tab'        => self::current_tab(),
 			'batch'      => $batch['batch'],
 			'pause'      => $batch['pause'],

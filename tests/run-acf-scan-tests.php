@@ -551,7 +551,7 @@ olimc_scan_assert( strpos( $scan_source, 'state_option_key( self::owner( $owner 
 olimc_scan_assert( strpos( $scan_source, 'acquire_lock' ) !== false, 'AJAX and cron take a scan lock' );
 olimc_scan_assert( strpos( $scan_source, "unset( \$state['pending_delta'], \$state['pending_unused'] )" ) !== false, 'progress option does not keep the unused list' );
 olimc_scan_assert( strpos( $ajax_source, 'current_user_can( OLIMC_Admin::capability() )' ) !== false, 'AJAX checks the capability' );
-olimc_scan_assert( strpos( $ajax_source, "check_ajax_referer( 'olimc_nonce', 'nonce', false )" ) !== false, 'AJAX checks the nonce' );
+olimc_scan_assert( strpos( $ajax_source, 'check_ajax_referer( \'olimc_\' . $route, \'nonce\', false )' ) !== false, 'AJAX checks the nonce' );
 
 $scanner_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-scanner.php' );
 olimc_scan_assert( strpos( $scanner_source, 'acf_include_fields' ) !== false, 'local ACF JSON is loaded via acf_include_fields' );

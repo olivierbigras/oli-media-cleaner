@@ -64,7 +64,7 @@
 	function post( action, data ) {
 		var body = new URLSearchParams();
 		body.append( 'action', 'olimc_' + action );
-		body.append( 'nonce', cfg.nonce );
+		body.append( 'nonce', ( cfg.nonces && cfg.nonces[ action ] ) || '' );
 		Object.keys( data || {} ).forEach( function ( k ) {
 			var v = data[ k ];
 			if ( Array.isArray( v ) ) {
