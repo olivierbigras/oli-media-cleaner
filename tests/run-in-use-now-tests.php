@@ -45,6 +45,16 @@ if ( ! function_exists( 'get_post_meta' ) ) {
 		return $single ? '' : [];
 	}
 }
+if ( ! function_exists( 'get_stylesheet_directory' ) ) {
+	function get_stylesheet_directory() {
+		return sys_get_temp_dir() . '/olimc-no-theme';
+	}
+}
+if ( ! function_exists( 'get_template_directory' ) ) {
+	function get_template_directory() {
+		return sys_get_temp_dir() . '/olimc-no-theme';
+	}
+}
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * @param string $hook  Hook name.
@@ -166,6 +176,7 @@ if ( ! function_exists( 'esc_sql' ) ) {
 
 require_once dirname( __DIR__ ) . '/includes/functions.php';
 require_once dirname( __DIR__ ) . '/includes/class-media-usage-parser.php';
+require_once dirname( __DIR__ ) . '/includes/class-acf-meta-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-scanner.php';
 require_once dirname( __DIR__ ) . '/includes/class-admin.php';
 
@@ -314,6 +325,7 @@ function olimc_inuse_schema() {
 	$pdo->exec( 'CREATE TABLE postmeta (meta_id INTEGER PRIMARY KEY, post_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 	$pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 	$pdo->exec( 'CREATE TABLE term_taxonomy (term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT, description TEXT)' );
+	$pdo->exec( 'CREATE TABLE usermeta (umeta_id INTEGER PRIMARY KEY, user_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 	$pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 	return $pdo;
 }

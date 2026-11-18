@@ -49,6 +49,16 @@ if ( ! function_exists( 'apply_filters' ) ) {
 		return $value;
 	}
 }
+if ( ! function_exists( 'get_stylesheet_directory' ) ) {
+	function get_stylesheet_directory() {
+		return sys_get_temp_dir() . '/olimc-no-theme';
+	}
+}
+if ( ! function_exists( 'get_template_directory' ) ) {
+	function get_template_directory() {
+		return sys_get_temp_dir() . '/olimc-no-theme';
+	}
+}
 if ( ! function_exists( 'get_theme_mods' ) ) {
 	/**
 	 * @return array
@@ -583,6 +593,7 @@ $share_pdo->exec( 'CREATE INDEX postmeta_post_id ON postmeta (post_id)' );
 $share_pdo->exec( 'CREATE TABLE posts (ID INTEGER PRIMARY KEY, post_type TEXT, post_status TEXT, post_content TEXT, post_excerpt TEXT)' );
 $share_pdo->exec( 'CREATE TABLE termmeta (meta_id INTEGER PRIMARY KEY, term_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 $share_pdo->exec( 'CREATE TABLE term_taxonomy (term_taxonomy_id INTEGER PRIMARY KEY, term_id INTEGER, taxonomy TEXT, description TEXT)' );
+$share_pdo->exec( 'CREATE TABLE usermeta (umeta_id INTEGER PRIMARY KEY, user_id INTEGER, meta_key TEXT, meta_value TEXT)' );
 $share_pdo->exec( 'CREATE TABLE options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 $share_insert = $share_pdo->prepare( 'INSERT INTO postmeta (meta_id, post_id, meta_key, meta_value) VALUES (?, ?, ?, ?)' );
 $backup_name = 'event-badge-backup.jpg';

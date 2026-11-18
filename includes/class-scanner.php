@@ -790,7 +790,7 @@ class OLIMC_Scanner {
             // Whole read: only the rows the parser can get anything from (a number or a list of numbers, a serialized or JSON
             // value, an upload URL); plain text is skipped in SQL.
             $fragment = OLIMC_Media_Usage_Parser::upload_search_fragment();
-            $gate     = '(`__V__` REGEXP \'^[[:space:]]*[-+.0-9]\' OR LEFT(`__V__`, 2) IN (\'a:\', \'O:\') OR LEFT(`__V__`, 1) IN (\'[\', \'{\')';
+            $gate     = '(SUBSTR(`__V__`, 1, 1) IN (\'0\', \'1\', \'2\', \'3\', \'4\', \'5\', \'6\', \'7\', \'8\', \'9\', \'-\', \'+\', \'.\', \' \', CHAR(9), CHAR(10), CHAR(13), \'[\', \'{\') OR SUBSTR(`__V__`, 1, 2) IN (\'a:\', \'O:\')';
             if ($fragment !== '') {
                 $gate .= ' OR `__V__` LIKE ' . $wpdb->prepare('%s', '%' . $wpdb->esc_like($fragment) . '%') . ' OR `__V__` LIKE ' . $wpdb->prepare('%s', '%' . $wpdb->esc_like(str_replace('/', '\\/', $fragment)) . '%');
             }
