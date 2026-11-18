@@ -30,6 +30,7 @@ require_once OLIMC_PLUGIN_DIR . 'includes/class-acf-meta-scanner.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-scanner.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-results.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-trash.php';
+require_once OLIMC_PLUGIN_DIR . 'includes/class-quarantine.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-library.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-settings.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-scan.php';

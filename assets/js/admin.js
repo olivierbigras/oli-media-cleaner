@@ -886,10 +886,10 @@
 			var body =
 				act === 'trash'
 					? sprintf(
-						/* translators: %s: number of files. Provisional until real quarantine. */
+						/* translators: %s: number of files */
 						_n(
-							'This file is marked as trashed by this plugin. It stays in the Media Library and online until the trash is emptied. You can restore it at any time.',
-							'These %s files are marked as trashed by this plugin. They stay in the Media Library and online until the trash is emptied. You can restore them at any time.',
+							'This file goes offline and is removed from the Media Library. If your site still uses it, it will appear as missing: restore it from the trash at any time. Emptying the trash deletes it for good.',
+							'These %s files go offline and are removed from the Media Library. If your site still uses them, they will appear as missing: restore them from the trash at any time. Emptying the trash deletes them for good.',
 							d.count,
 							'oli-media-cleaner'
 						),

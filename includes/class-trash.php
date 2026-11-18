@@ -2,7 +2,8 @@
 /**
  * Trash of the plugin.
  *
- * Every state change goes through a backend (see OLIMC_Trash_Backend) so the
+ * Every state change goes through a backend (see OLIMC_Trash_Backend; the
+ * default one moves the files into a quarantine, see OLIMC_Quarantine) so the
  * way a media is set aside can change without touching the screens, the
  * routes or the checks in this class. This class owns the rules: capability
  * per media, live usage re-check before trashing, kept media are never
@@ -53,52 +54,6 @@ interface OLIMC_Trash_Backend {
 	public function purge( $id );
 }
 
-/**
- * Backend used until the quarantine of files is decided: the media is flagged
- * with the `_olimc_trashed` meta (timestamp) and nothing else changes. No file
- * is moved, WordPress never purges it and the post status stays as it was.
- */
-class OLIMC_Trash_Flag_Backend implements OLIMC_Trash_Backend {
-
-	/**
-	 * @param int $id Attachment ID.
-	 * @return true|WP_Error
-	 */
-	public function trash( $id ) {
-		update_post_meta( (int) $id, '_olimc_trashed', time() );
-		return true;
-	}
-
-	/**
-	 * @param int $id Attachment ID.
-	 * @return true|WP_Error
-	 */
-	public function restore( $id ) {
-		delete_post_meta( (int) $id, '_olimc_trashed' );
-		return true;
-	}
-
-	/**
-	 * @param int $id Attachment ID.
-	 * @return bool
-	 */
-	public function is_trashed( $id ) {
-		return (bool) get_post_meta( (int) $id, '_olimc_trashed', true );
-	}
-
-	/**
-	 * @param int $id Attachment ID.
-	 * @return true|WP_Error
-	 */
-	public function purge( $id ) {
-		$deleted = wp_delete_attachment( (int) $id, true );
-		if ( ! $deleted ) {
-			return new WP_Error( 'olimc_refused', 'refused' );
-		}
-		return true;
-	}
-}
-
 class OLIMC_Trash {
 
 	/**
@@ -114,8 +69,8 @@ class OLIMC_Trash {
 	 */
 	public static function backend() {
 		if ( null === self::$backend ) {
-			$backend = apply_filters( 'olimc_trash_backend', new OLIMC_Trash_Flag_Backend() );
-			self::$backend = ( $backend instanceof OLIMC_Trash_Backend ) ? $backend : new OLIMC_Trash_Flag_Backend();
+			$backend = apply_filters( 'olimc_trash_backend', new OLIMC_Trash_Quarantine_Backend() );
+			self::$backend = ( $backend instanceof OLIMC_Trash_Backend ) ? $backend : new OLIMC_Trash_Quarantine_Backend();
 		}
 		return self::$backend;
 	}
@@ -204,7 +159,9 @@ class OLIMC_Trash {
 			$done = self::backend()->restore( $id );
 		}
 		if ( is_wp_error( $done ) ) {
-			return self::result( false, 'fail', $id, $done->get_error_message() );
+			// A file was created at the old path in the meantime: nothing is overwritten.
+			$code = 'olimc_exists' === $done->get_error_code() ? 'exists' : 'fail';
+			return self::result( false, $code, $id, $done->get_error_message() );
 		}
 		return self::result( true, 'ok', $id );
 	}

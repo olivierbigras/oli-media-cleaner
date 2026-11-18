@@ -3,8 +3,11 @@
  * Fired when the plugin is uninstalled.
  *
  * Only runs when "Delete the plugin data when it is uninstalled" is checked
- * (the default). Media in the trash are restored first. No media file is ever
- * deleted here.
+ * (the default). Media in the trash are restored first: their files go back
+ * to their original paths. No media file is ever deleted here. A media that
+ * cannot be restored (a file with the same name exists, folder not writable)
+ * is shown again in the Media Library and its files stay in
+ * uploads/olimc-trash with their manifest and a README.
  *
  * @package Oli_Media_Cleaner
  */
@@ -39,12 +42,21 @@ function olimc_uninstall_site() {
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-results.php';
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-trash.php';
 	}
+	if ( ! class_exists( 'OLIMC_Quarantine' ) ) {
+		require_once OLIMC_PLUGIN_DIR . 'includes/class-quarantine.php';
+	}
 	OLIMC_Trash::restore_all();
+	// Whatever could not be put back is shown again and keeps its files in the quarantine folder.
+	foreach ( OLIMC_Trash::all_ids() as $olimc_left_id ) {
+		if ( OLIMC_Quarantine::is_quarantined( $olimc_left_id ) ) {
+			OLIMC_Quarantine::release_status( $olimc_left_id );
+		}
+	}
 
 	// 2. Options, post meta, user meta, transients.
 	$like = $wpdb->esc_like( 'olimc_' ) . '%';
 	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s", $like, '_transient_' . $like, '_transient_timeout_' . $like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-	$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_olimc_protected','_olimc_trashed')" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_olimc_protected','_olimc_trashed','_olimc_trash_map','_olimc_prev_status','_olimc_trashing')" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key IN (%s,%s,%s)", 'olimc_backup_dismissed', 'olimc_per_page', $wpdb->get_blog_prefix() . 'olimc_per_page' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 	// 3. Results table and scheduled events.
@@ -52,17 +64,9 @@ function olimc_uninstall_site() {
 	wp_clear_scheduled_hook( 'olimc_scheduled_cleanup' );
 	wp_clear_scheduled_hook( 'olimc_auto_empty_trash' );
 
-	// 4. The quarantine folder, only when it is empty.
-	$uploads = wp_upload_dir( null, false );
-	if ( ! empty( $uploads['basedir'] ) ) {
-		$dir = trailingslashit( $uploads['basedir'] ) . 'olimc-trash';
-		if ( is_dir( $dir ) ) {
-			$left = array_diff( (array) scandir( $dir ), [ '.', '..', 'index.php' ] );
-			if ( [] === $left ) {
-				wp_delete_file( $dir . '/index.php' );
-				@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- empty folder created by this plugin.
-			}
-		}
+	// 4. The quarantine folder, only when no media folder is left in it.
+	if ( ! OLIMC_Quarantine::remove_if_empty() ) {
+		OLIMC_Quarantine::write_leftover_note();
 	}
 }
 

@@ -1209,6 +1209,13 @@ class OLIMC_Scanner {
      * Calculate total disk size of an attachment (original + all thumbnails).
      */
     public function calculate_total_size( $attachment_id, $mime = '' ) {
+        // In the quarantine the files are no longer at their public path: use the manifest.
+        if (class_exists('OLIMC_Quarantine')) {
+            $quarantined = OLIMC_Quarantine::total_bytes($attachment_id);
+            if (null !== $quarantined) {
+                return $quarantined;
+            }
+        }
         if ( ! $mime) {
             $mime = get_post_mime_type($attachment_id);
         }
@@ -2082,6 +2089,73 @@ class OLIMC_Scanner {
     public static function reset_upload_path_index() {
         self::$upload_path_index_cache = null;
         self::$upload_path_index_ready = false;
+        self::$stem_index_cache = null;
+    }
+
+    /**
+     * @var array<string, int[]>|null
+     */
+    private static $stem_index_cache = null;
+
+    /**
+     * Every path of one attachment, relative to the uploads folder: original,
+     * -scaled, original_image, generated sizes and backup sizes.
+     *
+     * @param int $id Attachment ID.
+     * @return string[]|null Null when the lookup failed (callers must not move or delete anything).
+     */
+    public function relative_upload_paths( $id ) {
+        return $this->attachment_relative_paths((int) $id);
+    }
+
+    /**
+     * Whether another attachment owns a file with the same path without its extension
+     * (photo.jpg and photo.png both own photo.webp). Null when the index is unreadable.
+     *
+     * @param int    $id  Attachment ID.
+     * @param string $rel Relative upload path of a derived copy (any extension).
+     * @return bool|null
+     */
+    public function stem_used_by_others( $id, $rel ) {
+        $index = $this->upload_path_index();
+        if ($index === null) {
+            return null;
+        }
+        if (self::$stem_index_cache === null) {
+            $stems = [];
+            foreach ($index as $path => $ids) {
+                $stem = preg_replace('/\.[^.\/]+$/', '', (string) $path);
+                foreach ($ids as $owner) {
+                    $stems[ $stem ][ (int) $owner ] = true;
+                }
+            }
+            self::$stem_index_cache = $stems;
+        }
+        $stem = preg_replace('/\.[^.\/]+$/', '', (string) $rel);
+        if ( ! isset(self::$stem_index_cache[ $stem ])) {
+            return false;
+        }
+        foreach (array_keys(self::$stem_index_cache[ $stem ]) as $owner) {
+            if ((int) $owner !== (int) $id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a relative upload path is referenced by more than one attachment.
+     * Null when the index is unreadable.
+     *
+     * @param string $rel Relative upload path.
+     * @return bool|null
+     */
+    public function relative_path_is_shared( $rel ) {
+        $index = $this->upload_path_index();
+        if ($index === null) {
+            return null;
+        }
+        return isset($index[ $rel ]) && count($index[ $rel ]) > 1;
     }
 
     /**

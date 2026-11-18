@@ -254,7 +254,8 @@ class OLIMC_List_Table extends WP_List_Table {
 		$id   = (int) $item->id;
 		$mime = (string) $item->mime;
 		if ( 0 === strpos( $mime, 'image/' ) ) {
-			$src = wp_get_attachment_image_url( $id, 'thumbnail' );
+			// In the trash the files are offline: the preview comes from the quarantine, through an admin-only endpoint.
+			$src = ( 'trash' === $this->tab && OLIMC_Quarantine::is_quarantined( $id ) ) ? OLIMC_Quarantine::thumb_url( $id ) : ( 'trash' === $this->tab && OLIMC_Trash::backend()->is_trashed( $id ) ? '' : wp_get_attachment_image_url( $id, 'thumbnail' ) );
 			if ( $src ) {
 				return '<img class="olimc-thumb" src="' . esc_url( $src ) . '" alt="" width="48" height="48" loading="lazy" decoding="async">';
 			}
@@ -273,6 +274,9 @@ class OLIMC_List_Table extends WP_List_Table {
 		$id    = (int) $item->id;
 		$name  = $this->display_name( $item );
 		$edit  = get_edit_post_link( $id );
+		if ( 'trash' === $this->tab && OLIMC_Trash::backend()->is_trashed( $id ) ) {
+			$edit = ''; // Hidden from the Media Library while in the trash: nothing to edit.
+		}
 		$new   = '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'oli-media-cleaner' ) . '</span>';
 		/* translators: %s: media name; read by screen readers after the link text */
 		$named = '<span class="screen-reader-text"> ' . esc_html( sprintf( __( '“%s” (opens in a new tab)', 'oli-media-cleaner' ), $name ) ) . '</span>';

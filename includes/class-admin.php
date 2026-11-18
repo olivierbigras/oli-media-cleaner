@@ -36,6 +36,9 @@ class OLIMC_Admin {
         add_filter('wp_delete_file', [ __CLASS__, 'preserve_shared_upload_file' ], 100);
         add_action('delete_attachment', [ __CLASS__, 'on_delete_attachment' ], 0);
 
+        // Real quarantine: hidden status, preview endpoint, deletion guards.
+        OLIMC_Quarantine::init();
+
         if (is_admin()) {
             OLIMC_Screen::init();
             OLIMC_Ajax::init();

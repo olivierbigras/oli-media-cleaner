@@ -178,7 +178,7 @@ class OLIMC_Ajax {
 		}
 		$sample = [];
 		foreach ( array_slice( $ids, 0, 5 ) as $id ) {
-			$thumb    = wp_get_attachment_image_url( $id, [ 32, 32 ] );
+			$thumb    = ( 'trash' === $tab && OLIMC_Trash::backend()->is_trashed( $id ) ) ? OLIMC_Quarantine::thumb_url( $id ) : wp_get_attachment_image_url( $id, [ 32, 32 ] );
 			$sample[] = [
 				'id'    => $id,
 				'name'  => wp_basename( (string) get_post_meta( $id, '_wp_attached_file', true ) ),
@@ -477,7 +477,7 @@ class OLIMC_Ajax {
 	 */
 	private static function reason() {
 		$dir = wp_upload_dir( null, false );
-		if ( ! empty( $dir['basedir'] ) && ! wp_is_writable( $dir['basedir'] ) ) {
+		if ( ( ! empty( $dir['basedir'] ) && ! wp_is_writable( $dir['basedir'] ) ) || ! OLIMC_Quarantine::is_writable() ) {
 			return __( 'The uploads folder is not writable.', 'oli-media-cleaner' );
 		}
 		return '';
