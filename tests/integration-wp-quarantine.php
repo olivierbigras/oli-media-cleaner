@@ -338,9 +338,13 @@ $reset();
 $t( ! OLIMC_Trash::purge( $ida )['ok'] && is_file( "$dira/olimc-q8-$uniq-150x150.jpg" ), 'emptying keeps the shared file (existing guard), the media stays in the trash' );
 $reset();
 OLIMC_Trash::restore( $ida );
+// The delete guard refuses a media whose file is shared: unshare first so no fixture is left behind.
+delete_post_meta( $idb, '_wp_attached_file' );
+$reset();
 wp_delete_attachment( $idb, true );
 $reset();
 wp_delete_attachment( $ida, true );
+$t( ! get_post( $ida ) && ! get_post( $idb ), 'shared-file fixtures cleaned up' );
 
 // ── 9. Media without a file on disk: only hidden, restorable ─────────
 $idz = wp_insert_attachment( [ 'post_title' => "olimc-q9-$uniq", 'post_mime_type' => 'image/jpeg', 'post_status' => 'inherit' ], '' );
@@ -412,5 +416,15 @@ olimc_uninstall_site();
 $t( $snap( $dirw, $namesw ) === $beforew && ! is_dir( $base . '/olimc-trash' ), 'uninstall with everything restorable: files back, quarantine folder removed' );
 wp_delete_attachment( $idw, true );
 
+// Final clean-up of every fixture of this run (a shared or half-restored one may remain).
+foreach ( $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_title LIKE %s", 'olimc-q%' . $wpdb->esc_like( $uniq ) . '%' ) ) as $x ) {
+	delete_post_meta( $x, '_wp_attached_file' );
+	$reset();
+	wp_delete_attachment( $x, true );
+}
+foreach ( glob( $up['basedir'] . '/*/*/olimc-q*-' . $uniq . '*' ) ?: [] as $leftover ) {
+	unlink( $leftover ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+}
+$reset();
 echo $fail ? "\n$fail FAILED\n" : "\nAll quarantine tests passed.\n";
 exit( $fail ? 1 : 0 );
