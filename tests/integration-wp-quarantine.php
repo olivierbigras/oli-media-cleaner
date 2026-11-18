@@ -104,8 +104,12 @@ list( $id, $dir, $names, $sub ) = $make( "olimc-q1-$uniq" );
 $before = $snap( $dir, $names );
 $url    = $up['baseurl'] . "/$sub/" . "olimc-q1-$uniq-scaled.jpg";
 $t( 200 === $code( $url ), 'before: the public URL answers 200' );
+$hook_log = [];
+add_action( 'olimc_media_trashed', function ( $hid, $urls ) use ( &$hook_log ) { $hook_log[] = [ 'trashed', $hid, $urls ]; }, 10, 2 );
+add_action( 'olimc_media_restored', function ( $hid, $urls ) use ( &$hook_log ) { $hook_log[] = [ 'restored', $hid, $urls ]; }, 10, 2 );
 $r = OLIMC_Trash::trash( $id );
 $t( $r['ok'], 'trash() succeeds (' . $r['code'] . ')' );
+$t( 1 === count( $hook_log ) && 'trashed' === $hook_log[0][0] && $id === $hook_log[0][1] && 8 === count( $hook_log[0][2] ) && in_array( $url, $hook_log[0][2], true ), 'R1: olimc_media_trashed( $id, $urls ) fires once with the public URLs of the 8 files' );
 $gone = true;
 foreach ( $names as $n ) {
 	$gone = $gone && ! file_exists( "$dir/$n" );
@@ -140,6 +144,7 @@ $t( ! $wpdb->get_var( "SELECT 1 FROM {$wpdb->postmeta} WHERE post_id = $id AND m
 $reset();
 $r = OLIMC_Trash::restore( $id );
 $t( $r['ok'], 'restore() succeeds (' . $r['code'] . ')' );
+$t( 2 === count( $hook_log ) && 'restored' === $hook_log[1][0] && $id === $hook_log[1][1] && 8 === count( $hook_log[1][2] ), 'R1: olimc_media_restored( $id, $urls ) fires after the restore with the 8 URLs' );
 $after = $snap( $dir, $names );
 $t( $after === $before, 'all 8 files are back at the same paths with the same MD5' );
 $t( 'inherit' === $st( $id ) && ! OLIMC_Trash::is_in_trash( $id ) && null === OLIMC_Quarantine::map( $id ), 'status inherit, trash state and map removed' );

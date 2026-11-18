@@ -341,6 +341,7 @@ class OLIMC_Quarantine {
 		if ( [] === $plan['move'] ) {
 			// No file on disk to set aside (missing files, or all shared): the media is only hidden.
 			self::finalize( $id, $map );
+			self::announce( 'olimc_media_trashed', $id, [] );
 			return true;
 		}
 
@@ -409,6 +410,7 @@ class OLIMC_Quarantine {
 		}
 		self::finalize( $id, $map );
 		unset( self::$inflight[ $id ] );
+		self::announce( 'olimc_media_trashed', $id, array_keys( $plan['move'] ) );
 		return true;
 	}
 
@@ -609,6 +611,7 @@ class OLIMC_Quarantine {
 		if ( null === $map ) {
 			// Hidden and flagged, nothing was moved (media without file on disk): show it again.
 			self::unhide( $id, '' );
+			self::announce( 'olimc_media_restored', $id, [] );
 			return true;
 		}
 		$base = self::basedir();
@@ -661,7 +664,35 @@ class OLIMC_Quarantine {
 		}
 
 		self::unhide( $id, $dir );
+		self::announce( 'olimc_media_restored', $id, array_keys( $pairs ) );
 		return true;
+	}
+
+	/**
+	 * Tell the site that the public URLs of a media changed state, so a CDN or a page cache
+	 * can be purged (the plugin itself never calls out).
+	 *
+	 * @param string   $hook Action name: olimc_media_trashed or olimc_media_restored.
+	 * @param int      $id   Attachment ID.
+	 * @param string[] $rels Paths, relative to the uploads folder, of the files that moved.
+	 */
+	private static function announce( $hook, $id, array $rels ) {
+		$uploads = wp_upload_dir( null, false );
+		$url     = is_array( $uploads ) && ! empty( $uploads['baseurl'] ) ? rtrim( (string) $uploads['baseurl'], '/' ) : '';
+		$urls    = [];
+		if ( '' !== $url ) {
+			foreach ( $rels as $rel ) {
+				$urls[] = $url . '/' . implode( '/', array_map( 'rawurlencode', explode( '/', (string) $rel ) ) );
+			}
+		}
+		/**
+		 * Fires after a media was moved out of (olimc_media_trashed) or back to (olimc_media_restored)
+		 * its public place. A CDN or page cache may still serve the old URLs: purge them here.
+		 *
+		 * @param int      $id   Attachment ID.
+		 * @param string[] $urls Public URLs of the files that moved (original path, scaled, sizes, WebP/AVIF).
+		 */
+		do_action( $hook, (int) $id, $urls );
 	}
 
 	/**

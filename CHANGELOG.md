@@ -23,6 +23,7 @@ All notable changes to Oli Media Cleaner will be documented in this file.
 - The scheduled scan only analyses. It never moves or deletes anything.
 - The scan now reads the same sources as the live check: a media whose ID is only an array key in a widget option, a theme mod (any theme) or a custom field counts as used and is no longer listed in "To review" (it was refused at trash time before). Scan time is unchanged on a 20,000-media library.
 - A failed restore says why (for example the uploads folder is not writable). The "Empty the trash" dialog marks a kept media as "kept: restored, not deleted". The message "This media is being processed." is translatable.
+- Honest offline texts: the files are no longer served by the site, but a CDN or cache may keep a copy until it is purged (trash notice, confirmation dialog, readme). New actions `olimc_media_trashed( $id, $urls )` and `olimc_media_restored( $id, $urls )` to purge a CDN or cache; the readme explains the purge after a sensitive trash.
 - Documentation: recommended server rule (with the multisite nginx example and the Apache container) (nginx `location` block, Apache `Require all denied`) to block direct access to `uploads/olimc-trash/`.
 - Uninstall always restores trashed media (their files go back to their paths), whether or not "Delete the plugin data" is checked, then (if checked) removes options, post/user meta, the results table and scheduled events. A media that cannot be restored is shown again and keeps its files in `uploads/olimc-trash/` with its manifest and a README.
 

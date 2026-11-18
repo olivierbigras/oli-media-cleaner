@@ -66,11 +66,15 @@ Back up your site before cleaning. The trash keeps your files, but it is not a b
 
 = Is it safe? =
 
-Nothing is changed during a scan. Files you trash are moved offline into a protected folder, not erased, and you can restore them at any time. Make a backup before cleaning anyway: the trash is not a backup.
+Nothing is changed during a scan. Files you trash are moved out of their public place into a protected folder, not erased, and you can restore them at any time. Make a backup before cleaning anyway: the trash is not a backup.
 
 = Why is an image missing on my site after I used the trash? =
 
-Trashed files are really offline, so a file your site still used shows up as missing. This is on purpose: you see the problem. The file was used by something the scan could not read. Open the **Trash** tab and restore it, and it is back at the same path. Then tell us what plugin or theme uses it so we can read it in a future version.
+Trashed files are no longer served by your site, so a file your site still used shows up as missing. This is on purpose: you see the problem. The file was used by something the scan could not read. Open the **Trash** tab and restore it, and it is back at the same path. Then tell us what plugin or theme uses it so we can read it in a future version.
+
+= A trashed file is still reachable on my site. Why? =
+
+The plugin moves the file away, so your server stops serving it. A CDN, a page cache or a search engine may keep a copy of the old address until it is purged or expires. If the file is sensitive, purge your CDN or cache after trashing it. A developer can automate it: the plugin runs `do_action( 'olimc_media_trashed', $attachment_id, $urls )` after the move (`$urls` lists the public addresses of every file moved) and `do_action( 'olimc_media_restored', $attachment_id, $urls )` after a restore. Hook a purge call of your CDN or cache plugin on them. The plugin never contacts your CDN itself.
 
 = Where are the trashed files? =
 

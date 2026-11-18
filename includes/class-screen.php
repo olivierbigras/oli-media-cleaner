@@ -397,7 +397,7 @@ class OLIMC_Screen {
 		}
 
 		if ( 'trash' === $tab ) {
-			self::notice( 'info', esc_html__( 'These files are offline, not erased. If your site still needs one, a file will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
+			self::notice( 'info', esc_html__( 'These files are no longer served by your site and are not erased. A CDN or cache may keep serving a copy until it is purged. If your site still needs one, a file will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
 		}
 
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-list-table.php';

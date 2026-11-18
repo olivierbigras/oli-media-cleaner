@@ -30,6 +30,8 @@ Find unused media, move them to a safe trash, restore anytime. Local only: no ad
 
 ## Hooks and cron
 
+Actions: `olimc_media_trashed( $id, $urls )` and `olimc_media_restored( $id, $urls )`, fired after a media is moved out of or back to its public place; `$urls` are the public URLs of the files that moved (purge a CDN or cache there; a CDN may keep serving a copy until it is purged).
+
 Filters: `olimc_capability`, `olimc_protected_paths`, `olimc_must_keep_attachment`, `olimc_known_gaps`, `olimc_scan_step_budget`, `olimc_trash_backend` (replace the backend), `olimc_quarantine_allow_move`. WP-Cron events: `olimc_scheduled_cleanup` (optional scan, analysis only) and `olimc_auto_empty_trash` (daily, only when automatic emptying is on).
 
 ## What the scan reads

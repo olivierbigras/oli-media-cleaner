@@ -924,8 +924,8 @@
 					? sprintf(
 						/* translators: %s: number of files */
 						_n(
-							'This file goes offline and is removed from the Media Library. If your site still uses it, it will appear as missing: restore it from the trash at any time. Emptying the trash deletes it for good.',
-							'These %s files go offline and are removed from the Media Library. If your site still uses them, they will appear as missing: restore them from the trash at any time. Emptying the trash deletes them for good.',
+							'This file is no longer served by your site and is removed from the Media Library. A CDN or cache may keep a copy until it is purged. If your site still uses it, it will appear as missing: restore it from the trash at any time. Emptying the trash deletes it for good.',
+							'These %s files are no longer served by your site and are removed from the Media Library. A CDN or cache may keep a copy until it is purged. If your site still uses them, they will appear as missing: restore them from the trash at any time. Emptying the trash deletes them for good.',
 							d.count,
 							'oli-media-cleaner'
 						),
