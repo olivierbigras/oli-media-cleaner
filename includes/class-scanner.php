@@ -1482,20 +1482,33 @@ class OLIMC_Scanner {
     }
 
     private function collect_widget_images() {
+        global $wpdb;
         if ( ! $this->begin_usage_query()) {
             return;
         }
-        $widget_types = [ 'widget_media_image', 'widget_media_gallery', 'widget_media_video', 'widget_media_audio', 'widget_custom_html', 'widget_text' ];
-
-        if ($this->usage_check_id !== null) {
-            foreach ($widget_types as $type) {
-                $widgets = function_exists('get_option') ? get_option($type) : null;
-                if ( ! is_array($widgets)) {
-                    continue;
-                }
-                $serialized = serialize($widgets);
-                $ids = array_map('intval', $this->attachment_ids_from_serialized($serialized));
-                if (in_array($this->usage_check_id, $ids, true)) {
+        // Every widget option (widget_text, widget_block, widget_media_*, custom HTML, plugin widgets).
+        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated by olimc_prepare(); fixed SQL fragments only.
+        $rows = $wpdb->get_results(
+            olimc_prepare('SELECT option_name, option_value FROM %i WHERE option_name LIKE %s', $wpdb->options, $wpdb->esc_like('widget_') . '%')
+        );
+        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+        if ( ! is_array($rows)) {
+            $this->finish_usage_query(null);
+            return;
+        }
+        foreach ($rows as $row) {
+            $widgets = maybe_unserialize($row->option_value);
+            if ( ! is_array($widgets)) {
+                continue;
+            }
+            $serialized = serialize($widgets);
+            $strings    = [];
+            $ids        = $this->attachment_ids_from_serialized($serialized);
+            $this->widget_values($widgets, $strings, $ids);
+            // The same reader as for post content: ids=, include=, wp-image-N, block "id", data-id, upload paths.
+            $ids = array_merge($ids, $this->attachment_ids_from_html(implode("\n", $strings)));
+            if ($this->usage_check_id !== null) {
+                if (in_array($this->usage_check_id, array_map('intval', $ids), true)) {
                     $this->finish_usage_query(true);
                     return;
                 }
@@ -1503,20 +1516,43 @@ class OLIMC_Scanner {
                 if ($this->usage_check_hit || $this->usage_check_failed) {
                     return;
                 }
-            }
-            $this->collect_widget_options_for_id($this->usage_check_id);
-            return;
-        }
-
-        foreach ($widget_types as $type) {
-            $widgets = get_option($type);
-            if ( ! is_array($widgets)) {
                 continue;
             }
-
-            $serialized = serialize($widgets);
-            $this->used_ids = array_merge($this->used_ids, $this->attachment_ids_from_serialized($serialized));
+            $this->used_ids = array_merge($this->used_ids, $ids);
             $this->merge_upload_paths_from_text($serialized);
+        }
+        if ($this->usage_check_id !== null) {
+            $this->collect_widget_options_for_id($this->usage_check_id);
+        }
+    }
+
+    /**
+     * Strings and media IDs held by a widget instance (any depth).
+     *
+     * @param mixed $value   Widget option value.
+     * @param array $strings Collected strings (by reference).
+     * @param array $ids     Collected media IDs (by reference).
+     */
+    private function widget_values( $value, array &$strings, array &$ids ) {
+        if (is_string($value)) {
+            $strings[] = $value;
+            return;
+        }
+        if ( ! is_array($value)) {
+            return;
+        }
+        foreach ($value as $key => $item) {
+            if ($key === 'ids' && is_array($item)) {
+                foreach ($item as $one) {
+                    $ids[] = (int) $one;
+                }
+                continue;
+            }
+            if ('attachment_id' === $key && ( is_int( $item ) || ctype_digit( (string) $item ) )) {
+                $ids[] = (int) $item;
+                continue;
+            }
+            $this->widget_values($item, $strings, $ids);
         }
     }
 

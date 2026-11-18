@@ -42,7 +42,7 @@ function olimc_src_media( $name ) {
 wp_set_current_user( 1 );
 $ids    = [];
 $cleanup = [];
-$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc', 'shortcode_a', 'shortcode_b', 'blockgal_a', 'blockgal_b', 'blockimg', 'wpimage', 'gal_attached', 'gal_idattr' ];
+$names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor', 'css', 'themefile', 'widget', 'logo', 'icon', 'serialized', 'json', 'usermeta', 'termmeta', 'termdesc', 'shortcode_a', 'shortcode_b', 'blockgal_a', 'blockgal_b', 'blockimg', 'wpimage', 'gal_attached', 'gal_idattr', 'wt_gallery', 'wt_wpimage', 'wb_image', 'wb_shortcode', 'wb_gallery', 'wm_gallery', 'wm_image' ];
 foreach ( $names as $n ) {
 	$ids[ $n ] = olimc_src_media( 'olimc-src-' . $n );
 }
@@ -90,7 +90,27 @@ wp_update_custom_css_post( 'body{background:url(' . $url( 'css' ) . ')}' );
 $theme_file = get_stylesheet_directory() . '/olimc-src-test.php';
 file_put_contents( $theme_file, "<?php // <img src=\"" . $url( 'themefile' ) . "\">\n" );
 // Widget, site logo, site icon.
-update_option( 'widget_text', [ 2 => [ 'title' => 't', 'text' => '<img src="' . $url( 'widget' ) . '">' ], '_multiwidget' => 1 ] );
+update_option(
+	'widget_text',
+	[
+		2             => [ 'title' => 't', 'text' => '<img src="' . $url( 'widget' ) . '">' ],
+		3             => [ 'title' => 'g', 'text' => '[gallery ids="' . $ids['wt_gallery'] . '"]' ],
+		4             => [ 'title' => 'i', 'text' => '<p><img class="alignnone wp-image-' . $ids['wt_wpimage'] . '" alt=""></p>' ],
+		'_multiwidget' => 1,
+	]
+);
+// Block widgets and media widgets, cited by identifier only (no upload URL).
+update_option(
+	'widget_block',
+	[
+		2             => [ 'content' => '<!-- wp:image {"id":' . $ids['wb_image'] . ',"sizeSlug":"large"} --><figure class="wp-block-image"></figure><!-- /wp:image -->' ],
+		3             => [ 'content' => '<!-- wp:shortcode -->[gallery ids="' . $ids['wb_shortcode'] . '"]<!-- /wp:shortcode -->' ],
+		4             => [ 'content' => '<!-- wp:gallery {"ids":[' . $ids['wb_gallery'] . ',999999],"linkTo":"none"} --><figure class="wp-block-gallery"></figure><!-- /wp:gallery -->' ],
+		'_multiwidget' => 1,
+	]
+);
+update_option( 'widget_media_gallery', [ 2 => [ 'title' => 'm', 'ids' => [ $ids['wm_gallery'], 999998 ] ], '_multiwidget' => 1 ] );
+update_option( 'widget_media_image', [ 2 => [ 'title' => 'm', 'attachment_id' => $ids['wm_image'], 'url' => '' ], '_multiwidget' => 1 ] );
 set_theme_mod( 'custom_logo', $ids['logo'] );
 update_option( 'site_icon', $ids['icon'] );
 // Serialized and JSON meta, user meta, term meta, term description.
@@ -122,6 +142,9 @@ olimc_src( in_array( $ids['unused'], $listed, true ), 'control: the unreferenced
 olimc_src( in_array( $ids['plainchild'], $listed, true ), 'control: media attached to a post without a gallery is listed' );
 olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_attached'] ), 'live check: media attached to a post with [gallery] is in use' );
 olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_idattr'] ), 'live check: media shown by [gallery id="N"] is in use' );
+foreach ( [ 'wt_gallery', 'wt_wpimage', 'wb_image', 'wb_shortcode', 'wb_gallery', 'wm_gallery', 'wm_image' ] as $w ) {
+	olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids[ $w ] ), "live check: widget media '$w' is in use" );
+}
 olimc_src( false === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['plainchild'] ), 'live check: control media is not in use' );
 foreach ( $names as $n ) {
 	if ( 'unused' === $n ) {
@@ -146,6 +169,9 @@ foreach ( $cleanup['posts'] as $pid ) {
 wp_delete_term( $cleanup['term'], 'category' );
 delete_user_meta( 1, 'src_avatar' );
 delete_option( 'widget_text' );
+delete_option( 'widget_block' );
+delete_option( 'widget_media_gallery' );
+delete_option( 'widget_media_image' );
 remove_theme_mod( 'custom_logo' );
 delete_option( 'site_icon' );
 wp_update_custom_css_post( '' );
