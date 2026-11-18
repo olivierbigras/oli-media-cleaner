@@ -56,6 +56,14 @@ interface OLIMC_Trash_Backend {
 
 class OLIMC_Trash {
 
+	/** Failed automatic emptying attempts of a media (it is skipped after AUTOFAIL_MAX). */
+	const META_AUTOFAIL = '_olimc_autofail';
+	const AUTOFAIL_MAX  = 3;
+	/** Bounded journal of who trashed, restored or deleted what, and when. */
+	const OPT_AUDIT     = 'olimc_audit_log';
+	const AUDIT_MAX     = 200;
+	const AUDIT_IDS     = 25;
+
 	/**
 	 * @var OLIMC_Trash_Backend|null
 	 */
@@ -191,10 +199,34 @@ class OLIMC_Trash {
 			$done = self::backend()->purge( $id );
 		}
 		if ( is_wp_error( $done ) ) {
-			return self::result( false, 'used', $id );
+			// Another request is working on this media: not a "now in use" case.
+			return self::result( false, 'olimc_busy' === $done->get_error_code() ? 'fail' : 'used', $id );
 		}
 		OLIMC_Results::remove( $id );
 		return self::result( true, 'ok', $id );
+	}
+
+	/**
+	 * Add one line to the journal: user, action, media IDs, time. Kept to the last AUDIT_MAX lines,
+	 * no personal data besides the user ID, removed at uninstall with the plugin data.
+	 *
+	 * @param string $action Action: trash, restore, delete, empty, auto_empty, rotate_token.
+	 * @param int[]  $ids    Media IDs concerned.
+	 */
+	public static function log( $action, array $ids ) {
+		if ( [] === $ids && 'rotate_token' !== $action ) {
+			return;
+		}
+		$log   = get_option( self::OPT_AUDIT, [] );
+		$log   = is_array( $log ) ? $log : [];
+		$log[] = [
+			'u' => (int) get_current_user_id(),
+			'a' => (string) $action,
+			'n' => count( $ids ),
+			'i' => array_map( 'intval', array_slice( array_values( $ids ), 0, self::AUDIT_IDS ) ),
+			't' => time(),
+		];
+		update_option( self::OPT_AUDIT, array_slice( $log, -self::AUDIT_MAX ), false );
 	}
 
 	/**
@@ -255,17 +287,31 @@ class OLIMC_Trash {
 		$ids   = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} t ON t.post_id = p.ID AND t.meta_key = '_olimc_trashed'
-				 WHERE p.post_type = 'attachment' AND CAST(t.meta_value AS UNSIGNED) < %d ORDER BY p.ID ASC LIMIT 200",
-				$limit
+				 LEFT JOIN {$wpdb->postmeta} f ON f.post_id = p.ID AND f.meta_key = %s
+				 WHERE p.post_type = 'attachment' AND CAST(t.meta_value AS UNSIGNED) < %d
+				 AND ( f.meta_id IS NULL OR CAST(f.meta_value AS UNSIGNED) < %d ) ORDER BY p.ID ASC LIMIT 200",
+				self::META_AUTOFAIL,
+				$limit,
+				self::AUTOFAIL_MAX
 			)
 		);
+		$done = [];
 		foreach ( (array) $ids as $id ) {
-			if ( OLIMC_Admin::is_attachment_protected( (int) $id ) ) {
-				self::restore( (int) $id, false );
+			$id = (int) $id;
+			if ( OLIMC_Admin::is_attachment_protected( $id ) ) {
+				$r = self::restore( $id, false );
 			} else {
-				self::purge( (int) $id, false );
+				$r = self::purge( $id, false );
+			}
+			if ( $r['ok'] ) {
+				$done[] = $id;
+			} elseif ( ! in_array( $r['code'], [ 'not_trashed', 'cap' ], true ) ) {
+				// A media that keeps failing (used again, folder not writable) must not block the newer ones
+				// at every run: after AUTOFAIL_MAX attempts it is skipped.
+				update_post_meta( $id, self::META_AUTOFAIL, (int) get_post_meta( $id, self::META_AUTOFAIL, true ) + 1 );
 			}
 		}
+		self::log( 'auto_empty', $done );
 	}
 
 	/**

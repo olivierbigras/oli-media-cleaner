@@ -37,6 +37,9 @@ require_once OLIMC_PLUGIN_DIR . 'includes/class-scan.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-admin.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-screen.php';
 require_once OLIMC_PLUGIN_DIR . 'includes/class-ajax.php';
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once OLIMC_PLUGIN_DIR . 'includes/class-cli.php';
+}
 
 register_activation_hook( __FILE__, [ 'OLIMC_Admin', 'activate' ] );
 register_deactivation_hook( __FILE__, [ 'OLIMC_Admin', 'deactivate' ] );

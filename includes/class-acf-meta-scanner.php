@@ -226,7 +226,7 @@ class OLIMC_Acf_Meta_Scanner {
 		do {
 			$marker = $state['phase'] . ':' . (int) $state['cursor'];
 			$this->step_once( $state );
-			$guard++;
+			++$guard;
 			if ( $state['phase'] === 'done' || $state['phase'] === 'failed' ) {
 				break;
 			}

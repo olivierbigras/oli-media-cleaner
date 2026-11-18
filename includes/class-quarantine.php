@@ -29,6 +29,7 @@ class OLIMC_Quarantine {
 	const META_FLAG  = '_olimc_trashed';
 	const META_LOCK  = '_olimc_trashing';
 	const OPT_TOKEN  = 'olimc_trash_token';
+	const OPT_ROTATE = 'olimc_trash_rotating';
 	const FOLDER     = 'olimc-trash';
 	const LOCK_SECS  = 300;
 	const THUMB_MAX  = 2097152;
@@ -73,8 +74,7 @@ class OLIMC_Quarantine {
 	 */
 	public static function undo_unfinished() {
 		foreach ( self::$inflight as $id => $job ) {
-			self::rollback_in( $job['moved'] );
-			if ( '' !== $job['dir'] ) {
+			if ( self::rollback_in( $job['moved'] ) && '' !== $job['dir'] ) {
 				self::remove_tree( $job['dir'] );
 			}
 			delete_post_meta( $id, self::META_LOCK );
@@ -104,6 +104,20 @@ class OLIMC_Quarantine {
 		add_action( 'delete_attachment', [ __CLASS__, 'before_delete' ], 0 );
 		add_action( 'deleted_post', [ __CLASS__, 'after_delete' ], 10 );
 		add_filter( 'wp_delete_file', [ __CLASS__, 'guard_file' ], 99 );
+		add_filter( 'wxr_export_skip_postmeta', [ __CLASS__, 'skip_export_meta' ], 10, 2 );
+	}
+
+	/**
+	 * Tools > Export must not carry the quarantine state: it holds the folder name that is the
+	 * only barrier on a server that ignores .htaccess. The "kept" flag is exported as usual.
+	 *
+	 * @param bool   $skip     Whether to skip this meta.
+	 * @param string $meta_key Meta key.
+	 * @return bool
+	 */
+	public static function skip_export_meta( $skip, $meta_key ) {
+		$private = [ self::META_MAP, self::META_PREV, self::META_FLAG, self::META_LOCK, OLIMC_Trash::META_AUTOFAIL ];
+		return in_array( $meta_key, $private, true ) ? true : $skip;
 	}
 
 	/**
@@ -142,7 +156,116 @@ class OLIMC_Quarantine {
 	 */
 	public static function root_dir() {
 		$base = self::basedir();
-		return '' === $base ? '' : $base . '/' . self::FOLDER;
+		if ( '' === $base ) {
+			return '';
+		}
+		$default = $base . '/' . self::FOLDER;
+		/**
+		 * Folder of the quarantine, for example outside the web root. Absolute path, no "..", and the
+		 * folder must be named "olimc-trash" (the plugin treats it as its own and may remove it at
+		 * uninstall). Anything else is ignored. Change it while the trash is empty: files already
+		 * quarantined are looked up in the folder that is current when you restore them.
+		 *
+		 * @param string $default Default: <uploads>/olimc-trash.
+		 * @param string $base    Uploads base directory of the current site.
+		 */
+		$custom = apply_filters( 'olimc_quarantine_base_dir', $default, $base );
+		if ( ! is_string( $custom ) || $custom === $default ) {
+			return $default;
+		}
+		$custom = rtrim( str_replace( '\\', '/', $custom ), '/' );
+		if ( ! preg_match( '#^(/|[A-Za-z]:/)#', $custom ) || false !== strpos( $custom, "\0" ) || preg_match( '#(^|/)\.\.?(/|$)#', $custom ) || self::FOLDER !== basename( $custom ) ) {
+			return $default;
+		}
+		return $custom;
+	}
+
+	/**
+	 * Folder that must already exist (and be writable) for the quarantine root to be created under it.
+	 *
+	 * @return string
+	 */
+	private static function root_parent() {
+		return dirname( self::root_dir() );
+	}
+
+	/**
+	 * Whether $path (or its nearest existing parent, once symlinks are resolved) is inside $root.
+	 * A symlinked folder that leads out of $root fails the test.
+	 *
+	 * @param string $path Absolute path of a file or folder.
+	 * @param string $root Absolute folder it must stay in.
+	 * @return bool
+	 */
+	private static function inside( $path, $root ) {
+		$real_root = realpath( $root );
+		if ( false === $real_root || '' === $path ) {
+			return false;
+		}
+		$dir = dirname( str_replace( '\\', '/', $path ) );
+		while ( ! file_exists( $dir ) && ! is_link( $dir ) && dirname( $dir ) !== $dir ) {
+			$dir = dirname( $dir );
+		}
+		$real = realpath( $dir );
+		if ( false === $real ) {
+			return false;
+		}
+		$real      = rtrim( str_replace( '\\', '/', $real ), '/' );
+		$real_root = rtrim( str_replace( '\\', '/', $real_root ), '/' );
+		return $real === $real_root || 0 === strpos( $real . '/', $real_root . '/' );
+	}
+
+	/**
+	 * Files with a name a web server could execute or interpret (scripts, server configuration).
+	 *
+	 * @param string $rel Relative path.
+	 * @return bool
+	 */
+	private static function is_executable_name( $rel ) {
+		$name = basename( (string) $rel );
+		return (bool) preg_match( '/^\.|\.(php[0-9]*|phtml|phar|pht|phps|inc|shtml?|cgi|pl|py|rb|sh|bash|asp|aspx|jsp|jspx|cfm|exe|dll|htaccess|htpasswd|user\.ini)(\.|$)/i', $name );
+	}
+
+	/**
+	 * Name under which a file is stored in the quarantine: executable names get every dot replaced and
+	 * the neutral suffix ".olimc", so nothing in the quarantine can be run. The manifest keeps the real name.
+	 *
+	 * @param string   $rel  Relative path.
+	 * @param string[] $used Stored names already given in this media.
+	 * @return string Same as $rel when no change is needed.
+	 */
+	private static function stored_rel( $rel, array $used ) {
+		if ( ! self::is_executable_name( $rel ) ) {
+			return $rel;
+		}
+		$dir  = dirname( $rel );
+		$dir  = ( '.' === $dir ) ? '' : $dir . '/';
+		$base = str_replace( '.', '_', basename( $rel ) );
+		$q    = $dir . $base . '.olimc';
+		$i = 2;
+		while ( in_array( $q, $used, true ) ) {
+			$q = $dir . $base . '-' . $i . '.olimc';
+			++$i;
+		}
+		return $q;
+	}
+
+	/**
+	 * Stored path (under files/) of a manifest entry.
+	 *
+	 * @param array  $f   Manifest entry.
+	 * @param string $rel Original relative path (already cleaned).
+	 * @return string Empty when the entry is not valid.
+	 */
+	private static function stored_of( array $f, $rel ) {
+		if ( empty( $f['q'] ) ) {
+			return $rel;
+		}
+		$q = self::clean_rel( $f['q'] );
+		if ( '' === $q || '.olimc' !== substr( $q, -6 ) || dirname( $q ) !== dirname( $rel ) ) {
+			return '';
+		}
+		return $q;
 	}
 
 	/**
@@ -183,12 +306,12 @@ class OLIMC_Quarantine {
 	 * @return string Empty when invalid.
 	 */
 	private static function dir_from_map( array $map ) {
-		$base = self::basedir();
+		$root = self::root_dir();
 		$rel  = isset( $map['dir'] ) ? (string) $map['dir'] : '';
-		if ( '' === $base || ! preg_match( '#^' . self::FOLDER . '/[a-f0-9]{32}/\d+$#', $rel ) ) {
+		if ( '' === $root || ! preg_match( '#^' . self::FOLDER . '/([a-f0-9]{32}/\d+)$#', $rel, $m ) ) {
 			return '';
 		}
-		return $base . '/' . $rel;
+		return $root . '/' . $m[1];
 	}
 
 	/**
@@ -262,11 +385,79 @@ class OLIMC_Quarantine {
 	 */
 	public static function is_writable() {
 		$base = self::basedir();
-		if ( '' === $base || ! wp_is_writable( $base ) ) {
+		$root = self::root_dir();
+		if ( '' === $base || '' === $root ) {
 			return false;
 		}
+		if ( is_dir( $root ) ) {
+			return wp_is_writable( $root ) && ( $root !== $base . '/' . self::FOLDER || wp_is_writable( $base ) );
+		}
+		// The root is not there yet: the nearest existing parent must accept it.
+		$parent = dirname( $root );
+		while ( ! is_dir( $parent ) && dirname( $parent ) !== $parent ) {
+			$parent = dirname( $parent );
+		}
+		return wp_is_writable( $parent );
+	}
+
+	// ─── Token rotation ───────────────────────────────────────────────
+
+	/**
+	 * Replace the random folder name (after a leak of the database, of an export or of a backup).
+	 * Renames the token folder, then points every media at the new one. Safe to run again if it was
+	 * interrupted: it resumes where it stopped. No screen: `wp olimc rotate-token`.
+	 *
+	 * @return array{old: string, new: string, media: int}|WP_Error
+	 */
+	public static function rotate_token() {
+		global $wpdb;
+		$state = (string) get_option( self::OPT_ROTATE, '' );
+		if ( preg_match( '/^([a-f0-9]{32}):([a-f0-9]{32})$/', $state, $m ) ) {
+			$old = $m[1];
+			$new = $m[2];
+		} else {
+			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(meta_value AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			if ( $busy > 0 ) {
+				return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+			}
+			$old = self::token();
+			$new = bin2hex( random_bytes( 16 ) );
+			update_option( self::OPT_ROTATE, $old . ':' . $new, false );
+		}
 		$root = self::root_dir();
-		return ! is_dir( $root ) || wp_is_writable( $root );
+		$from = $root . '/' . $old;
+		$to   = $root . '/' . $new;
+		if ( '' === $root || ( is_dir( $from ) && ! file_exists( $to ) && ! @rename( $from, $to ) ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
+			delete_option( self::OPT_ROTATE );
+			return new WP_Error( 'olimc_move', 'The token folder could not be renamed.' );
+		}
+		update_option( self::OPT_TOKEN, $new, false );
+		if ( is_dir( $to ) && ! file_exists( $to . '/index.php' ) ) {
+			file_put_contents( $to . '/index.php', "<?php\n// Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		}
+		$count = 0;
+		$ids   = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s", self::META_MAP ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		foreach ( (array) $ids as $id ) {
+			$id  = (int) $id;
+			$map = self::map( $id );
+			if ( null === $map || empty( $map['dir'] ) ) {
+				continue;
+			}
+			$map['dir'] = self::FOLDER . '/' . $new . '/' . $id;
+			update_post_meta( $id, self::META_MAP, wp_slash( wp_json_encode( $map ) ) );
+			$dir = self::dir_from_map( $map );
+			if ( '' !== $dir && is_dir( $dir ) ) {
+				self::write_manifest( $dir, $map );
+			}
+			++$count;
+		}
+		delete_option( self::OPT_ROTATE );
+		OLIMC_Trash::log( 'rotate_token', [] );
+		return [
+			'old'   => $old,
+			'new'   => $new,
+			'media' => $count,
+		];
 	}
 
 	// ─── Move in ──────────────────────────────────────────────────────
@@ -297,15 +488,41 @@ class OLIMC_Quarantine {
 	 * @return bool
 	 */
 	private static function lock( $id ) {
+		global $wpdb;
 		if ( add_post_meta( $id, self::META_LOCK, time(), true ) ) {
 			return true;
 		}
-		$since = (int) get_post_meta( $id, self::META_LOCK, true );
+		// Read the lock from the database, not from the cache: another request may have changed it.
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s LIMIT 1", $id, self::META_LOCK ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( ! $row ) {
+			return (bool) add_post_meta( $id, self::META_LOCK, time(), true );
+		}
+		$since = (int) $row->meta_value;
 		if ( $since > 0 && time() - $since < self::LOCK_SECS ) {
 			return false;
 		}
-		update_post_meta( $id, self::META_LOCK, time() );
-		return true;
+		// Stale lock: take it with a compare-and-swap, so two requests cannot both succeed.
+		$new = max( time(), $since + 1 );
+		$won = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_id = %d AND meta_value = %s", (string) $new, (int) $row->meta_id, (string) $row->meta_value ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		wp_cache_delete( $id, 'post_meta' );
+		return 1 === (int) $won;
+	}
+
+	/**
+	 * Take the lock of a media (the permanent deletion uses it too).
+	 *
+	 * @param int $id Attachment ID.
+	 * @return bool False when another request is working on this media.
+	 */
+	public static function acquire( $id ) {
+		return self::lock( (int) $id );
+	}
+
+	/**
+	 * @param int $id Attachment ID.
+	 */
+	public static function release( $id ) {
+		delete_post_meta( (int) $id, self::META_LOCK );
 	}
 
 	/**
@@ -319,7 +536,7 @@ class OLIMC_Quarantine {
 		}
 		// A folder left by a move of this same media that was killed midway: put its files back first,
 		// so the plan below sees every file at its original path.
-		$left = $base . '/' . self::dir_rel( $id );
+		$left = self::dir_from_map( [ 'dir' => self::dir_rel( $id ) ] );
 		if ( is_dir( $left ) ) {
 			self::recover_interrupted( $left, $base );
 		}
@@ -355,7 +572,10 @@ class OLIMC_Quarantine {
 		}
 
 		$map['dir'] = self::dir_rel( $id );
-		$dir        = $base . '/' . $map['dir'];
+		$dir        = self::dir_from_map( $map );
+		if ( '' === $dir ) {
+			return self::perm_error( 'The quarantine folder is not available.' );
+		}
 		if ( is_dir( $dir ) ) {
 			// Already recovered above; whatever is left is not ours to guess about.
 			if ( ! self::cleanup_dir( $dir ) ) {
@@ -363,16 +583,26 @@ class OLIMC_Quarantine {
 			}
 		}
 		self::ensure_guards();
-		if ( ! self::mkdir_protected( $dir, $base ) ) {
+		$stop = self::root_parent();
+		if ( ! self::mkdir_protected( $dir, $stop ) || ! self::inside( $dir . '/x', self::root_dir() ) ) {
 			return self::perm_error( 'The uploads folder is not writable.' );
 		}
 
+		$used = [];
 		foreach ( $plan['move'] as $rel => $info ) {
-			$map['files'][] = [
+			$entry = [
 				'p' => $rel,
 				's' => $info['size'],
 				'm' => $info['md5'],
 			];
+			$q     = self::stored_rel( $rel, $used );
+			if ( $q !== $rel ) {
+				// Executable name: stored under a neutral one, the real name stays in the manifest.
+				$entry['q']            = $q;
+				$plan['move'][ $rel ]['q'] = $q;
+			}
+			$used[]         = $q;
+			$map['files'][] = $entry;
 		}
 		// Manifest first: if the request is killed midway, the files can still be put back by hand.
 		$map['state'] = 'moving';
@@ -391,11 +621,9 @@ class OLIMC_Quarantine {
 			register_shutdown_function( [ __CLASS__, 'undo_unfinished' ] );
 		}
 		foreach ( $plan['move'] as $rel => $info ) {
-			$dest = $dir . '/files/' . $rel;
-			if ( ! self::mkdir_protected( dirname( $dest ), $dir ) || ! self::may_move( $info['abs'], $dest ) || true !== self::move_file( $info['abs'], $dest ) ) {
-				self::rollback_in( $moved );
-				unset( self::$inflight[ $id ] );
-				self::remove_tree( $dir );
+			$dest = $dir . '/files/' . ( isset( $info['q'] ) ? $info['q'] : $rel );
+			if ( ! self::mkdir_protected( dirname( $dest ), $dir ) || ! self::inside( $dest, $dir ) || ! self::may_move( $info['abs'], $dest ) || true !== self::move_file( $info['abs'], $dest ) ) {
+				self::abort_move( $id, $dir, $moved );
 				return new WP_Error( 'olimc_move', 'A file could not be moved.' );
 			}
 			$moved[ $rel ] = [ $info['abs'], $dest ];
@@ -403,9 +631,7 @@ class OLIMC_Quarantine {
 
 		unset( $map['state'] );
 		if ( ! self::write_manifest( $dir, $map ) ) {
-			self::rollback_in( $moved );
-			unset( self::$inflight[ $id ] );
-			self::remove_tree( $dir );
+			self::abort_move( $id, $dir, $moved );
 			return self::perm_error( 'The manifest could not be written.' );
 		}
 		self::finalize( $id, $map );
@@ -433,9 +659,10 @@ class OLIMC_Quarantine {
 			if ( '' === $rel ) {
 				continue;
 			}
-			$from = $dir . '/files/' . $rel;
-			$to   = $base . '/' . $rel;
-			if ( is_file( $from ) && ! file_exists( $to ) ) {
+			$stored = self::stored_of( is_array( $f ) ? $f : [], $rel );
+			$from   = $dir . '/files/' . $stored;
+			$to     = $base . '/' . $rel;
+			if ( '' !== $stored && is_file( $from ) && ! file_exists( $to ) && ! is_link( $to ) && self::inside( $to, $base ) && self::inside( $from, $dir ) ) {
 				self::move_file( $from, $to, true );
 			}
 		}
@@ -529,7 +756,8 @@ class OLIMC_Quarantine {
 			if ( ! is_file( $abs ) ) {
 				continue; // Listed in the metadata but not on disk: nothing to move.
 			}
-			if ( is_link( $abs ) ) {
+			if ( is_link( $abs ) || ! self::inside( $abs, $base ) ) {
+				// A symlink, or a folder that leads out of the uploads folder: left where it is.
 				$stays[ $rel ] = true;
 				continue;
 			}
@@ -572,10 +800,33 @@ class OLIMC_Quarantine {
 
 	/**
 	 * @param array<string, array{0: string, 1: string}> $moved rel => [original, quarantined].
+	 * @return bool True when every file went back.
 	 */
 	private static function rollback_in( array $moved ) {
+		$all_back = true;
 		foreach ( array_reverse( $moved, true ) as $pair ) {
-			self::move_file( $pair[1], $pair[0] );
+			// Never over a file that appeared at the original path in the meantime: that copy stays in the
+			// quarantine (its manifest says "moving", so it can be put back by hand) and is reported.
+			if ( true !== self::move_file( $pair[1], $pair[0], true ) ) {
+				$all_back = false;
+			}
+		}
+		return $all_back;
+	}
+
+	/**
+	 * A move failed midway: put the files back and drop the folder, unless a file could not go back
+	 * (then the folder and its manifest stay, nothing is deleted).
+	 *
+	 * @param int    $id    Attachment ID.
+	 * @param string $dir   Absolute media folder.
+	 * @param array  $moved Files already moved.
+	 */
+	private static function abort_move( $id, $dir, array $moved ) {
+		$back = self::rollback_in( $moved );
+		unset( self::$inflight[ $id ] );
+		if ( $back ) {
+			self::remove_tree( $dir );
 		}
 	}
 
@@ -626,8 +877,15 @@ class OLIMC_Quarantine {
 			if ( '' === $rel ) {
 				return new WP_Error( 'olimc_integrity', 'The manifest is not valid.' );
 			}
-			$from = $dir . '/files/' . $rel;
+			$stored = self::stored_of( is_array( $f ) ? $f : [], $rel );
+			if ( '' === $stored ) {
+				return new WP_Error( 'olimc_integrity', 'The manifest is not valid.' );
+			}
+			$from = $dir . '/files/' . $stored;
 			$to   = $base . '/' . $rel;
+			if ( ! self::inside( $to, $base ) || ( file_exists( $from ) && ! self::inside( $from, $dir ) ) ) {
+				return new WP_Error( 'olimc_integrity', 'A path leaves the uploads folder.' );
+			}
 			if ( ! file_exists( $from ) && is_file( $to ) && olimc_filesize( $to ) === (int) $f['s'] && md5_file( $to ) === (string) $f['m'] ) {
 				continue; // Already back (a former restore of this media was interrupted): nothing to do for this file.
 			}
@@ -647,6 +905,9 @@ class OLIMC_Quarantine {
 			if ( ! wp_is_writable( $target ) ) {
 				return self::perm_error( 'The uploads folder is not writable.' );
 			}
+			if ( ! self::inside( $pair[1], $base ) ) {
+				return new WP_Error( 'olimc_integrity', 'A path leaves the uploads folder.' );
+			}
 		}
 
 		$done = [];
@@ -654,7 +915,7 @@ class OLIMC_Quarantine {
 			$res = self::may_move( $pair[0], $pair[1] ) ? self::move_file( $pair[0], $pair[1], true ) : 'fail';
 			if ( true !== $res ) {
 				foreach ( array_reverse( $done, true ) as $back ) {
-					self::move_file( $back[1], $back[0] );
+					self::move_file( $back[1], $back[0], true );
 				}
 				return 'exists' === $res
 					? new WP_Error( 'olimc_exists', 'A file with the same name already exists.' )
@@ -713,6 +974,7 @@ class OLIMC_Quarantine {
 		delete_post_meta( $id, self::META_FLAG );
 		delete_post_meta( $id, self::META_MAP );
 		delete_post_meta( $id, self::META_PREV );
+		delete_post_meta( $id, OLIMC_Trash::META_AUTOFAIL );
 		clean_post_cache( $id );
 		if ( '' !== $dir ) {
 			self::cleanup_dir( $dir );
@@ -873,7 +1135,10 @@ class OLIMC_Quarantine {
 			if ( '' === $rel || '' === self::preview_mime_for_name( $rel ) || (int) $f['s'] > self::THUMB_MAX ) {
 				continue;
 			}
-			$candidates[ $dir . '/files/' . $rel ] = (int) $f['s'];
+			$stored = self::stored_of( $f, $rel );
+			if ( '' !== $stored ) {
+				$candidates[ $dir . '/files/' . $stored ] = (int) $f['s'];
+			}
 		}
 		asort( $candidates );
 		foreach ( array_keys( $candidates ) as $abs ) {
@@ -957,7 +1222,7 @@ class OLIMC_Quarantine {
 		if ( '' === $root || ! is_dir( $root ) ) {
 			return;
 		}
-		$text = "Oli Media Cleaner\n\nThis folder holds files that were in the plugin's trash when the plugin was removed and could not be put back (a file with the same name already existed, or the folder was not writable).\nEach folder is named after a media ID. Its manifest.json lists the original path, size and MD5 of every file; the files are under files/ with their original relative path (inside the uploads folder).\nNothing here is deleted for you. Copy a file back to its original path to restore it.\n";
+		$text = "Oli Media Cleaner\n\nThis folder holds files that were in the plugin's trash when the plugin was removed and could not be put back (a file with the same name already existed, or the folder was not writable).\nEach folder is named after a media ID. Its manifest.json lists the original path, size and MD5 of every file; the files are under files/ with their original relative path (inside the uploads folder).\nFiles whose name could be run by a web server (.php and similar) are stored with their dots replaced and the suffix .olimc; the manifest gives the real name (field p).\nNothing here is deleted for you. Copy a file back to its original path to restore it, then delete this folder.\nSecurity: this folder is protected by an .htaccess (Apache only) and a random folder name. On any other server, block direct access to it in the server configuration, or delete it once you have recovered what you need. The plugin no longer manages it.\n";
 		file_put_contents( $root . '/README.txt', $text ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	}
 
@@ -1174,8 +1439,14 @@ class OLIMC_Trash_Quarantine_Backend implements OLIMC_Trash_Backend {
 	 * @return true|WP_Error
 	 */
 	public function purge( $id ) {
-		$deleted = wp_delete_attachment( (int) $id, true );
+		$id = (int) $id;
+		// The same lock as a move: a deletion cannot run while the media is being trashed or restored.
+		if ( ! OLIMC_Quarantine::acquire( $id ) ) {
+			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+		}
+		$deleted = wp_delete_attachment( $id, true );
 		if ( ! $deleted ) {
+			OLIMC_Quarantine::release( $id );
 			return new WP_Error( 'olimc_refused', 'refused' );
 		}
 		return true;

@@ -65,7 +65,7 @@ function olimc_uninstall_site() {
 	// 2. Options, post meta, user meta, transients.
 	$like = $wpdb->esc_like( 'olimc_' ) . '%';
 	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s", $like, '_transient_' . $like, '_transient_timeout_' . $like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-	$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_olimc_protected','_olimc_trashed','_olimc_trash_map','_olimc_prev_status','_olimc_trashing')" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN ('_olimc_protected','_olimc_trashed','_olimc_trash_map','_olimc_prev_status','_olimc_trashing','_olimc_autofail')" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key IN (%s,%s,%s)", 'olimc_backup_dismissed', 'olimc_per_page', $wpdb->get_blog_prefix() . 'olimc_per_page' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 	// 3. Results table and scheduled events.

@@ -80,6 +80,10 @@ The plugin moves the file away, so your server stops serving it. A CDN, a page c
 
 In `wp-content/uploads/olimc-trash/`, in a folder with a random name, then one folder per media (its ID). Each one holds the files with their original relative path and a `manifest.json` (original path, size, MD5). Do not edit that folder by hand: use the **Trash** tab.
 
+= What stays after an uninstall? =
+
+Trashed media are always restored first. One that cannot be restored (a file with the same name exists, folder not writable) is shown again in the Media Library and its files stay in `wp-content/uploads/olimc-trash/` with their manifest and a `README.txt`. The plugin no longer manages that folder. On a server that ignores `.htaccess` it stays reachable by URL to anyone who knows the secret folder name (the plugin forgets it when you delete its data): block the folder in the server configuration, or delete it by SFTP once you have recovered what you need.
+
 = How do I block direct access to the trash folder? =
 
 The plugin writes an empty `index.php` in every folder, an `.htaccess` that denies access, and uses a random folder name. Apache reads the `.htaccess`. Nginx does not, so on nginx (and on any server that ignores `.htaccess`) add a rule yourself, in the server configuration, then reload it:
@@ -95,6 +99,24 @@ For a custom uploads location, use the path of your uploads folder followed by `
 `<Directory "/path/to/wp-content/uploads/olimc-trash"> Require all denied </Directory>`
 
 Hosts that manage the server for you can usually add the rule on request.
+
+= Can I keep the trash outside the web root? =
+
+Yes. A developer can return an absolute path from the filter `olimc_quarantine_base_dir`, for example `add_filter( 'olimc_quarantine_base_dir', fn() => '/home/site/private/olimc-trash' );`. The folder must be named `olimc-trash`, must not contain `..`, and must be writable by the web server. Nothing then sits under `wp-content/uploads`, so no server rule is needed. Change it while the trash is empty: a media is looked up in the folder that is current when you restore it.
+
+= How do I change the secret folder name of the trash? =
+
+The random folder name is the protection on a server that ignores `.htaccess`. If a copy of your database, an export or a backup may have leaked, replace it: `wp olimc rotate-token` (add `--url=<site>` on a multisite). The folder is renamed and every trashed media is updated; if the command is interrupted, run it again. There is no screen for it. The names of the trashed files are kept out of the WordPress export (Tools > Export).
+
+= What security checks does the trash do? =
+
+* A file whose name a server could run (`.php`, `.phtml`, `.phar`, `.pht`, `.php5`, `.shtml`, `.cgi`, `.htaccess`, `.user.ini`, any name starting with a dot, and the like) is stored under a neutral name (dots replaced, suffix `.olimc`). The manifest keeps the real name, and the restore puts back the exact name and bytes.
+* A file is only moved or restored inside the uploads folder (symbolic links that lead out of it are refused) and inside the trash folder.
+* A failed move puts the files back without ever overwriting a file that appeared in the meantime; if one cannot go back, it stays in the trash folder with its manifest.
+* A permanent deletion, a restore and a move of the same media cannot run at the same time.
+* The automatic emptying skips a media that failed three times, so it does not block the others.
+* Every action has its own security token. A short journal (user ID, action, media IDs, date; the last 200 lines, in the `olimc_audit_log` option) records who trashed, restored or deleted; it is removed with the plugin data.
+* Values read from your database are unserialized without instantiating any class.
 
 = Can a restore overwrite something? =
 
@@ -158,6 +180,7 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
 * CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
 * CHANGE: A media referenced only by its numeric ID used as an array key (widgets, theme settings, custom fields) counts as used, in the scan as in the live check.
+* CHANGE: Security hardening of the trash (executable names neutralised, confinement to uploads, no overwrite on rollback, one lock per media, one security token per action, a short journal, no class instantiated when reading stored data, trash state excluded from the export). New: `wp olimc rotate-token`, filter `olimc_quarantine_base_dir`.
 * CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).
 * CHANGE: Requires WordPress 5.8 (was 6.2).
 * REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.
