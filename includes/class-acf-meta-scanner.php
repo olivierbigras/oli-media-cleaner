@@ -1014,10 +1014,16 @@ class OLIMC_Acf_Meta_Scanner {
 	 * @return bool
 	 */
 	private function is_plugin_record( $key ) {
-		if ( ! is_string( $key ) || $key === '' ) {
-			return false;
-		}
-		$prefixes = [
+		return self::is_plugin_key( $key );
+	}
+
+	/**
+	 * Key prefixes of the plugin's own records (the scan and the live check both skip them).
+	 *
+	 * @return string[]
+	 */
+	public static function plugin_key_prefixes() {
+		return [
 			'olimc_',
 			'_olimc_',
 			'_transient_olimc_',
@@ -1025,7 +1031,17 @@ class OLIMC_Acf_Meta_Scanner {
 			'_site_transient_olimc_',
 			'_site_transient_timeout_olimc_',
 		];
-		foreach ( $prefixes as $prefix ) {
+	}
+
+	/**
+	 * @param mixed $key Meta key or option name.
+	 * @return bool
+	 */
+	public static function is_plugin_key( $key ) {
+		if ( ! is_string( $key ) || $key === '' ) {
+			return false;
+		}
+		foreach ( self::plugin_key_prefixes() as $prefix ) {
 			if ( strpos( $key, $prefix ) === 0 ) {
 				return true;
 			}

@@ -259,7 +259,7 @@ class OLIMC_Ajax {
 			'ok' => [],
 			'by' => [],
 		];
-		OLIMC_Scanner::begin_batch();
+		OLIMC_Scanner::begin_batch( $ids );
 		foreach ( $ids as $id ) {
 			$r = call_user_func( $action, $id );
 			if ( ! empty( $r['ok'] ) ) {
@@ -378,7 +378,7 @@ class OLIMC_Ajax {
 		$deleted  = [];
 		$failed   = [];
 		$cap      = 0;
-		OLIMC_Scanner::begin_batch();
+		OLIMC_Scanner::begin_batch( $ids );
 		foreach ( $ids as $id ) {
 			if ( ! OLIMC_Trash::is_in_trash( $id ) ) {
 				continue;

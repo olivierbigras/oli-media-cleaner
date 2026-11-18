@@ -104,7 +104,7 @@ Hosts that manage the server for you can usually add the rule on request.
 
 = How do the scan and the live check count numeric keys and other options? =
 
-Other options count by value only, not by array key (lists and transients); the live check does not read them. Widgets, theme settings and custom fields also count by numeric array key, in the scan and in the live check.
+Other options count by value only, not by array key (lists and transients), in the scan and in the live check. Widgets, theme settings and custom fields also count by numeric array key, in the scan and in the live check.
 
 = Can I keep the trash outside the web root? =
 
@@ -185,6 +185,7 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * NEW: Settings: kept paths with a "Test patterns" button, automatic emptying (never, 30 or 90 days), scheduled scan (analysis only), careful mode, data removal on uninstall, diagnostics report.
 * NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
 * CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
+* FIX: The live check (before trashing, before emptying) now reads every source of the scan: custom fields, term meta, user meta and other options, with the scan's own rules. A stale list can no longer trash or delete a media that is used there. One pass per batch.
 * CHANGE: A media referenced only by its numeric ID used as an array key (widgets, theme settings, custom fields) counts as used, in the scan as in the live check.
 * CHANGE: Security hardening of the trash (executable names neutralised, confinement to uploads, no overwrite on rollback, one lock per media, one security token per action, a short journal, no class instantiated when reading stored data, trash state excluded from the export). New: `wp olimc rotate-token`, filter `olimc_quarantine_base_dir`.
 * CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).

@@ -299,6 +299,7 @@ class OLIMC_Trash {
 			)
 		);
 		$done = [];
+		OLIMC_Scanner::begin_batch( (array) $ids );
 		foreach ( (array) $ids as $id ) {
 			$id = (int) $id;
 			if ( OLIMC_Admin::is_attachment_protected( $id ) ) {
@@ -314,6 +315,7 @@ class OLIMC_Trash {
 				update_post_meta( $id, self::META_AUTOFAIL, (int) get_post_meta( $id, self::META_AUTOFAIL, true ) + 1 );
 			}
 		}
+		OLIMC_Scanner::end_batch();
 		self::log( 'auto_empty', $done );
 	}
 

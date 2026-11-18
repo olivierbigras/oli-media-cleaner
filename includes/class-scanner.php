@@ -18,6 +18,48 @@ class OLIMC_Scanner {
      */
     private static $batch_content = null;
 
+    /**
+     * Media IDs of the batch (flipped), when the caller gave them; the rows of the meta tables and of the
+     * options are read once for all of them (see meta_hits()). Null: no list.
+     *
+     * @var array<int,true>|null
+     */
+    private static $batch_set = null;
+
+    /**
+     * Media of the batch that a meta or option row refers to. False: not computed yet. Null: a query failed.
+     *
+     * @var array<int,true>|false|null
+     */
+    private static $batch_meta = false;
+
+    /**
+     * What the theme files cite, read once per request: media IDs and upload paths.
+     *
+     * @var array{ids: array<int,true>, paths: array<string,true>}|null
+     */
+    private static $theme_index = null;
+
+    /**
+     * Single checks made without a batch in this request, and when the first one was made: the second one switches to a
+     * whole read of the tables for every media (valid for a short time), which a loop of single checks would otherwise repeat.
+     *
+     * @var int
+     */
+    private static $single_calls = 0;
+
+    /** @var float */
+    private static $single_since = 0.0;
+
+    /** @var bool True when the batch was made by the second single check, not announced by a caller. */
+    private static $auto_batch = false;
+
+    /** Seconds during which the whole read made for a loop of single checks is trusted. */
+    const AUTO_BATCH_TTL = 20;
+
+    /** Up to this many media the tables are filtered in SQL for each ID; above, they are read once for the whole batch (cheaper from 2 media on). */
+    const META_PREFILTER_MAX = 1;
+
     /** @var int|null Attachment ID being checked by is_attachment_in_use_now(). */
     private $usage_check_id = null;
     /** @var bool */
@@ -497,12 +539,21 @@ class OLIMC_Scanner {
      * Start a batch of live checks (one request that checks many media): the post content is read once
      * for the whole batch instead of once per media. Call end_batch() afterwards.
      */
-    public static function begin_batch() {
+    public static function begin_batch( array $ids = [] ) {
         self::$batch_content = false;
+        $ids                 = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+        self::$batch_set     = [] === $ids ? null : array_fill_keys( $ids, true );
+        self::$batch_meta    = false;
+        self::$auto_batch    = false;
+        self::$single_calls  = 0;
     }
 
     public static function end_batch() {
         self::$batch_content = null;
+        self::$batch_set     = null;
+        self::$batch_meta    = false;
+        self::$auto_batch    = false;
+        self::$single_calls  = 0;
     }
 
     /**
@@ -582,6 +633,9 @@ class OLIMC_Scanner {
             $this->collect_taxonomy_thumbnails();
             $this->collect_term_description_images();
             $this->collect_option_url_references();
+            $this->collect_meta_sources();
+            $this->collect_theme_files_now();
+            $this->collect_attached_now();
         } finally {
             $this->usage_check_id = null;
             $this->used_ids = $previous_used;
@@ -591,6 +645,324 @@ class OLIMC_Scanner {
             return null;
         }
         return $this->usage_check_hit;
+    }
+
+    /**
+     * Every row the scan reads in the meta tables (posts, terms, users) and in the options, with the rules the scan applies
+     * to it: the value is the ID, a list of IDs, a serialized or JSON structure holding it (numeric array keys count in
+     * custom fields, not in other options), or an upload URL that leads to the media. The rows are filtered in SQL for the
+     * media being checked, and the rows that remain go through the very parser the scan uses. In a batch the tables are
+     * read once for all the media of the batch.
+     */
+    private function collect_meta_sources() {
+        if ($this->usage_check_id === null || ! $this->begin_usage_query()) {
+            return;
+        }
+        $id = $this->usage_check_id;
+        if (microtime(true) - self::$single_since > self::AUTO_BATCH_TTL) {
+            // Too old to be trusted: forget the whole read made for a loop of single checks, and start counting again.
+            self::$single_calls = 0;
+            self::$single_since = microtime(true);
+            if (self::$auto_batch) {
+                self::$batch_set  = null;
+                self::$batch_meta = false;
+                self::$auto_batch = false;
+            }
+        }
+        if (self::$batch_set !== null && isset(self::$batch_set[ $id ])) {
+            $this->collect_meta_sources_from_batch($id);
+            return;
+        }
+        // A loop of single checks (a bulk delete, a script): from the second on, read the tables once for every media.
+        if (self::$batch_set === null && ++self::$single_calls > self::META_PREFILTER_MAX) {
+            global $wpdb;
+            $all = $wpdb->get_col("SELECT ID FROM {$wpdb->posts} WHERE post_type = 'attachment'");
+            if (is_array($all) && $all !== [] && empty($wpdb->last_error)) {
+                self::$batch_set  = array_fill_keys(array_map('intval', $all), true);
+                self::$batch_meta = false;
+                self::$auto_batch = true;
+                $this->collect_meta_sources_from_batch($id);
+                return;
+            }
+        }
+        $hits = $this->meta_hits([ $id ], $this->usage_check_deadline);
+        if ($hits === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if (isset($hits[ $id ])) {
+            $this->usage_check_hit = true;
+        }
+    }
+
+    /**
+     * The answer for one media from the whole read made for its batch (made now if it was not yet).
+     *
+     * @param int $id Attachment ID.
+     */
+    private function collect_meta_sources_from_batch( $id ) {
+        if (self::$batch_meta === false) {
+            $budget = function_exists('ini_get') ? (int) ini_get('max_execution_time') : 0;
+            self::$batch_meta = $this->meta_hits(array_keys(self::$batch_set), microtime(true) + ( $budget > 0 ? max(5, $budget - 5) : 120 ));
+        }
+        if (self::$batch_meta === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if (isset(self::$batch_meta[ $id ])) {
+            $this->usage_check_hit = true;
+        }
+    }
+
+    /**
+     * @param int[] $ids Attachment IDs.
+     * @return array<int,string>|null Attached file (relative path) by ID; null on a database error.
+     */
+    private function attached_files_of( array $ids ) {
+        global $wpdb;
+        $out = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $marks = implode(',', array_fill(0, count($chunk), '%d'));
+            $rows = $wpdb->get_results($wpdb->prepare("SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_wp_attached_file' AND post_id IN ({$marks})", $chunk)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- the list only holds %d placeholders.
+            if ( ! is_array($rows) || ! empty($wpdb->last_error)) {
+                return null;
+            }
+            foreach ($rows as $row) {
+                $file = (string) $row->meta_value;
+                if ($file !== '') {
+                    $out[ (int) $row->post_id ] = $file;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Which of these media do the meta tables or the options refer to?
+     *
+     * @param int[]      $ids      Attachment IDs.
+     * @param float|null $deadline Wall clock after which the answer is "unknown" (null).
+     * @return array<int,true>|null The media found; null on a database error or when time ran out (treated as "in use").
+     */
+    private function meta_hits( array $ids, $deadline = null, $force_full = false ) {
+        global $wpdb;
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if ($ids === []) {
+            return [];
+        }
+        $files = $this->attached_files_of($ids);
+        if ($files === null) {
+            return null;
+        }
+        $set     = array_fill_keys($ids, true);
+        $hits    = [];
+        $by_file = [];
+        foreach ($files as $post_id => $file) {
+            $by_file[ strtolower($file) ][] = $post_id;
+        }
+        // Same resolution as the scan: the path without its "-WxH" size suffix, else the path itself, is the attached file.
+        $resolve = static function ( $path ) use ( &$by_file, &$hits ) {
+            $path  = trim( (string) $path, '"\'\\/ ');
+            $clean = preg_replace('/-\d+x\d+(\.\w+)$/', '$1', $path);
+            foreach ([ $clean, $path ] as $candidate) {
+                $key = strtolower( (string) $candidate );
+                if (isset($by_file[ $key ])) {
+                    foreach ($by_file[ $key ] as $post_id) {
+                        $hits[ $post_id ] = true;
+                    }
+                    return $by_file[ $key ][0];
+                }
+            }
+            return 0;
+        };
+        $known = static function ( $found ) use ( $set ) {
+            return isset($set[ (int) $found ]);
+        };
+
+        // SQL pre-filter: the number written as a whole run of digits (the LIKE keeps the regular expression for the few rows
+        // that hold the digits), or the path of the file without its extension and size suffix, in its plain, URL-encoded
+        // and JSON-escaped forms.
+        $full    = $force_full || count($ids) > self::META_PREFILTER_MAX;
+        $regexp  = '';
+        $stems   = [];
+        $gate    = '';
+        if ($full) {
+            // Whole read: only the rows the parser can get anything from (a number or a list of numbers, a serialized or JSON
+            // value, an upload URL); plain text is skipped in SQL.
+            $fragment = OLIMC_Media_Usage_Parser::upload_search_fragment();
+            $gate     = '(`__V__` REGEXP \'^[[:space:]]*[-+.0-9]\' OR LEFT(`__V__`, 2) IN (\'a:\', \'O:\') OR LEFT(`__V__`, 1) IN (\'[\', \'{\')';
+            if ($fragment !== '') {
+                $gate .= ' OR `__V__` LIKE ' . $wpdb->prepare('%s', '%' . $wpdb->esc_like($fragment) . '%') . ' OR `__V__` LIKE ' . $wpdb->prepare('%s', '%' . $wpdb->esc_like(str_replace('/', '\\/', $fragment)) . '%');
+            }
+            $gate .= ')';
+        } else {
+            $regexp = '(^|[^0-9])0*(' . implode('|', $ids) . ')([^0-9]|$)';
+            foreach ($files as $file) {
+                $stem = preg_replace('/\.[^.\/]+$/', '', $file);
+                if ( ! is_string($stem) || $stem === '') {
+                    continue;
+                }
+                $encoded = implode('/', array_map('rawurlencode', explode('/', $stem)));
+                foreach (array_unique([ $stem, $encoded, str_replace('/', '\\/', $stem) ]) as $form) {
+                    $stems[ '/' . $form ] = true;
+                }
+            }
+        }
+        $sources = [
+            [ $wpdb->postmeta, 'meta_id', 'meta_key', 'meta_value', true ],
+            [ $wpdb->usermeta, 'umeta_id', 'meta_key', 'meta_value', true ],
+            [ $wpdb->options, 'option_id', 'option_name', 'option_value', false ],
+        ];
+        if (isset($wpdb->termmeta)) {
+            array_splice($sources, 1, 0, [ [ $wpdb->termmeta, 'meta_id', 'meta_key', 'meta_value', true ] ]);
+        }
+        $page = $full ? 500 : 100;
+        foreach ($sources as $src) {
+            list($table, $id_col, $key_col, $val_col, $count_keys) = $src;
+            $where = [];
+            foreach (OLIMC_Acf_Meta_Scanner::plugin_key_prefixes() as $prefix) {
+                $where[] = $wpdb->prepare("`{$key_col}` NOT LIKE %s", $wpdb->esc_like($prefix) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
+            }
+            if ($full) {
+                $where[] = str_replace('`__V__`', '`' . $val_col . '`', $gate);
+            } else {
+                $or = [];
+                $number_likes = [];
+                foreach ($ids as $one) {
+                    $number_likes[] = $wpdb->prepare("`{$val_col}` LIKE %s", '%' . $wpdb->esc_like( (string) $one) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
+                }
+                $or[] = '((' . implode(' OR ', $number_likes) . ') AND ' . $wpdb->prepare("`{$val_col}` REGEXP %s", $regexp) . ')'; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
+                foreach (array_keys($stems) as $needle) {
+                    $or[] = $wpdb->prepare("`{$val_col}` LIKE %s", '%' . $wpdb->esc_like($needle) . '%'); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the column is chosen by this class.
+                }
+                $where[] = '(' . implode(' OR ', $or) . ')';
+            }
+            $last = 0;
+            do {
+                if ($deadline !== null && microtime(true) >= $deadline) {
+                    return null;
+                }
+                $wpdb->last_error = '';
+                // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- every value of $where is bound by prepare(); the identifiers are chosen by this class.
+                $rows = $wpdb->get_results(
+                    "SELECT `{$id_col}` AS rid, `{$key_col}` AS rkey, `{$val_col}` AS rval FROM `{$table}` WHERE `{$id_col}` > " . (int) $last . ' AND ' . implode(' AND ', $where) . " ORDER BY `{$id_col}` ASC LIMIT " . (int) $page // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifiers are chosen by this class; every value is bound by prepare().
+                );
+                // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+                if ( ! is_array($rows) || ! empty($wpdb->last_error)) {
+                    // The filter could not run on this database: read the tables whole instead.
+                    return $full ? null : $this->meta_hits($ids, $deadline, true);
+                }
+                foreach ($rows as $row) {
+                    $last = (int) $row->rid;
+                    if (OLIMC_Acf_Meta_Scanner::is_plugin_key( (string) $row->rkey) || ! isset($row->rval) || $row->rval === '') {
+                        continue;
+                    }
+                    foreach (OLIMC_Media_Usage_Parser::extract_attachment_ids_from_value($row->rval, $resolve, $known, $count_keys) as $found) {
+                        if (isset($set[ (int) $found ])) {
+                            $hits[ (int) $found ] = true;
+                        }
+                    }
+                }
+                if (count($hits) >= count($ids)) {
+                    return $hits;
+                }
+            } while (count($rows) === $page);
+        }
+        return $hits;
+    }
+
+    /**
+     * Files of the active theme and its parent that cite this media (an upload URL, or wp_get_attachment_*(ID)), read once per request.
+     */
+    private function collect_theme_files_now() {
+        if ($this->usage_check_id === null || ! $this->begin_usage_query()) {
+            return;
+        }
+        if (self::$theme_index === null) {
+            $index = [
+                'ids'   => [],
+                'paths' => [],
+            ];
+            $dirs  = [ get_stylesheet_directory() ];
+            if (get_template_directory() !== $dirs[0]) {
+                $dirs[] = get_template_directory();
+            }
+            foreach ($dirs as $dir) {
+                $this->index_theme_directory($dir, $index);
+            }
+            self::$theme_index = $index;
+        }
+        $id = $this->usage_check_id;
+        if (isset(self::$theme_index['ids'][ $id ])) {
+            $this->usage_check_hit = true;
+            return;
+        }
+        $files = $this->attached_files_of([ $id ]);
+        if ($files === null) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if (isset($files[ $id ]) && isset(self::$theme_index['paths'][ strtolower($files[ $id ]) ])) {
+            $this->usage_check_hit = true;
+        }
+    }
+
+    /**
+     * @param string $dir   Theme directory.
+     * @param array  $index Index being built (by reference).
+     */
+    private function index_theme_directory( $dir, array &$index ) {
+        if ( ! is_dir($dir)) {
+            return;
+        }
+        $skip = [ 'node_modules', '.git', 'vendor', 'dist', 'build' ];
+        $it   = new RecursiveIteratorIterator(new RecursiveCallbackFilterIterator(
+            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            function ( $current ) use ( $skip ) {
+                return $current->isDir() ? ! in_array($current->getFilename(), $skip, true) : true;
+            }
+        ));
+        foreach ($it as $file) {
+            if ( ! $file->isFile() || ! in_array(strtolower($file->getExtension()), [ 'php', 'css', 'js', 'html', 'htm', 'json' ], true) || $file->getSize() > 1048576) {
+                continue;
+            }
+            $content = file_get_contents($file->getPathname()); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local theme file.
+            if ( ! $content) {
+                continue;
+            }
+            foreach (OLIMC_Media_Usage_Parser::relative_upload_paths($content) as $path) {
+                $path = trim($path, '"\'\\/ ');
+                $index['paths'][ strtolower($path) ] = true;
+                $index['paths'][ strtolower( (string) preg_replace('/-\d+x\d+(\.\w+)$/', '$1', $path)) ] = true;
+            }
+            if (strtolower($file->getExtension()) === 'php' && preg_match_all('/wp_get_attachment_(?:image|url|image_url|image_src)\s*\(\s*(\d+)/', $content, $matches)) {
+                foreach ($matches[1] as $found) {
+                    $index['ids'][ (int) $found ] = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * The setting "count a file attached to a content item as used": the media is attached to an item that still exists.
+     */
+    private function collect_attached_now() {
+        if ($this->usage_check_id === null || get_option('olimc_count_attached', '0') !== '1' || ! $this->begin_usage_query()) {
+            return;
+        }
+        global $wpdb;
+        $parent = (int) $wpdb->get_var($wpdb->prepare("SELECT post_parent FROM {$wpdb->posts} WHERE ID = %d", $this->usage_check_id));
+        if ($parent <= 0) {
+            return;
+        }
+        $exists = $wpdb->get_var($wpdb->prepare("SELECT ID FROM {$wpdb->posts} WHERE ID = %d AND post_status != 'trash'", $parent));
+        if ( ! empty($wpdb->last_error)) {
+            $this->usage_check_failed = true;
+            return;
+        }
+        if ($exists) {
+            $this->usage_check_hit = true;
+        }
     }
 
     /**
@@ -1385,7 +1757,7 @@ class OLIMC_Scanner {
         }
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is assembled from $wpdb->prepare() fragments.
         $hit = $wpdb->get_var(
-            "SELECT ID FROM {$wpdb->posts} WHERE post_status IN ('publish', 'draft', 'private', 'future') AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
+            "SELECT ID FROM {$wpdb->posts} WHERE post_status != 'trash' AND post_type NOT IN ('revision', 'attachment') AND ({$where_sql}) LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
         $this->finish_usage_query($hit);
         $this->collect_gallery_parent_usage_for_id($id);
@@ -1404,7 +1776,7 @@ class OLIMC_Scanner {
         }
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT ID, post_content FROM {$wpdb->posts}
-             WHERE post_status IN ('publish', 'draft', 'private', 'future')
+             WHERE post_status != 'trash'
              AND post_type NOT IN ('revision', 'attachment')
              AND post_content LIKE %s
              AND (ID = %d OR post_content LIKE %s)",
@@ -2130,6 +2502,13 @@ class OLIMC_Scanner {
      * Drop the cached file index. Tests use this when the database changes.
      */
     public static function reset_upload_path_index() {
+        self::$theme_index = null;
+        if (self::$auto_batch) {
+            self::$batch_set  = null;
+            self::$batch_meta = false;
+        }
+        self::$auto_batch   = false;
+        self::$single_calls = 0;
         self::$upload_path_index_cache = null;
         self::$upload_path_index_ready = false;
         self::$stem_index_cache = null;
