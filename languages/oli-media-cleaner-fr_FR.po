@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Oli Media Cleaner 2.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner\n"
-"POT-Creation-Date: 2026-11-17T23:23:45+00:00\n"
-"PO-Revision-Date: 2026-11-17 18:32\n"
+"POT-Creation-Date: 2026-11-18T00:29:49+00:00\n"
+"PO-Revision-Date: 2026-11-17 19:29\n"
 "Last-Translator: Olivier Bigras\n"
 "Language-Team: Olivier Bigras\n"
 "Language: fr_FR\n"
@@ -54,7 +54,7 @@ msgstr "(s’ouvre dans un nouvel onglet)"
 
 #. translators: %s: media name
 #: includes/class-admin.php:74 includes/class-list-table.php:121
-#: includes/class-list-table.php:313
+#: includes/class-list-table.php:315
 msgid "Keep"
 msgstr "Conserver"
 
@@ -63,8 +63,8 @@ msgid "Keep this media (never report it as unused)"
 msgstr "Conserver ce média (ne jamais le signaler comme inutilisé)"
 
 #: includes/class-ajax.php:44 includes/class-screen.php:35
-#: includes/class-screen.php:190 includes/class-screen.php:626
-#: assets/js/admin.js:673 assets/js/admin.js:748
+#: includes/class-screen.php:191 includes/class-screen.php:627
+#: assets/js/admin.js:685 assets/js/admin.js:760
 msgid "You do not have permission to clean the media library."
 msgstr "Vous n’avez pas la permission de nettoyer la médiathèque."
 
@@ -72,18 +72,22 @@ msgstr "Vous n’avez pas la permission de nettoyer la médiathèque."
 msgid "Your session has expired. Reload the page and try again."
 msgstr "Votre session a expiré. Rechargez la page et réessayez."
 
-#: includes/class-ajax.php:94 includes/class-ajax.php:120
+#: includes/class-ajax.php:85
+msgid "This is not a media file."
+msgstr "Ceci n’est pas un média."
+
+#: includes/class-ajax.php:113 includes/class-ajax.php:139
 msgid "Another scan is already running. Wait a few minutes, then try again."
 msgstr ""
 "Une autre analyse est déjà en cours. Patientez quelques minutes, puis "
 "réessayez."
 
-#: includes/class-ajax.php:282
+#: includes/class-ajax.php:307
 msgid "Only files in the trash can be deleted permanently."
 msgstr ""
 "Seuls les médias de la corbeille peuvent être supprimés définitivement."
 
-#: includes/class-ajax.php:453
+#: includes/class-ajax.php:481
 msgid "The uploads folder is not writable."
 msgstr "Le dossier des téléversements n’est pas accessible en écriture."
 
@@ -115,40 +119,40 @@ msgstr "Mis à la corbeille le"
 msgid "Uploaded"
 msgstr "Téléversé le"
 
-#: includes/class-list-table.php:101 includes/class-screen.php:344
-#: includes/class-screen.php:457 includes/class-screen.php:640
+#: includes/class-list-table.php:101 includes/class-screen.php:345
+#: includes/class-screen.php:458 includes/class-screen.php:641
 msgid "To review"
 msgstr "À examiner"
 
-#: includes/class-list-table.php:102 includes/class-screen.php:345
-#: includes/class-screen.php:452 includes/class-screen.php:641
+#: includes/class-list-table.php:102 includes/class-screen.php:346
+#: includes/class-screen.php:453 includes/class-screen.php:642
 msgid "Kept"
 msgstr "Conservés"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:103 includes/class-list-table.php:315
-#: includes/class-screen.php:346 includes/class-screen.php:455
-#: includes/class-screen.php:555 includes/class-screen.php:642
+#: includes/class-list-table.php:103 includes/class-list-table.php:317
+#: includes/class-screen.php:347 includes/class-screen.php:456
+#: includes/class-screen.php:556 includes/class-screen.php:643
 msgid "Trash"
 msgstr "Corbeille"
 
-#: includes/class-list-table.php:120 assets/js/admin.js:841
+#: includes/class-list-table.php:120 assets/js/admin.js:853
 msgid "Move to trash"
 msgstr "Mettre à la corbeille"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:125 includes/class-list-table.php:319
+#: includes/class-list-table.php:125 includes/class-list-table.php:321
 msgid "Stop keeping"
 msgstr "Ne plus conserver"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:128 includes/class-list-table.php:323
+#: includes/class-list-table.php:128 includes/class-list-table.php:325
 msgid "Restore"
 msgstr "Restaurer"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:129 includes/class-list-table.php:325
-#: assets/js/admin.js:847
+#: includes/class-list-table.php:129 includes/class-list-table.php:327
+#: assets/js/admin.js:859
 msgid "Delete permanently"
 msgstr "Supprimer définitivement"
 
@@ -164,7 +168,7 @@ msgstr[1] "%s éléments"
 msgid "No result for these filters."
 msgstr "Aucun résultat pour ces filtres."
 
-#: includes/class-list-table.php:194 includes/class-screen.php:384
+#: includes/class-list-table.php:194 includes/class-screen.php:385
 msgid "No unused media."
 msgstr "Aucun média inutilisé."
 
@@ -188,134 +192,140 @@ msgstr ""
 msgid "Select “%s”"
 msgstr "Sélectionner « %s »"
 
+#. translators: %s: media name; read by screen readers after the link text
+#: includes/class-list-table.php:278
+#, php-format
+msgid "“%s” (opens in a new tab)"
+msgstr "« %s » (s’ouvre dans un nouvel onglet)"
+
 #. translators: 1: width in pixels, 2: height in pixels
-#: includes/class-list-table.php:284
+#: includes/class-list-table.php:286
 #, php-format
 msgid "%1$s × %2$s px"
 msgstr "%1$s × %2$s px"
 
-#: includes/class-list-table.php:288
+#: includes/class-list-table.php:290
 msgid "Former WordPress trash"
 msgstr "Ancienne corbeille WordPress"
 
-#: includes/class-list-table.php:305
+#: includes/class-list-table.php:307
 msgid "View"
 msgstr "Afficher"
 
-#: includes/class-list-table.php:308
+#: includes/class-list-table.php:310
 msgid "Edit"
 msgstr "Modifier"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:313
+#: includes/class-list-table.php:315
 #, php-format
 msgid "Keep “%s”"
 msgstr "Conserver « %s »"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:315
+#: includes/class-list-table.php:317
 #, php-format
 msgid "Move “%s” to the trash"
 msgstr "Mettre « %s » à la corbeille"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:319
+#: includes/class-list-table.php:321
 #, php-format
 msgid "Stop keeping “%s”"
 msgstr "Ne plus conserver « %s »"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:323
+#: includes/class-list-table.php:325
 #, php-format
 msgid "Restore “%s”"
 msgstr "Restaurer « %s »"
 
 #. translators: %s: media name
-#: includes/class-list-table.php:325
+#: includes/class-list-table.php:327
 #, php-format
-msgid "Permanently delete “%s”"
+msgid "Delete permanently “%s”"
 msgstr "Supprimer définitivement « %s »"
 
-#: includes/class-list-table.php:336
+#: includes/class-list-table.php:338
 msgid "Kept by you"
 msgstr "Conservé par vous"
 
 #. translators: %s: the protected path pattern that matched
-#: includes/class-list-table.php:339
+#: includes/class-list-table.php:341
 #, php-format
 msgid "Matches the pattern: %s"
 msgstr "Correspond au motif : %s"
 
-#: includes/class-list-table.php:394 includes/class-list-table.php:397
-#: includes/class-screen.php:545
+#: includes/class-list-table.php:396 includes/class-list-table.php:399
+#: includes/class-screen.php:546
 msgid "All types"
 msgstr "Tous les types"
 
-#: includes/class-list-table.php:398
+#: includes/class-list-table.php:400
 msgid "Images"
 msgstr "Images"
 
-#: includes/class-list-table.php:399
+#: includes/class-list-table.php:401
 msgid "Documents"
 msgstr "Documents"
 
-#: includes/class-list-table.php:400
+#: includes/class-list-table.php:402
 msgid "Audio"
 msgstr "Audio"
 
-#: includes/class-list-table.php:401
+#: includes/class-list-table.php:403
 msgid "Video"
 msgstr "Vidéos"
 
-#: includes/class-list-table.php:402
+#: includes/class-list-table.php:404
 msgid "Other"
 msgstr "Autres"
 
-#: includes/class-list-table.php:410 includes/class-list-table.php:411
+#: includes/class-list-table.php:412 includes/class-list-table.php:413
 msgid "All dates"
 msgstr "Toutes les dates"
 
-#: includes/class-list-table.php:418 includes/class-list-table.php:421
+#: includes/class-list-table.php:420 includes/class-list-table.php:423
 msgid "All sizes"
 msgstr "Toutes les tailles"
 
-#: includes/class-list-table.php:422
+#: includes/class-list-table.php:424
 msgid "1 MB and larger"
 msgstr "1 Mo et plus"
 
-#: includes/class-list-table.php:423
+#: includes/class-list-table.php:425
 msgid "5 MB and larger"
 msgstr "5 Mo et plus"
 
-#: includes/class-list-table.php:424
+#: includes/class-list-table.php:426
 msgid "20 MB and larger"
 msgstr "20 Mo et plus"
 
-#: includes/class-list-table.php:430
+#: includes/class-list-table.php:432
 msgid "Filter"
 msgstr "Filtrer"
 
-#: includes/class-list-table.php:439
+#: includes/class-list-table.php:441
 msgid "Reset filters"
 msgstr "Réinitialiser les filtres"
 
-#: includes/class-scan.php:37 assets/js/admin.js:301
+#: includes/class-scan.php:37 assets/js/admin.js:302
 msgid "Preparing"
 msgstr "Préparation"
 
-#: includes/class-scan.php:39 assets/js/admin.js:302
+#: includes/class-scan.php:39 assets/js/admin.js:303
 msgid "Custom fields and ACF"
 msgstr "Champs personnalisés et ACF"
 
-#: includes/class-scan.php:41 assets/js/admin.js:303
+#: includes/class-scan.php:41 assets/js/admin.js:304
 msgid "Other metadata"
 msgstr "Autres métadonnées"
 
-#: includes/class-scan.php:43 assets/js/admin.js:304
+#: includes/class-scan.php:43 assets/js/admin.js:305
 msgid "Content, theme and widgets"
 msgstr "Contenu, thème et widgets"
 
-#: includes/class-scan.php:45 assets/js/admin.js:305
+#: includes/class-scan.php:45 assets/js/admin.js:306
 msgid "Sorting results"
 msgstr "Classement des résultats"
 
@@ -327,12 +337,12 @@ msgstr "fichiers du thème"
 msgid "widgets"
 msgstr "widgets"
 
-#: includes/class-screen.php:48 includes/class-screen.php:347
+#: includes/class-screen.php:48 includes/class-screen.php:348
 msgid "Settings"
 msgstr "Réglages"
 
 #: includes/class-screen.php:61 includes/class-screen.php:62
-#: includes/class-screen.php:194
+#: includes/class-screen.php:195
 msgid "Media Cleaner"
 msgstr "Nettoyeur de médias"
 
@@ -340,7 +350,7 @@ msgstr "Nettoyeur de médias"
 msgid "Items per page"
 msgstr "Éléments par page"
 
-#: includes/class-screen.php:227
+#: includes/class-screen.php:228
 msgid ""
 "Back up your site before cleaning. The trash keeps your files, but it is not"
 " a backup."
@@ -348,38 +358,38 @@ msgstr ""
 "Faites une sauvegarde avant de nettoyer. La corbeille garde vos fichiers, "
 "mais elle ne remplace pas une sauvegarde."
 
-#: includes/class-screen.php:230
+#: includes/class-screen.php:231
 msgid "New in 2.0: the trash now sets files aside. Run a new scan."
 msgstr ""
 "Nouveau dans la 2.0 : la corbeille met maintenant les fichiers de côté. "
 "Relancez une analyse."
 
-#: includes/class-screen.php:262
+#: includes/class-screen.php:263
 msgid "Start scan"
 msgstr "Lancer l’analyse"
 
 #. translators: %s: date and time of the last scan
-#: includes/class-screen.php:265
+#: includes/class-screen.php:266
 #, php-format
 msgid "Last scan: %s"
 msgstr "Dernière analyse : %s"
 
-#: includes/class-screen.php:267
+#: includes/class-screen.php:268
 msgid "No scan yet"
 msgstr "Aucune analyse pour l’instant"
 
 #. translators: %s: list of the sources read by the scan
-#: includes/class-screen.php:280
+#: includes/class-screen.php:281
 #, php-format
 msgid "Sources read: %s."
 msgstr "Sources lues : %s."
 
-#: includes/class-screen.php:281 includes/class-screen.php:282
+#: includes/class-screen.php:282 includes/class-screen.php:283
 msgid "See details"
 msgstr "Voir le détail"
 
 #. translators: %s: list of plugins whose media the scan cannot read
-#: includes/class-screen.php:289
+#: includes/class-screen.php:290
 #, php-format
 msgid ""
 "Detected but not read: %s. Media used only by this plugin may be reported as"
@@ -388,15 +398,15 @@ msgstr ""
 "Détecté, mais non lu : %s. Les médias utilisés seulement par cette extension"
 " pourraient être signalés à tort."
 
-#: includes/class-screen.php:300
+#: includes/class-screen.php:301
 msgid "Post content and excerpts"
 msgstr "Contenu et extraits des publications"
 
-#: includes/class-screen.php:301
+#: includes/class-screen.php:302
 msgid "Featured images, site logo and site icon"
 msgstr "Images mises en avant, logo et icône du site"
 
-#: includes/class-screen.php:302
+#: includes/class-screen.php:303
 msgid ""
 "Custom fields (ACF fields, galleries, repeaters, flexible content, clones, "
 "options pages) and other metadata"
@@ -404,43 +414,43 @@ msgstr ""
 "Champs personnalisés (champs ACF, galeries, répéteurs, contenu flexible, "
 "clones, pages d’options) et autres métadonnées"
 
-#: includes/class-screen.php:303
+#: includes/class-screen.php:304
 msgid "WooCommerce galleries and variations, Elementor data"
 msgstr "Galeries et variations WooCommerce, données Elementor"
 
-#: includes/class-screen.php:304
+#: includes/class-screen.php:305
 msgid "Widgets, term thumbnails and term descriptions"
 msgstr "Widgets, vignettes et descriptions de termes"
 
-#: includes/class-screen.php:305
+#: includes/class-screen.php:306
 msgid "Theme files and CSS"
 msgstr "Fichiers du thème et CSS"
 
-#: includes/class-screen.php:323
+#: includes/class-screen.php:324
 msgid "Media"
 msgstr "Médias"
 
-#: includes/class-screen.php:324
+#: includes/class-screen.php:325
 msgid "Unused"
 msgstr "Inutilisés"
 
-#: includes/class-screen.php:325
+#: includes/class-screen.php:326
 msgid "Space to free"
 msgstr "Espace à libérer"
 
-#: includes/class-screen.php:326
+#: includes/class-screen.php:327
 msgid "In the trash"
 msgstr "Dans la corbeille"
 
-#: includes/class-screen.php:349
+#: includes/class-screen.php:350
 msgid "Media Cleaner sections"
 msgstr "Sections du nettoyeur de médias"
 
-#: includes/class-screen.php:380
+#: includes/class-screen.php:381
 msgid "No scan yet."
 msgstr "Aucune analyse pour l’instant."
 
-#: includes/class-screen.php:380
+#: includes/class-screen.php:381
 msgid ""
 "Run a scan to find the media your site no longer uses. Nothing is erased "
 "during a scan."
@@ -448,14 +458,14 @@ msgstr ""
 "Lancez une analyse pour trouver les médias que votre site n’utilise plus. "
 "Rien n’est supprimé pendant l’analyse."
 
-#: includes/class-screen.php:384
+#: includes/class-screen.php:385
 msgid ""
 "Your media library is clean. Run a new scan after your next big change."
 msgstr ""
 "Votre médiathèque est propre. Relancez une analyse après votre prochain gros"
 " changement."
 
-#: includes/class-screen.php:388 assets/js/admin.js:937
+#: includes/class-screen.php:389 assets/js/admin.js:949
 msgid ""
 "This list predates your latest changes (plugin, theme or a scan older than "
 "14 days). Run a new scan before moving files to the trash."
@@ -465,7 +475,7 @@ msgstr ""
 " médias à la corbeille."
 
 #. translators: %s: percentage of the media library reported as unused
-#: includes/class-screen.php:394
+#: includes/class-screen.php:395
 #, php-format
 msgid ""
 "%s of your media are reported. This often means a source cannot be read. "
@@ -475,7 +485,7 @@ msgstr ""
 "illisible pour l’analyse. Vérifiez quelques fichiers avant d’agir."
 
 #. translators: provisional until real quarantine.
-#: includes/class-screen.php:400
+#: includes/class-screen.php:401
 msgid ""
 "These files are marked, not deleted, and stay online. Empty the trash only "
 "after checking your site."
@@ -483,34 +493,34 @@ msgstr ""
 "Ces fichiers sont marqués, pas effacés, et restent en ligne. Videz la "
 "corbeille seulement après avoir vérifié votre site."
 
-#: includes/class-screen.php:410
+#: includes/class-screen.php:411
 msgid "Search media"
 msgstr "Rechercher des médias"
 
-#: includes/class-screen.php:411
+#: includes/class-screen.php:412
 msgid "Search"
 msgstr "Rechercher"
 
-#: includes/class-screen.php:416
+#: includes/class-screen.php:417
 msgid "Restore all"
 msgstr "Tout restaurer"
 
-#: includes/class-screen.php:417 assets/js/admin.js:850
+#: includes/class-screen.php:418 assets/js/admin.js:862
 msgid "Empty the trash"
 msgstr "Vider la corbeille"
 
-#: includes/class-screen.php:436
+#: includes/class-screen.php:437
 msgid "Export as CSV"
 msgstr "Exporter en CSV"
 
 #. translators: %s: a number; the percent sign is part of the string, e.g. 42%
-#: includes/class-screen.php:468 assets/js/admin.js:26
+#: includes/class-screen.php:469 assets/js/admin.js:26
 #, php-format, js-format
 msgid "%s%%"
 msgstr "%s %%"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:487 assets/js/admin.js:376
+#: includes/class-screen.php:488 assets/js/admin.js:377
 #, php-format, js-format
 msgid ""
 "The scan stopped at %1$s (step %2$d of %3$d). No file was marked as unused."
@@ -518,115 +528,115 @@ msgstr ""
 "L’analyse s’est arrêtée à %1$s (étape %2$d sur %3$d). Aucun média n’a été "
 "marqué comme inutilisé."
 
-#: includes/class-screen.php:488 assets/js/admin.js:372
+#: includes/class-screen.php:489 assets/js/admin.js:373
 msgid "Scan stopped"
 msgstr "Analyse interrompue"
 
-#: includes/class-screen.php:490 includes/class-screen.php:500
-#: assets/js/admin.js:381
+#: includes/class-screen.php:491 includes/class-screen.php:501
+#: assets/js/admin.js:382
 msgid "Resume scan"
 msgstr "Reprendre l’analyse"
 
-#: includes/class-screen.php:490 includes/class-screen.php:500
-#: assets/js/admin.js:384
+#: includes/class-screen.php:491 includes/class-screen.php:501
+#: assets/js/admin.js:385
 msgid "Start over"
 msgstr "Recommencer"
 
-#: includes/class-screen.php:491 assets/js/admin.js:109 assets/js/admin.js:392
+#: includes/class-screen.php:492 assets/js/admin.js:109 assets/js/admin.js:393
 msgid "Technical details"
 msgstr "Détails techniques"
 
-#: includes/class-screen.php:496
+#: includes/class-screen.php:497
 msgid "Scan paused"
 msgstr "Analyse en pause"
 
-#: includes/class-screen.php:496
+#: includes/class-screen.php:497
 msgid "Scan in progress"
 msgstr "Analyse en cours"
 
 #. translators: %s: percentage reached when the scan paused
-#: includes/class-screen.php:499
+#: includes/class-screen.php:500
 #, php-format
 msgid "The scan is paused at %s. Resume it or start over."
 msgstr "L’analyse est en pause à %s. Reprenez-la ou recommencez."
 
 #. translators: 1: step number, 2: number of steps, 3: step name
-#: includes/class-screen.php:505 assets/js/admin.js:340
+#: includes/class-screen.php:506 assets/js/admin.js:341
 #, php-format, js-format
 msgid "Step %1$d of %2$d: %3$s"
 msgstr "Étape %1$d sur %2$d : %3$s"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:507 assets/js/admin.js:341
+#: includes/class-screen.php:508 assets/js/admin.js:342
 #, php-format, js-format
 msgid "%1$s, step %2$d of %3$d"
 msgstr "%1$s, étape %2$d sur %3$d"
 
-#: includes/class-screen.php:508 assets/js/admin.js:538
+#: includes/class-screen.php:509 assets/js/admin.js:539
 msgid "Scan progress"
 msgstr "Progression de l’analyse"
 
-#: includes/class-screen.php:517
+#: includes/class-screen.php:518
 msgid "Nothing is marked as unused until the scan is finished."
 msgstr ""
 "Rien n’est marqué comme inutilisé tant que l’analyse n’est pas terminée."
 
-#: includes/class-screen.php:517
+#: includes/class-screen.php:518
 msgid "If you leave this page, the scan pauses. You can resume it later."
 msgstr ""
 "Si vous quittez cette page, l’analyse se met en pause. Vous pourrez la "
 "reprendre plus tard."
 
-#: includes/class-screen.php:518
+#: includes/class-screen.php:519
 msgid "Cancel scan"
 msgstr "Annuler l’analyse"
 
-#: includes/class-screen.php:529 assets/js/admin.js:540
+#: includes/class-screen.php:530 assets/js/admin.js:541
 msgid "Cancel"
 msgstr "Annuler"
 
-#: includes/class-screen.php:542
+#: includes/class-screen.php:543
 msgid "Scan"
 msgstr "Analyse"
 
-#: includes/class-screen.php:543
+#: includes/class-screen.php:544
 msgid "Attached media"
 msgstr "Médias joints"
 
-#: includes/class-screen.php:543
+#: includes/class-screen.php:544
 msgid "Count a file attached to a content item (“Uploaded to”) as used"
 msgstr ""
 "Considérer comme utilisé un média joint à un contenu (champ « Téléversé "
 "dans »)"
 
-#: includes/class-screen.php:543
+#: includes/class-screen.php:544
 msgid ""
 "Safer: some attached files are not displayed, but they will not be reported."
 msgstr ""
 "Plus prudent : certains médias joints ne sont pas affichés, mais ils ne "
 "seront pas signalés."
 
-#: includes/class-screen.php:544
+#: includes/class-screen.php:545
 msgid "Media types"
 msgstr "Types de médias"
 
-#: includes/class-screen.php:546
+#: includes/class-screen.php:547
 msgid "Images only"
 msgstr "Images seulement"
 
-#: includes/class-screen.php:549
+#: includes/class-screen.php:550
 msgid "Keep list"
 msgstr "Médias à conserver"
 
-#: includes/class-screen.php:549
+#: includes/class-screen.php:550
 msgid "Protected paths"
 msgstr "Chemins protégés"
 
-#: includes/class-screen.php:551
+#: includes/class-screen.php:552
 msgid "Test patterns"
 msgstr "Tester les motifs"
 
-#: includes/class-screen.php:552
+#: includes/class-screen.php:553
 msgid ""
 "One path, URL or pattern per line. * matches within one folder, ** across "
 "folders. Paths are relative to the uploads folder. Thumbnails and WebP/AVIF "
@@ -637,33 +647,33 @@ msgstr ""
 "téléversements. Les miniatures et les copies WebP/AVIF sont protégées avec "
 "l’original."
 
-#: includes/class-screen.php:555
+#: includes/class-screen.php:556
 msgid "Empty the trash automatically"
 msgstr "Vider la corbeille automatiquement"
 
-#: includes/class-screen.php:557
+#: includes/class-screen.php:558
 msgid "Never, I will empty it myself"
 msgstr "Jamais, je la vide moi-même"
 
-#: includes/class-screen.php:558
+#: includes/class-screen.php:559
 msgid "After 30 days"
 msgstr "Après 30 jours"
 
-#: includes/class-screen.php:559
+#: includes/class-screen.php:560
 msgid "After 90 days"
 msgstr "Après 90 jours"
 
-#: includes/class-screen.php:564
+#: includes/class-screen.php:565
 msgid "Automatic emptying permanently deletes files without asking again."
 msgstr ""
 "Le vidage automatique supprime définitivement les fichiers, sans nouvelle "
 "confirmation."
 
-#: includes/class-screen.php:566
+#: includes/class-screen.php:567
 msgid "Scheduled scan"
 msgstr "Analyse planifiée"
 
-#: includes/class-screen.php:568
+#: includes/class-screen.php:569
 msgid ""
 "WP-Cron is disabled on this site. The scheduled scan depends on a server "
 "task."
@@ -671,11 +681,11 @@ msgstr ""
 "WP-Cron est désactivé sur ce site. L’analyse planifiée dépend d’une tâche du"
 " serveur."
 
-#: includes/class-screen.php:571
+#: includes/class-screen.php:572
 msgid "Scan automatically on a schedule"
 msgstr "Analyser automatiquement selon un horaire"
 
-#: includes/class-screen.php:571
+#: includes/class-screen.php:572
 msgid ""
 "The scheduled scan only refreshes the list. Nothing is moved to the trash "
 "automatically."
@@ -683,35 +693,35 @@ msgstr ""
 "L’analyse planifiée ne fait que mettre la liste à jour. Rien n’est mis à la "
 "corbeille automatiquement."
 
-#: includes/class-screen.php:572
+#: includes/class-screen.php:573
 msgid "Frequency"
 msgstr "Fréquence"
 
-#: includes/class-screen.php:574
+#: includes/class-screen.php:575
 msgid "Daily"
 msgstr "Chaque jour"
 
-#: includes/class-screen.php:575
+#: includes/class-screen.php:576
 msgid "Twice daily"
 msgstr "Deux fois par jour"
 
-#: includes/class-screen.php:576
+#: includes/class-screen.php:577
 msgid "Weekly"
 msgstr "Chaque semaine"
 
-#: includes/class-screen.php:583
+#: includes/class-screen.php:584
 msgid "Next run"
 msgstr "Prochaine exécution"
 
-#: includes/class-screen.php:583
+#: includes/class-screen.php:584
 msgid "Not scheduled"
 msgstr "Non planifiée"
 
-#: includes/class-screen.php:586
+#: includes/class-screen.php:587
 msgid "Advanced"
 msgstr "Avancé"
 
-#: includes/class-screen.php:586
+#: includes/class-screen.php:587
 msgid ""
 "Careful mode (slow hosting): smaller batches and a short pause between "
 "requests"
@@ -719,19 +729,19 @@ msgstr ""
 "Mode prudent (hébergement lent) : lots plus petits et courte pause entre les"
 " requêtes"
 
-#: includes/class-screen.php:588
+#: includes/class-screen.php:589
 msgid "Data"
 msgstr "Données"
 
-#: includes/class-screen.php:588
+#: includes/class-screen.php:589
 msgid "Uninstall"
 msgstr "Désinstallation"
 
-#: includes/class-screen.php:588
+#: includes/class-screen.php:589
 msgid "Delete the plugin data when it is uninstalled"
 msgstr "Supprimer les données de l’extension à la désinstallation"
 
-#: includes/class-screen.php:588
+#: includes/class-screen.php:589
 msgid ""
 "Files in the trash are restored to the media library first. They are never "
 "deleted."
@@ -739,52 +749,52 @@ msgstr ""
 "Les médias de la corbeille sont d’abord restaurés dans la médiathèque. Ils "
 "ne sont jamais supprimés."
 
-#: includes/class-screen.php:590 includes/class-screen.php:591
+#: includes/class-screen.php:591 includes/class-screen.php:592
 msgid "Diagnostics"
 msgstr "Diagnostic"
 
-#: includes/class-screen.php:592
+#: includes/class-screen.php:593
 msgid "Copy report"
 msgstr "Copier le rapport"
 
-#: includes/class-screen.php:592
+#: includes/class-screen.php:593
 msgid "The report stays on your site until you copy it yourself."
 msgstr ""
 "Le rapport reste sur votre site tant que vous ne le copiez pas vous-même."
 
-#: includes/class-screen.php:593
+#: includes/class-screen.php:594
 msgid "This plugin sends no data outside your site."
 msgstr "Cette extension n’envoie aucune donnée à l’extérieur de votre site."
 
-#: includes/class-screen.php:594
+#: includes/class-screen.php:595
 msgid "Save settings"
 msgstr "Enregistrer les réglages"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "Title"
 msgstr "Titre"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "File name"
 msgstr "Nom du fichier"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "MIME type"
 msgstr "Type MIME"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "Size (bytes)"
 msgstr "Taille (octets)"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "Readable size"
 msgstr "Taille lisible"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "Upload date"
 msgstr "Date de téléversement"
 
-#: includes/class-screen.php:671
+#: includes/class-screen.php:672
 msgid "Status"
 msgstr "Statut"
 
@@ -793,7 +803,7 @@ msgid "Settings saved."
 msgstr "Réglages enregistrés."
 
 #. translators: %s: the URL that was refused.
-#: includes/class-settings.php:161 assets/js/admin.js:1100
+#: includes/class-settings.php:161 assets/js/admin.js:1112
 #, php-format, js-format
 msgid "The address %s is not on this site and was not saved."
 msgstr "L’adresse %s n’est pas sur ce site et n’a pas été enregistrée."
@@ -867,7 +877,7 @@ msgstr ""
 "réessayez."
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:348
+#: assets/js/admin.js:349
 #, js-format
 msgid "%1$s of %2$s file checked"
 msgid_plural "%1$s of %2$s files checked"
@@ -875,13 +885,13 @@ msgstr[0] "%1$s fichier sur %2$s vérifié"
 msgstr[1] "%1$s fichiers sur %2$s vérifiés"
 
 #. translators: %s: elapsed time, for example 00:42
-#: assets/js/admin.js:352
+#: assets/js/admin.js:353
 #, js-format
 msgid "Elapsed: %s"
 msgstr "Temps écoulé : %s"
 
 #. translators: %1$s: number of unused files, %2$s: their total size
-#: assets/js/admin.js:425
+#: assets/js/admin.js:426
 #, js-format
 msgid "Scan complete: %1$s unused file (%2$s). Nothing was changed."
 msgid_plural "Scan complete: %1$s unused files (%2$s). Nothing was changed."
@@ -891,32 +901,32 @@ msgstr[1] ""
 "Analyse terminée : %1$s médias inutilisés (%2$s). Rien n’a été modifié."
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:579 assets/js/admin.js:763
+#: assets/js/admin.js:580 assets/js/admin.js:775
 #, js-format
 msgid "%1$s of %2$s files moved"
 msgstr "%1$s médias sur %2$s déplacés"
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:582
+#: assets/js/admin.js:583
 #, js-format
 msgid "%1$s of %2$s files deleted"
 msgstr "%1$s médias sur %2$s supprimés"
 
 #. translators: %1$s: number of items done, %2$s: total number of items
-#: assets/js/admin.js:585
+#: assets/js/admin.js:586
 #, js-format
 msgid "%1$s of %2$s files restored"
 msgstr "%1$s médias sur %2$s restaurés"
 
 #. translators: %s: file name
-#: assets/js/admin.js:664
+#: assets/js/admin.js:676
 #, js-format
 msgid "“%s” is now in use and was not moved. Run a new scan."
 msgstr ""
 "« %s » est maintenant utilisé et n’a pas été déplacé. Relancez l’analyse."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:689
+#: assets/js/admin.js:701
 #, js-format
 msgid ""
 "%s file could not be restored. A file with the same name already exists."
@@ -929,7 +939,7 @@ msgstr[1] ""
 "déjà."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:703
+#: assets/js/admin.js:715
 #, js-format
 msgid "%s file could not be restored."
 msgid_plural "%s files could not be restored."
@@ -937,7 +947,7 @@ msgstr[0] "%s média n’a pas pu être restauré."
 msgstr[1] "%s médias n’ont pas pu être restaurés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:719
+#: assets/js/admin.js:731
 #, js-format
 msgid "%s kept file was restored instead of deleted."
 msgid_plural "%s kept files were restored instead of deleted."
@@ -945,7 +955,7 @@ msgstr[0] "%s média conservé a été restauré au lieu d’être supprimé."
 msgstr[1] "%s médias conservés ont été restaurés au lieu d’être supprimés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:736
+#: assets/js/admin.js:748
 #, js-format
 msgid "%s file could not be deleted because your site still uses it."
 msgid_plural ""
@@ -956,7 +966,7 @@ msgstr[1] ""
 "%s médias n’ont pas pu être supprimés, car votre site les utilise encore."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:757
+#: assets/js/admin.js:769
 #, js-format
 msgid "%s file is no longer kept."
 msgid_plural "%s files are no longer kept."
@@ -964,7 +974,7 @@ msgstr[0] "%s média n’est plus conservé."
 msgstr[1] "%s médias ne sont plus conservés."
 
 #. translators: %s: number of files
-#: assets/js/admin.js:840
+#: assets/js/admin.js:852
 #, js-format
 msgid "Move %s file to the trash?"
 msgid_plural "Move %s files to the trash?"
@@ -972,19 +982,19 @@ msgstr[0] "Mettre %s média à la corbeille ?"
 msgstr[1] "Mettre %s médias à la corbeille ?"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:846
+#: assets/js/admin.js:858
 #, js-format
 msgid "Permanently delete %s file?"
 msgid_plural "Permanently delete %s files?"
 msgstr[0] "Supprimer définitivement %s média ?"
 msgstr[1] "Supprimer définitivement %s médias ?"
 
-#: assets/js/admin.js:850
+#: assets/js/admin.js:862
 msgid "Empty the trash?"
 msgstr "Vider la corbeille ?"
 
 #. translators: %s: number of files. Provisional until real quarantine.
-#: assets/js/admin.js:878
+#: assets/js/admin.js:890
 msgid ""
 "This file is marked as trashed by this plugin. It stays in the Media Library"
 " and online until the trash is emptied. You can restore it at any time."
@@ -1001,7 +1011,7 @@ msgstr[1] ""
 "restent dans la médiathèque et en ligne jusqu’au vidage de la corbeille. "
 "Vous pouvez les restaurer à tout moment."
 
-#: assets/js/admin.js:886
+#: assets/js/admin.js:898
 msgid ""
 "The files and their thumbnails will be erased from the server. This cannot "
 "be undone. A recent backup is recommended."
@@ -1009,24 +1019,24 @@ msgstr ""
 "Les fichiers et leurs miniatures seront effacés du serveur. Cette action est"
 " irréversible. Une sauvegarde récente est recommandée."
 
-#: assets/js/admin.js:889
+#: assets/js/admin.js:901
 msgid "I checked some examples in the list and I have a recent backup."
 msgstr ""
 "J’ai vérifié quelques exemples dans la liste et j’ai une sauvegarde récente."
 
-#: assets/js/admin.js:891
+#: assets/js/admin.js:903
 msgid "I understand that this is permanent."
 msgstr "Je comprends que cette action est définitive."
 
 #. translators: %s: total size of the selected files, already formatted (e.g.
 #. 21.6 KB)
-#: assets/js/admin.js:896
+#: assets/js/admin.js:908
 #, js-format
 msgid "Total size: %s"
 msgstr "Taille totale : %s"
 
 #. translators: %s: number of other files
-#: assets/js/admin.js:898
+#: assets/js/admin.js:910
 #, js-format
 msgid "and %s more"
 msgid_plural "and %s more"
@@ -1034,17 +1044,17 @@ msgstr[0] "et %s autre"
 msgstr[1] "et %s autres"
 
 #. translators: %s: number of results
-#: assets/js/admin.js:963
+#: assets/js/admin.js:975
 #, js-format
 msgid "All %s results are selected."
 msgstr "Les %s résultats sont sélectionnés."
 
-#: assets/js/admin.js:964
+#: assets/js/admin.js:976
 msgid "Clear selection"
 msgstr "Annuler la sélection"
 
 #. translators: %s: number of files
-#: assets/js/admin.js:978
+#: assets/js/admin.js:990
 #, js-format
 msgid "%s file is selected on this page."
 msgid_plural "%s files are selected on this page."
@@ -1052,23 +1062,23 @@ msgstr[0] "%s fichier est sélectionné sur cette page."
 msgstr[1] "%s fichiers sont sélectionnés sur cette page."
 
 #. translators: %s: number of results
-#: assets/js/admin.js:980
+#: assets/js/admin.js:992
 #, js-format
 msgid "Select all %s results"
 msgstr "Sélectionner les %s résultats"
 
 #. translators: %s: number of files that match the patterns
-#: assets/js/admin.js:1090
+#: assets/js/admin.js:1102
 #, js-format
 msgid "%s file matches."
 msgid_plural "%s files match."
 msgstr[0] "%s fichier correspond."
 msgstr[1] "%s fichiers correspondent."
 
-#: assets/js/admin.js:1096
+#: assets/js/admin.js:1108
 msgid "No match. Check the spelling."
 msgstr "Aucune correspondance. Vérifiez l’orthographe."
 
-#: assets/js/admin.js:1110
+#: assets/js/admin.js:1122
 msgid "Report copied."
 msgstr "Rapport copié."

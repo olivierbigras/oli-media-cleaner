@@ -156,6 +156,7 @@ class OLIMC_Screen {
 			'tab'        => self::current_tab(),
 			'batch'      => $batch['batch'],
 			'pause'      => $batch['pause'],
+			'maxExec'    => (int) ini_get( 'max_execution_time' ),
 			'bigCount'   => 100,
 			'bigPercent' => 30,
 			'locale'     => str_replace( '_', '-', determine_locale() ),
@@ -278,7 +279,7 @@ class OLIMC_Screen {
 		);
 		/* translators: %s: list of the sources read by the scan */
 		echo wp_kses( sprintf( esc_html__( 'Sources read: %s.', 'oli-media-cleaner' ), implode( ', ', $names ) ), [ 'strong' => [] ] );
-		echo ' <a href="#olimc-sources-detail" class="olimc-sources-link" aria-expanded="false" aria-controls="olimc-sources-detail">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</a></p>';
+		echo ' <button type="button" class="button-link olimc-sources-link" aria-expanded="false" aria-controls="olimc-sources-detail">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</button></p>';
 		echo '<details id="olimc-sources-detail" class="olimc-sources-detail"><summary class="screen-reader-text" tabindex="-1" aria-hidden="true">' . esc_html__( 'See details', 'oli-media-cleaner' ) . '</summary><ul class="ul-disc">';
 		foreach ( self::source_details() as $line ) {
 			echo '<li>' . esc_html( $line ) . '</li>';
@@ -526,7 +527,7 @@ class OLIMC_Screen {
 		echo '<dialog class="olimc-dialog" id="olimc-dialog" aria-labelledby="olimc-dlg-title" aria-describedby="olimc-dlg-body">';
 		echo '<h2 id="olimc-dlg-title"></h2><p id="olimc-dlg-body"></p><p id="olimc-dlg-size" hidden></p><ul id="olimc-dlg-list"></ul><p id="olimc-dlg-more" class="description"></p>';
 		echo '<p id="olimc-dlg-ok" class="olimc-ok" hidden><label><input type="checkbox" id="olimc-dlg-check"> <span id="olimc-dlg-check-label"></span></label></p>';
-		echo '<footer><button type="button" class="button button-large" id="olimc-dlg-cancel">' . esc_html__( 'Cancel', 'oli-media-cleaner' ) . '</button> <button type="button" class="button button-primary button-large" id="olimc-dlg-confirm"></button></footer>';
+		echo '<div class="olimc-dlg-actions"><button type="button" class="button button-large" id="olimc-dlg-cancel">' . esc_html__( 'Cancel', 'oli-media-cleaner' ) . '</button> <button type="button" class="button button-primary button-large" id="olimc-dlg-confirm"></button></div>';
 		echo '</dialog>';
 	}
 

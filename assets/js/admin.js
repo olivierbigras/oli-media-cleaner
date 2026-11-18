@@ -588,15 +588,22 @@
 
 	/** Send IDs in batches. Returns the merged server answers. */
 	async function runBatches( route, ids, verbFn ) {
-		var size = cfg.batch || 50;
+		var maxSize = cfg.batch || 50;
+		var size = maxSize;
+		// Aim for well under 10 s per request, and under half of max_execution_time when it is low.
+		var limit = cfg.maxExec > 0 ? Math.min( 10, cfg.maxExec * 0.5 ) : 10;
 		var ui = ids.length > size ? progressUi( ids.length, verbFn ) : null;
 		var out = { ok: true, status: 200, parts: [], error: null, cancelled: false, processed: 0 };
-		for ( var i = 0; i < ids.length; i += size ) {
+		var i = 0;
+		while ( i < ids.length ) {
 			if ( ui && ui.state.cancelled ) {
 				out.cancelled = true;
 				break;
 			}
-			var res = await post( route, { ids: ids.slice( i, i + size ) } );
+			var chunk = ids.slice( i, i + size );
+			var started = Date.now();
+			var res = await post( route, { ids: chunk } );
+			var seconds = ( Date.now() - started ) / 1000;
 			if ( ! res.ok ) {
 				out.ok = false;
 				out.status = res.status;
@@ -604,9 +611,13 @@
 				break;
 			}
 			out.parts.push( res.data );
-			out.processed = Math.min( ids.length, i + size );
+			i += chunk.length;
+			out.processed = Math.min( ids.length, i );
 			if ( ui ) {
 				ui.update( out.processed );
+			}
+			if ( chunk.length > 0 && seconds > 0 ) {
+				size = Math.max( 5, Math.min( maxSize, Math.floor( ( limit * 0.8 ) / ( seconds / chunk.length ) ) ) );
 			}
 			if ( cfg.pause ) {
 				await sleep( cfg.pause );
@@ -1137,6 +1148,16 @@
 				e.preventDefault();
 				var d = $( '#olimc-sources-detail' );
 				d.open = ! d.open;
+			}
+		} );
+		document.addEventListener( 'keydown', function ( e ) {
+			var d = $( '#olimc-sources-detail' );
+			if ( e.key === 'Escape' && d && d.open && ! document.querySelector( 'dialog[open]' ) && d.parentNode.contains( document.activeElement ) ) {
+				d.open = false;
+				var l = $( '.olimc-sources-link' );
+				if ( l ) {
+					l.focus();
+				}
 			}
 		} );
 		var det = $( '#olimc-sources-detail' );

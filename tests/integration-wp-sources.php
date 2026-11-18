@@ -46,6 +46,8 @@ $names  = [ 'unused', 'content', 'featured', 'gallery', 'variation', 'elementor'
 foreach ( $names as $n ) {
 	$ids[ $n ] = olimc_src_media( 'olimc-src-' . $n );
 }
+$ids['nometa'] = olimc_src_media( 'olimc-src-nometa' ); // No metadata at all: its size comes from the file.
+delete_post_meta( $ids['nometa'], '_wp_attachment_metadata' );
 $ids['plainchild'] = olimc_src_media( 'olimc-src-plainchild' ); // Control: attached to a post without any gallery.
 $url = static function ( $n ) use ( $ids ) {
 	return wp_get_attachment_url( $ids[ $n ] );
@@ -140,12 +142,27 @@ $table  = $wpdb->prefix . 'olimc_results';
 $listed = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT attachment_id FROM {$table} WHERE scan_id = %s", OLIMC_Results::published_id() ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 olimc_src( in_array( $ids['unused'], $listed, true ), 'control: the unreferenced media is listed' );
 olimc_src( in_array( $ids['plainchild'], $listed, true ), 'control: media attached to a post without a gallery is listed' );
+olimc_src( ( new OLIMC_Scanner() )->calculate_total_size( $ids['nometa'], 'image/jpeg' ) > 0, 'size of an image without metadata comes from the file' );
 olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_attached'] ), 'live check: media attached to a post with [gallery] is in use' );
 olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['gal_idattr'] ), 'live check: media shown by [gallery id="N"] is in use' );
 foreach ( [ 'wt_gallery', 'wt_wpimage', 'wb_image', 'wb_shortcode', 'wb_gallery', 'wm_gallery', 'wm_image' ] as $w ) {
 	olimc_src( true === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids[ $w ] ), "live check: widget media '$w' is in use" );
 }
 olimc_src( false === ( new OLIMC_Scanner() )->is_attachment_in_use_now( $ids['plainchild'] ), 'live check: control media is not in use' );
+
+// The batch cache (one content pass per request) must give the same answer as the per-media check.
+$olimc_single = [];
+foreach ( $ids as $k => $v ) {
+	$olimc_single[ $k ] = ( new OLIMC_Scanner() )->is_attachment_in_use_now( $v );
+}
+OLIMC_Scanner::begin_batch();
+$olimc_batch = [];
+foreach ( $ids as $k => $v ) {
+	$olimc_batch[ $k ] = ( new OLIMC_Scanner() )->is_attachment_in_use_now( $v );
+}
+OLIMC_Scanner::end_batch();
+olimc_src( $olimc_single === $olimc_batch, 'batch live check gives the same answers as the per-media check' );
+olimc_src( false === $olimc_batch['plainchild'] && true === $olimc_batch['wb_gallery'] && true === $olimc_batch['gal_attached'], 'batch live check: control listed, cited media protected' );
 foreach ( $names as $n ) {
 	if ( 'unused' === $n ) {
 		continue;

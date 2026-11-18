@@ -274,6 +274,8 @@ class OLIMC_List_Table extends WP_List_Table {
 		$name  = $this->display_name( $item );
 		$edit  = get_edit_post_link( $id );
 		$new   = '<span class="screen-reader-text"> ' . esc_html__( '(opens in a new tab)', 'oli-media-cleaner' ) . '</span>';
+		/* translators: %s: media name; read by screen readers after the link text */
+		$named = '<span class="screen-reader-text"> ' . esc_html( sprintf( __( '“%s” (opens in a new tab)', 'oli-media-cleaner' ), $name ) ) . '</span>';
 		$out   = '<strong class="row-title">';
 		$out  .= $edit ? '<a href="' . esc_url( $edit ) . '" target="_blank" rel="noopener">' . esc_html( $name ) . $new . '</a>' : esc_html( $name );
 		$out  .= '</strong>';
@@ -302,10 +304,10 @@ class OLIMC_List_Table extends WP_List_Table {
 		if ( 'review' === $this->tab || 'kept' === $this->tab ) {
 			$view = wp_get_attachment_url( $id );
 			if ( $view ) {
-				$actions['view'] = '<a href="' . esc_url( $view ) . '" target="_blank" rel="noopener">' . esc_html__( 'View', 'oli-media-cleaner' ) . $new . '</a>';
+				$actions['view'] = '<a href="' . esc_url( $view ) . '" target="_blank" rel="noopener">' . esc_html__( 'View', 'oli-media-cleaner' ) . $named . '</a>';
 			}
 			if ( $edit ) {
-				$actions['edit'] = '<a href="' . esc_url( $edit ) . '" target="_blank" rel="noopener">' . esc_html__( 'Edit', 'oli-media-cleaner' ) . $new . '</a>';
+				$actions['edit'] = '<a href="' . esc_url( $edit ) . '" target="_blank" rel="noopener">' . esc_html__( 'Edit', 'oli-media-cleaner' ) . $named . '</a>';
 			}
 		}
 		if ( 'review' === $this->tab ) {
@@ -322,7 +324,7 @@ class OLIMC_List_Table extends WP_List_Table {
 			/* translators: %s: media name */
 			$actions['restore'] = $btn( 'restore', __( 'Restore', 'oli-media-cleaner' ), sprintf( __( 'Restore “%s”', 'oli-media-cleaner' ), $name ) );
 			/* translators: %s: media name */
-			$actions['delete'] = $btn( 'delete', __( 'Delete permanently', 'oli-media-cleaner' ), sprintf( __( 'Permanently delete “%s”', 'oli-media-cleaner' ), $name ), 'olimc-danger' );
+			$actions['delete'] = $btn( 'delete', __( 'Delete permanently', 'oli-media-cleaner' ), sprintf( __( 'Delete permanently “%s”', 'oli-media-cleaner' ), $name ), 'olimc-danger' );
 		}
 		return $out . $this->row_actions( $actions );
 	}

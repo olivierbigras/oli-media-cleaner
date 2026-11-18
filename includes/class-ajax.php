@@ -72,6 +72,25 @@ class OLIMC_Ajax {
 	}
 
 	/**
+	 * Refuse (400) a request that names anything but a media file, before anything is changed.
+	 *
+	 * @param int[] $ids IDs from the request.
+	 */
+	private static function require_media( array $ids ) {
+		foreach ( $ids as $id ) {
+			if ( 'attachment' !== get_post_type( $id ) ) {
+				wp_send_json_error(
+					[
+						'code'    => 'not_media',
+						'message' => __( 'This is not a media file.', 'oli-media-cleaner' ),
+					],
+					400
+				);
+			}
+		}
+	}
+
+	/**
 	 * @param int $id Attachment ID.
 	 * @return string
 	 */
@@ -214,6 +233,7 @@ class OLIMC_Ajax {
 			'ok' => [],
 			'by' => [],
 		];
+		OLIMC_Scanner::begin_batch();
 		foreach ( $ids as $id ) {
 			$r = call_user_func( $action, $id );
 			if ( ! empty( $r['ok'] ) ) {
@@ -225,12 +245,14 @@ class OLIMC_Ajax {
 				];
 			}
 		}
+		OLIMC_Scanner::end_batch();
 		return $out;
 	}
 
 	public static function route_trash() {
 		self::guard();
 		$ids = self::ids();
+		self::require_media( $ids );
 		$res = self::each(
 			$ids,
 			static function ( $id ) {
@@ -251,8 +273,10 @@ class OLIMC_Ajax {
 
 	public static function route_restore() {
 		self::guard();
+		$ids = self::ids();
+		self::require_media( $ids );
 		$res = self::each(
-			self::ids(),
+			$ids,
 			static function ( $id ) {
 				return OLIMC_Trash::restore( $id );
 			}
@@ -274,6 +298,7 @@ class OLIMC_Ajax {
 	public static function route_delete() {
 		self::guard();
 		$ids = self::ids();
+		self::require_media( $ids );
 		foreach ( $ids as $id ) {
 			if ( ! OLIMC_Trash::is_in_trash( $id ) ) {
 				wp_send_json_error(
@@ -311,12 +336,14 @@ class OLIMC_Ajax {
 	 */
 	public static function route_empty() {
 		self::guard();
-		$ids      = self::ids();
+		$ids = self::ids();
+		self::require_media( $ids );
 		$fresh    = ! OLIMC_Scan::is_stale();
 		$restored = 0;
 		$deleted  = [];
 		$failed   = [];
 		$cap      = 0;
+		OLIMC_Scanner::begin_batch();
 		foreach ( $ids as $id ) {
 			if ( ! OLIMC_Trash::is_in_trash( $id ) ) {
 				continue;
@@ -340,6 +367,7 @@ class OLIMC_Ajax {
 				];
 			}
 		}
+		OLIMC_Scanner::end_batch();
 		if ( $fresh ) {
 			OLIMC_Scan::rebase_signature();
 		}

@@ -10,6 +10,14 @@ class OLIMC_Scanner {
     private $attachment_id_index = null;
     /** @var string[] Field keys (field_xxx) for image / file / gallery, filled while walking ACF definitions. */
     private $acf_media_field_key_buffer = [];
+    /**
+     * Media cited by post content, computed once for a batch of live checks (see begin_batch()).
+     * Null: no batch. False: batch started, not computed yet.
+     *
+     * @var array<int,true>|false|null
+     */
+    private static $batch_content = null;
+
     /** @var int|null Attachment ID being checked by is_attachment_in_use_now(). */
     private $usage_check_id = null;
     /** @var bool */
@@ -483,6 +491,61 @@ class OLIMC_Scanner {
      */
     public function is_used( $attachment_id ) {
         return in_array( (int) $attachment_id, $this->used_ids, true);
+    }
+
+    /**
+     * Start a batch of live checks (one request that checks many media): the post content is read once
+     * for the whole batch instead of once per media. Call end_batch() afterwards.
+     */
+    public static function begin_batch() {
+        self::$batch_content = false;
+    }
+
+    public static function end_batch() {
+        self::$batch_content = null;
+    }
+
+    /**
+     * IDs of the media cited by post content and excerpts, with the same readers as the scan.
+     *
+     * @return array<int,true>|null Null when a query failed (callers treat that as "in use").
+     */
+    private function batch_content_ids() {
+        global $wpdb;
+        $where_sql = $this->prepared_like_or([ 'post_content', 'post_excerpt' ], $this->content_prefilter_needles());
+        if ($where_sql === null) {
+            return [];
+        }
+        $reader = new OLIMC_Scanner();
+        $used   = [];
+        $last   = 0;
+        do {
+            $rows = $wpdb->get_results(
+                "SELECT ID, post_content, post_excerpt FROM {$wpdb->posts} WHERE ({$where_sql}) AND post_status != 'trash' AND post_type NOT IN ('revision', 'attachment') AND ID > " . (int) $last . ' ORDER BY ID ASC LIMIT 500' // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments; the bound is an integer.
+            );
+            if ( ! empty($wpdb->last_error) || ! is_array($rows)) {
+                return null;
+            }
+            $parents = [];
+            $paths   = [];
+            foreach ($rows as $row) {
+                $paths = array_merge($paths, OLIMC_Media_Usage_Parser::relative_upload_paths($row->post_content), OLIMC_Media_Usage_Parser::relative_upload_paths($row->post_excerpt));
+            }
+            $reader->prefetch_paths($paths); // One lookup for the whole chunk, as the scan does.
+            foreach ($rows as $row) {
+                $last = (int) $row->ID;
+                foreach ([ $row->post_content, $row->post_excerpt ] as $text) {
+                    foreach ($reader->attachment_ids_from_html($text) as $found) {
+                        $used[ (int) $found ] = true;
+                    }
+                    $parents = array_merge($parents, $reader->gallery_default_parents($text, (int) $row->ID));
+                }
+            }
+            foreach ($reader->attachments_of_posts($parents) as $found) {
+                $used[ (int) $found ] = true;
+            }
+        } while (count($rows) === 500);
+        return $used;
     }
 
     /**
@@ -1154,6 +1217,9 @@ class OLIMC_Scanner {
 
         if (strpos($mime, 'image') !== false) {
             $meta = wp_get_attachment_metadata($attachment_id);
+            if ( ! is_array($meta)) {
+                $meta = [];
+            }
             $upload_dir = wp_upload_dir();
             $basedir = $upload_dir['basedir'];
 
@@ -1162,6 +1228,13 @@ class OLIMC_Scanner {
                 $main_path = $basedir . '/' . $meta['file'];
                 $total += olimc_filesize($main_path);
                 $dir = dirname($main_path);
+            } else {
+                // No metadata: the file itself still has a size.
+                $attached = get_attached_file($attachment_id);
+                if ($attached) {
+                    $total += olimc_filesize($attached);
+                    $dir = dirname($attached);
+                }
             }
 
             // Thumbnails
@@ -1269,6 +1342,18 @@ class OLIMC_Scanner {
      */
     private function collect_post_content_images_for_id( $id ) {
         global $wpdb;
+        if (self::$batch_content !== null) {
+            if (self::$batch_content === false) {
+                $computed = $this->batch_content_ids();
+                if ($computed === null) {
+                    $this->usage_check_failed = true;
+                    return;
+                }
+                self::$batch_content = $computed;
+            }
+            $this->finish_usage_query(isset(self::$batch_content[ (int) $id ]));
+            return;
+        }
         $needles = $this->like_needles_for_attachment($id);
         if ($needles === null) {
             $this->usage_check_failed = true;

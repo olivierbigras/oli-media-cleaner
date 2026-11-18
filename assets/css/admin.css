@@ -33,7 +33,7 @@
 .olimc-dialog ul{margin:12px 0;padding:0;list-style:none}
 .olimc-dialog li{display:flex;gap:8px;align-items:center;margin:4px 0;word-break:break-all}
 .olimc-dialog li img{width:32px;height:32px;object-fit:cover}
-.olimc-dialog footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:20px}
+.olimc-dlg-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:20px}
 .wp-core-ui .olimc-dialog .button-large,.wp-core-ui .olimc-wrap .button-large{min-height:44px;display:inline-flex;align-items:center}
 .olimc-ok label{display:flex;gap:8px;align-items:center;min-height:44px}
 .olimc-dialog .olimc-danger.button-primary{background:#b32d2e;border-color:#b32d2e;color:#fff}
@@ -44,12 +44,13 @@
 .olimc-pattern-lines{margin:4px 0}
 @media (max-width:782px){
 .wp-core-ui .olimc-wrap .button,.wp-core-ui .olimc-wrap .row-actions a,.wp-core-ui .olimc-wrap .row-actions button,.wp-core-ui .olimc-wrap .nav-tab,.wp-core-ui .olimc-wrap .olimc-bulkbar button,.wp-core-ui .olimc-dialog .button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
-.olimc-wrap .row-title{display:inline-flex;align-items:center;min-height:44px}
+.olimc-wrap .row-title a{display:inline-flex;align-items:center;min-height:44px}
+.wp-core-ui .olimc-wrap .nav-tab{gap:.25em}
 .olimc-wrap .row-actions{position:static;display:flex;flex-wrap:wrap;gap:0 12px}
 .olimc-wrap .row-actions span{display:inline-flex}
 .olimc-stats li{flex-basis:calc(50% - 6px)}
 .olimc-panel{padding:12px}
-.olimc-dialog footer .button{flex:1 1 100%}
+.olimc-dlg-actions .button{flex:1 1 100%}
 .olimc-steps li{display:block}
 }
 @media (prefers-reduced-motion:reduce){.olimc-bar>span{transition:none}}
