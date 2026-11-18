@@ -282,6 +282,9 @@ class OLIMC_Trash {
 		if ( ! in_array( $days, [ 30, 90 ], true ) ) {
 			return;
 		}
+		if ( OLIMC_Quarantine::rotation_pending() ) {
+			return; // The trash is closed until the token rotation is run again: nothing is tried, no failure is counted.
+		}
 		global $wpdb;
 		$limit = time() - $days * DAY_IN_SECONDS;
 		$ids   = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery

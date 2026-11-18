@@ -112,7 +112,7 @@ Yes. A developer can return an absolute path from the filter `olimc_quarantine_b
 
 = How do I change the secret folder name of the trash? =
 
-The random folder name is the protection on a server that ignores `.htaccess`. If a copy of your database, an export or a backup may have leaked, replace it: `wp olimc rotate-token` (add `--url=<site>` on a multisite). The folder is renamed and every trashed media is updated; if the command is interrupted, the trash stays closed (trash, restore and delete are refused, and the plugin screen says so) until you run it again; it then merges the old folder into the new one without overwriting anything. There is no screen for it. The names of the trashed files are kept out of the WordPress export (Tools > Export).
+The random folder name is the protection on a server that ignores `.htaccess`. If a copy of your database, an export or a backup may have leaked, replace it: `wp olimc rotate-token` (add `--url=<site>` on a multisite). The folder is renamed and every trashed media is updated; if the command is interrupted, the trash stays closed (trash, restore and delete are refused, and the plugin screen says so) until you run it again; it then merges the old folder into the new one without overwriting anything, and removes from the old folder only the files the plugin wrote itself (any other file is reported and left in place). The automatic emptying waits meanwhile. There is no screen for it. The names of the trashed files are kept out of the WordPress export (Tools > Export).
 
 = What security checks does the trash do? =
 

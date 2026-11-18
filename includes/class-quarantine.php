@@ -461,7 +461,7 @@ class OLIMC_Quarantine {
 		} else {
 			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(meta_value AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			if ( $busy > 0 ) {
-				return OLIMC_Quarantine::busy_error();
+				return self::busy_error();
 			}
 			$old = self::token();
 			$new = bin2hex( random_bytes( 16 ) );
@@ -471,6 +471,7 @@ class OLIMC_Quarantine {
 		$from      = $root . '/' . $old;
 		$to        = $root . '/' . $new;
 		$conflicts = [];
+		$foreign   = [];
 		if ( '' === $root ) {
 			return new WP_Error( 'olimc_move', 'The token folder could not be renamed.' );
 		}
@@ -478,17 +479,39 @@ class OLIMC_Quarantine {
 			// Both folders exist (an interrupted rotation, then a move): merge the media folders of the old one
 			// into the new one, never over something that is already there.
 			foreach ( (array) scandir( $from ) as $entry ) {
-				if ( ! preg_match( '/^\d+$/', $entry ) || ! is_dir( $from . '/' . $entry ) || is_link( $from . '/' . $entry ) ) {
+				if ( '.' === $entry || '..' === $entry ) {
 					continue;
 				}
-				if ( file_exists( $to . '/' . $entry ) ) {
-					$conflicts[] = (int) $entry;
-				} elseif ( ! @rename( $from . '/' . $entry, $to . '/' . $entry ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
-					$conflicts[] = (int) $entry;
+				if ( preg_match( '/^\d+$/', $entry ) && is_dir( $from . '/' . $entry ) && ! is_link( $from . '/' . $entry ) ) {
+					if ( file_exists( $to . '/' . $entry ) ) {
+						$conflicts[] = (int) $entry;
+					} elseif ( ! @rename( $from . '/' . $entry, $to . '/' . $entry ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
+						$conflicts[] = (int) $entry;
+					}
 				}
 			}
-			if ( [] === $conflicts ) {
-				self::remove_tree( $from );
+			// Then only the files the plugin itself writes are removed from the old folder (an index.php, a generated
+			// .htaccess that is unchanged). Anything else is not ours to delete: it is reported and left in place.
+			foreach ( (array) scandir( $from ) as $entry ) {
+				if ( '.' === $entry || '..' === $entry || ( ctype_digit( $entry ) && in_array( (int) $entry, $conflicts, true ) ) ) {
+					continue;
+				}
+				$path = $from . '/' . $entry;
+				if ( ! is_link( $path ) && is_file( $path ) && 'index.php' === $entry ) {
+					continue;
+				}
+				if ( ! is_link( $path ) && is_file( $path ) && '.htaccess' === $entry && self::htaccess_rules() === (string) file_get_contents( $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+					continue;
+				}
+				$foreign[] = $entry;
+			}
+			if ( [] === $conflicts && [] === $foreign ) {
+				foreach ( [ 'index.php', '.htaccess' ] as $own ) {
+					if ( is_file( $from . '/' . $own ) ) {
+						wp_delete_file( $from . '/' . $own );
+					}
+				}
+				@rmdir( $from ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rmdir_rmdir
 			}
 		} elseif ( is_dir( $from ) && ! @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
 			delete_option( self::OPT_ROTATE );
@@ -514,9 +537,16 @@ class OLIMC_Quarantine {
 			}
 			++$count;
 		}
-		if ( [] !== $conflicts ) {
+		if ( [] !== $conflicts || [] !== $foreign ) {
 			// Left as it is, and the trash stays closed: someone has to look at these folders.
-			return new WP_Error( 'olimc_conflict', 'A media folder exists under both tokens and was left in place: ' . implode( ', ', $conflicts ) . '. Compare the folders ' . $old . ' and ' . $new . ' by hand, then run the command again.' );
+			$what = [];
+			if ( [] !== $conflicts ) {
+				$what[] = 'media folders that exist under both tokens: ' . implode( ', ', $conflicts );
+			}
+			if ( [] !== $foreign ) {
+				$what[] = 'files or folders that are not the plugin\'s, left in the old folder: ' . implode( ', ', $foreign );
+			}
+			return new WP_Error( 'olimc_conflict', 'Left in place (' . implode( '; ', $what ) . '). Check the folders ' . $old . ' and ' . $new . ' by hand, then run the command again.' );
 		}
 		delete_option( self::OPT_ROTATE );
 		OLIMC_Trash::log( 'rotate_token', [] );
@@ -544,7 +574,7 @@ class OLIMC_Quarantine {
 			return new WP_Error( 'olimc_rotating', self::rotation_message() );
 		}
 		if ( ! self::lock( $id ) ) {
-			return OLIMC_Quarantine::busy_error();
+			return self::busy_error();
 		}
 		try {
 			return self::do_move_in( $id );
@@ -917,7 +947,7 @@ class OLIMC_Quarantine {
 			return new WP_Error( 'olimc_rotating', self::rotation_message() );
 		}
 		if ( ! self::lock( $id ) ) {
-			return OLIMC_Quarantine::busy_error();
+			return self::busy_error();
 		}
 		try {
 			return self::do_move_back( $id );

@@ -330,10 +330,13 @@ $rm( dirname( $custom ) );
 $f12 = "olimc-sec-n1-$u";
 list( $id12, $dir12 ) = $make( $f12, [ 'n.jpg' => 'NNNN', 'n-150x150.jpg' => 'NNN2' ] );
 list( $id13, $dir13 ) = $make( $f12, [ 'o.jpg' => 'OOOO' ] );
+list( $id14, $dir14 ) = $make( $f12, [ 'p.jpg' => 'PPPP' ] );
 $names12  = [ 'n.jpg', 'n-150x150.jpg' ];
 $before12 = $md5s( $dir12, $names12 );
 $reset();
 OLIMC_Trash::trash( $id12 );
+OLIMC_Trash::trash( $id14 );
+update_post_meta( $id14, '_olimc_trashed', time() - 40 * DAY_IN_SECONDS );
 $tok_o = OLIMC_Quarantine::token();
 $tok_n = bin2hex( random_bytes( 16 ) );
 update_option( OLIMC_Quarantine::OPT_ROTATE, $tok_o . ':' . $tok_n, false ); // The state a crash leaves...
@@ -346,6 +349,12 @@ $t( ! $r2['ok'] && $msg === $r2['detail'] && OLIMC_Trash::is_in_trash( $id12 ), 
 $r3 = OLIMC_Trash::purge( $id12 );
 $t( ! $r3['ok'] && null !== get_post( $id12 ), 'N1: so is a permanent deletion (and the emptying)' );
 $t( [] === glob( "$root/$tok_o/*" ), 'N1: nothing was written under the old (leaked) token' );
+// M1: the automatic emptying does nothing while the rotation is interrupted, and counts no failure.
+update_option( 'olimc_auto_empty', 30 );
+for ( $i = 1; $i <= 4; $i++ ) {
+	OLIMC_Trash::run_auto_empty();
+}
+$t( null !== get_post( $id14 ) && OLIMC_Trash::is_in_trash( $id14 ) && '' === (string) get_post_meta( $id14, OLIMC_Trash::META_AUTOFAIL, true ), 'M1: 4 cron runs during an interrupted rotation: nothing deleted, _olimc_autofail unchanged (none)' );
 ob_start();
 ( new ReflectionMethod( 'OLIMC_Screen', 'render_standing_notices' ) )->invoke( null, 'review' );
 $html = (string) ob_get_clean();
@@ -359,11 +368,21 @@ file_put_contents( "$root/$tok_o/$id12/other.txt", 'conflict' );
 $res = OLIMC_Quarantine::rotate_token();
 $t( is_wp_error( $res ) && 'olimc_conflict' === $res->get_error_code() && is_file( "$root/$tok_o/$id12/other.txt" ) && is_file( "$root/$tok_n/$id12/manifest.json" ) && is_file( "$root/$tok_n/990001/stray.txt" ), 'N1: a conflict is reported and left in place; the other folders are merged' );
 $t( OLIMC_Quarantine::rotation_pending() && ! OLIMC_Trash::restore( $id12 )['ok'], 'N1: the trash stays closed while a conflict remains' );
+// A foreign file in the old folder is not ours to delete: reported, left in place, the trash stays closed.
+file_put_contents( "$root/$tok_o/notes.txt", 'mine' );
+file_put_contents( "$root/$tok_o/.htaccess", "Require all granted\n" );
 unlink( "$root/$tok_o/$id12/other.txt" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
 rmdir( "$root/$tok_o/$id12" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rmdir_rmdir -- test fixture.
 $res = OLIMC_Quarantine::rotate_token();
+$t( is_wp_error( $res ) && 'olimc_conflict' === $res->get_error_code() && is_file( "$root/$tok_o/notes.txt" ) && 'mine' === file_get_contents( "$root/$tok_o/notes.txt" ) && is_file( "$root/$tok_o/.htaccess" ) && false !== strpos( $res->get_error_message(), 'notes.txt' ) && OLIMC_Quarantine::rotation_pending(), 'M1: a foreign file (and an .htaccess that is not the plugin\'s) in the old folder is reported and left in place' );
+unlink( "$root/$tok_o/notes.txt" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+file_put_contents( "$root/$tok_o/.htaccess", ( new ReflectionMethod( 'OLIMC_Quarantine', 'htaccess_rules' ) )->invoke( null ) ); // The plugin's own, unchanged.
+$res = OLIMC_Quarantine::rotate_token();
 $t( is_array( $res ) && ! is_dir( "$root/$tok_o" ) && $res['new'] === $tok_n && OLIMC_Quarantine::token() === $tok_n && ! OLIMC_Quarantine::rotation_pending(), 'N1: run again, the merge ends and the trash opens' );
 $reset();
+OLIMC_Trash::run_auto_empty();
+$t( null === get_post( $id14 ), 'M1: after the rotation is run again, the automatic emptying works' );
+delete_option( 'olimc_auto_empty' );
 $r4 = OLIMC_Trash::restore( $id12 );
 $t( $r4['ok'] && $md5s( $dir12, $names12 ) === $before12, 'N1: then the restore gives back the same bytes (MD5)' );
 $t( OLIMC_Trash::trash( $id13 )['ok'] && OLIMC_Trash::restore( $id13 )['ok'], 'N1: and trashing works again' );
