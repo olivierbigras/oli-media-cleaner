@@ -475,8 +475,8 @@ class OLIMC_Quarantine {
 					$wpdb->postmeta,
 					[
 						'post_id'    => (int) $row->post_id,
-						'meta_key'   => self::META_LOCK,
-						'meta_value' => (string) $row->meta_value,
+						'meta_key'   => self::META_LOCK, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- deleting one row by its own key.
+						'meta_value' => (string) $row->meta_value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- compare-and-delete of the lock value.
 					]
 				);
 			}
