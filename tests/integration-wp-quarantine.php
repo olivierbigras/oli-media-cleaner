@@ -263,6 +263,7 @@ chmod( $dir, 0755 );
 clearstatcache();
 if ( $ro ) {
 	$t( ! $r['ok'] && 'fail' === $r['code'], 'folder not writable: trash() is refused' );
+	$t( OLIMC_Quarantine::had_permission_error(), 'the permission error is reported (message "The uploads folder is not writable.")' );
 	$t( $snap( $dir, $names ) === $before && ! OLIMC_Trash::is_in_trash( $id ) && 'inherit' === $st( $id ), 'nothing moved, status unchanged' );
 } else {
 	echo "SKIP: cannot make a folder read-only for this user\n";

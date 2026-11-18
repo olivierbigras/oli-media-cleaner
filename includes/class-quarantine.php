@@ -48,6 +48,29 @@ class OLIMC_Quarantine {
 	 */
 	private static $pending = [];
 
+	/**
+	 * Whether a move was refused in this request because a folder was not writable.
+	 *
+	 * @var bool
+	 */
+	private static $perm_failed = false;
+
+	/**
+	 * @return bool True when a move was refused in this request for lack of write access.
+	 */
+	public static function had_permission_error() {
+		return self::$perm_failed;
+	}
+
+	/**
+	 * @param string $message Message.
+	 * @return WP_Error
+	 */
+	private static function perm_error( $message ) {
+		self::$perm_failed = true;
+		return new WP_Error( 'olimc_perm', $message );
+	}
+
 	public static function init() {
 		add_action( 'init', [ __CLASS__, 'register_status' ], 1 );
 		add_action( 'admin_post_olimc_thumb', [ __CLASS__, 'serve_thumb' ] );
@@ -265,7 +288,7 @@ class OLIMC_Quarantine {
 	private static function do_move_in( $id ) {
 		$base = self::basedir();
 		if ( '' === $base ) {
-			return new WP_Error( 'olimc_perm', 'The uploads folder is not available.' );
+			return self::perm_error( 'The uploads folder is not available.' );
 		}
 		$plan = self::plan( $id, $base );
 		if ( is_wp_error( $plan ) ) {
@@ -289,11 +312,11 @@ class OLIMC_Quarantine {
 		}
 
 		if ( ! self::is_writable() ) {
-			return new WP_Error( 'olimc_perm', 'The uploads folder is not writable.' );
+			return self::perm_error( 'The uploads folder is not writable.' );
 		}
 		foreach ( $plan['move'] as $rel => $info ) {
 			if ( ! wp_is_writable( dirname( $info['abs'] ) ) ) {
-				return new WP_Error( 'olimc_perm', 'The uploads folder is not writable.' );
+				return self::perm_error( 'The uploads folder is not writable.' );
 			}
 		}
 
@@ -306,7 +329,7 @@ class OLIMC_Quarantine {
 			}
 		}
 		if ( ! self::mkdir_protected( $dir, $base ) ) {
-			return new WP_Error( 'olimc_perm', 'The uploads folder is not writable.' );
+			return self::perm_error( 'The uploads folder is not writable.' );
 		}
 
 		foreach ( $plan['move'] as $rel => $info ) {
@@ -320,7 +343,7 @@ class OLIMC_Quarantine {
 		$map['state'] = 'moving';
 		if ( ! self::write_manifest( $dir, $map ) ) {
 			self::remove_tree( $dir );
-			return new WP_Error( 'olimc_perm', 'The manifest could not be written.' );
+			return self::perm_error( 'The manifest could not be written.' );
 		}
 
 		$moved = [];
@@ -338,7 +361,7 @@ class OLIMC_Quarantine {
 		if ( ! self::write_manifest( $dir, $map ) ) {
 			self::rollback_in( $moved );
 			self::remove_tree( $dir );
-			return new WP_Error( 'olimc_perm', 'The manifest could not be written.' );
+			return self::perm_error( 'The manifest could not be written.' );
 		}
 		self::finalize( $id, $map );
 		return true;
@@ -541,10 +564,10 @@ class OLIMC_Quarantine {
 		foreach ( $pairs as $rel => $pair ) {
 			$target = dirname( $pair[1] );
 			if ( ! is_dir( $target ) && ! wp_mkdir_p( $target ) ) {
-				return new WP_Error( 'olimc_perm', 'A folder could not be created.' );
+				return self::perm_error( 'A folder could not be created.' );
 			}
 			if ( ! wp_is_writable( $target ) ) {
-				return new WP_Error( 'olimc_perm', 'The uploads folder is not writable.' );
+				return self::perm_error( 'The uploads folder is not writable.' );
 			}
 		}
 
@@ -727,7 +750,7 @@ class OLIMC_Quarantine {
 
 	/**
 	 * @param int $id Attachment ID.
-	 * @return string Absolute path of the smallest image file in the quarantine, or empty.
+	 * @return string Absolute path of the smallest valid image file in the quarantine, or empty.
 	 */
 	private static function preview_file( $id ) {
 		$map = self::map( $id );
@@ -738,20 +761,21 @@ class OLIMC_Quarantine {
 		if ( '' === $dir ) {
 			return '';
 		}
-		$best = '';
-		$size = PHP_INT_MAX;
+		$candidates = [];
 		foreach ( $map['files'] as $f ) {
 			$rel = self::clean_rel( isset( $f['p'] ) ? $f['p'] : '' );
 			if ( '' === $rel || '' === self::preview_mime_for_name( $rel ) || (int) $f['s'] > self::THUMB_MAX ) {
 				continue;
 			}
-			$abs = $dir . '/files/' . $rel;
-			if ( is_file( $abs ) && (int) $f['s'] < $size ) {
-				$best = $abs;
-				$size = (int) $f['s'];
+			$candidates[ $dir . '/files/' . $rel ] = (int) $f['s'];
+		}
+		asort( $candidates );
+		foreach ( array_keys( $candidates ) as $abs ) {
+			if ( is_file( $abs ) && '' !== self::preview_mime( $abs ) ) {
+				return $abs;
 			}
 		}
-		return $best;
+		return '';
 	}
 
 	/**
@@ -783,8 +807,9 @@ class OLIMC_Quarantine {
 		if ( 'image/svg+xml' === $by_name ) {
 			return $by_name;
 		}
-		$real = function_exists( 'wp_get_image_mime' ) ? wp_get_image_mime( $file ) : false;
-		return is_string( $real ) && 0 === strpos( $real, 'image/' ) ? $real : '';
+		$size = wp_getimagesize( $file );
+		$real = ( is_array( $size ) && ! empty( $size['mime'] ) ) ? (string) $size['mime'] : '';
+		return 0 === strpos( $real, 'image/' ) ? $real : '';
 	}
 
 	// ─── Uninstall ────────────────────────────────────────────────────
