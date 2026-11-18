@@ -1630,7 +1630,7 @@ class OLIMC_Scanner {
             return;
         }
         foreach ($rows as $row) {
-            $widgets = maybe_unserialize($row->option_value);
+            $widgets = OLIMC_Media_Usage_Parser::safe_unserialize($row->option_value);
             if ( ! is_array($widgets)) {
                 continue;
             }
@@ -2392,7 +2392,7 @@ class OLIMC_Scanner {
         if ( ! is_string($value) || $value === '') {
             return null;
         }
-        $data = function_exists('maybe_unserialize') ? maybe_unserialize($value) : @unserialize($value);
+        $data = OLIMC_Media_Usage_Parser::safe_unserialize($value);
         return is_array($data) ? $data : null;
     }
 

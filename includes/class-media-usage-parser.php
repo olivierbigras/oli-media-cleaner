@@ -236,7 +236,7 @@ class OLIMC_Media_Usage_Parser {
 
 		// Serialized PHP.
 		if ( self::looks_serialized( $value ) ) {
-			$data = function_exists( 'maybe_unserialize' ) ? maybe_unserialize( $value ) : @unserialize( $value );
+			$data = self::safe_unserialize( $value );
 			if ( is_array( $data ) ) {
 				$found = array_merge( $found, self::extract_attachment_ids_from_array( $data, $resolve_path, $is_attachment_id, $count_keys ) );
 			}
@@ -339,5 +339,29 @@ class OLIMC_Media_Usage_Parser {
 	 */
 	public static function looks_serialized( $value ) {
 		return is_string( $value ) && strlen( $value ) > 1 && ( $value[0] === 'a' || $value[0] === 'O' ) && strpos( $value, ':' ) !== false;
+	}
+
+	/**
+	 * Unserialize a value read from the site without ever instantiating a class: an object injected by
+	 * another plugin becomes an inert placeholder, never a gadget chain. A value that does not
+	 * unserialize is returned as it is (like maybe_unserialize()).
+	 *
+	 * @param mixed $value Raw value.
+	 * @return mixed
+	 */
+	public static function safe_unserialize( $value ) {
+		if ( ! is_string( $value ) ) {
+			return $value;
+		}
+		$raw   = $value;
+		$value = trim( $value );
+		if ( 'b:0;' === $value ) {
+			return false;
+		}
+		if ( ! preg_match( '/^(?:[aObisdCEN][:;])/', $value ) ) {
+			return $raw;
+		}
+		$out = @unserialize( $value, [ 'allowed_classes' => false ] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- classes are not allowed.
+		return false === $out ? $raw : $out;
 	}
 }
