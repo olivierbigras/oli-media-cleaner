@@ -76,6 +76,18 @@ Trashed files are really offline, so a file your site still used shows up as mis
 
 In `wp-content/uploads/olimc-trash/`, in a folder with a random name, then one folder per media (its ID). Each one holds the files with their original relative path and a `manifest.json` (original path, size, MD5). Do not edit that folder by hand: use the **Trash** tab.
 
+= How do I block direct access to the trash folder? =
+
+The plugin writes an empty `index.php` in every folder, an `.htaccess` that denies access, and uses a random folder name. Apache reads the `.htaccess`. Nginx does not, so on nginx (and on any server that ignores `.htaccess`) add a rule yourself, in the server configuration, then reload it:
+
+`location ^~ /wp-content/uploads/olimc-trash/ { deny all; return 403; }`
+
+For a multisite or a custom uploads location, use the path of your uploads folder followed by `/olimc-trash/` (each site has its own). On Apache the plugin already creates this `.htaccess` in `wp-content/uploads/olimc-trash/`; the same rule can be set in the server configuration instead:
+
+`Require all denied`
+
+Hosts that manage the server for you can usually add the rule on request.
+
 = Can a restore overwrite something? =
 
 No. If a file already exists at the old path (for example you uploaded a new image with the same name), the restore of that media stops, nothing is moved and nothing is overwritten. Rename or remove the new file, then restore again.
