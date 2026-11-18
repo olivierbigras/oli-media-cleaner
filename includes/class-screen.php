@@ -237,6 +237,9 @@ class OLIMC_Screen {
 		if ( 'settings' === $tab ) {
 			self::render_settings_errors();
 		}
+		if ( OLIMC_Quarantine::rotation_pending() ) {
+			echo '<div class="notice notice-error inline olimc-rotation"><p>' . esc_html( OLIMC_Quarantine::rotation_message() ) . '</p></div>';
+		}
 		if ( ! get_user_meta( get_current_user_id(), 'olimc_backup_dismissed', true ) ) {
 			echo '<div class="notice notice-warning inline is-dismissible olimc-dismissible" data-olimc-dismiss="backup"><p>' . esc_html__( 'Back up your site before cleaning. The trash keeps your files, but it is not a backup.', 'oli-media-cleaner' ) . '</p></div>';
 		}

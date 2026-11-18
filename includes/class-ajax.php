@@ -67,6 +67,21 @@ class OLIMC_Ajax {
 	}
 
 	/**
+	 * An interrupted rotation of the folder token closes the trash (nothing in, nothing out) until it is run again.
+	 */
+	private static function guard_rotation() {
+		if ( OLIMC_Quarantine::rotation_pending() ) {
+			wp_send_json_error(
+				[
+					'code'    => 'rotating',
+					'message' => OLIMC_Quarantine::rotation_message(),
+				],
+				409
+			);
+		}
+	}
+
+	/**
 	 * Attachment IDs from the request.
 	 *
 	 * @return int[]
@@ -262,6 +277,7 @@ class OLIMC_Ajax {
 
 	public static function route_trash() {
 		self::guard();
+		self::guard_rotation();
 		$ids = self::ids();
 		self::require_media( $ids );
 		$res = self::each(
@@ -285,6 +301,7 @@ class OLIMC_Ajax {
 
 	public static function route_restore() {
 		self::guard();
+		self::guard_rotation();
 		$ids = self::ids();
 		self::require_media( $ids );
 		$res = self::each(
@@ -311,6 +328,7 @@ class OLIMC_Ajax {
 	 */
 	public static function route_delete() {
 		self::guard();
+		self::guard_rotation();
 		$ids = self::ids();
 		self::require_media( $ids );
 		foreach ( $ids as $id ) {
@@ -351,6 +369,7 @@ class OLIMC_Ajax {
 	 */
 	public static function route_empty() {
 		self::guard();
+		self::guard_rotation();
 		$ids = self::ids();
 		self::require_media( $ids );
 		$fresh    = ! OLIMC_Scan::is_stale();

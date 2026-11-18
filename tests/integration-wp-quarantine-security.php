@@ -25,6 +25,21 @@ OLIMC_Results::install();
 $up   = wp_upload_dir();
 $base = rtrim( $up['basedir'], '/' );
 $u    = substr( md5( uniqid( '', true ) ), 0, 8 );
+// This test writes and deletes under its own quarantine folder (a filter), never under uploads/olimc-trash.
+if ( '1' !== getenv( 'OLIMC_TEST_OK' ) ) {
+	echo "Refusing to run: set OLIMC_TEST_OK=1 to confirm this is a throwaway test site.\n";
+	exit( 1 );
+}
+$root_dir = sys_get_temp_dir() . "/olimc-sec-test-$u/olimc-trash";
+$global_f = function () use ( $root_dir ) {
+	return $root_dir;
+};
+add_filter( 'olimc_quarantine_base_dir', $global_f );
+$root = OLIMC_Quarantine::root_dir();
+if ( $root !== $root_dir ) {
+	echo "Refusing to run: the test quarantine folder is not in use.\n";
+	exit( 1 );
+}
 $reset = function () {
 	OLIMC_Scanner::reset_upload_path_index();
 	clean_post_cache( 0 );
@@ -95,7 +110,7 @@ $reset();
 $r = OLIMC_Trash::trash( $id3 );
 $t( $r['ok'], 'F3: a media with executable file names can be trashed (' . $r['code'] . ')' );
 $map3 = OLIMC_Quarantine::map( $id3 );
-$qdir = $base . '/' . ( $map3 ? $map3['dir'] : 'x' );
+$qdir = $root . '/' . ( $map3 ? substr( $map3['dir'], strlen( 'olimc-trash/' ) ) : 'x' );
 $bad  = [];
 $all  = [];
 if ( is_dir( $qdir . '/files' ) ) {
@@ -139,7 +154,7 @@ $r = OLIMC_Trash::trash( $id4 );
 remove_filter( 'olimc_quarantine_allow_move', $hook4, 10 );
 $t( ! $r['ok'] && 'inherit' === $st( $id4 ), 'F4: the move failed, the media keeps its status' );
 $t( 'NEWCOMER' === file_get_contents( "$dir4/a.jpg" ), 'F4: the file that appeared at the original path was NOT overwritten by the rollback' );
-$left4 = glob( $base . '/olimc-trash/*/' . $id4 . '/files/' . $f4 . '/a.jpg' );
+$left4 = glob( $root . '/*/' . $id4 . '/files/' . $f4 . '/a.jpg' );
 $t( 1 === count( $left4 ) && md5_file( $left4[0] ) === $before4['a.jpg'], 'F4: the quarantined copy is kept (nothing lost)' );
 unlink( "$dir4/a.jpg" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
 $reset();
@@ -259,9 +274,9 @@ $map10   = OLIMC_Quarantine::map( $id10 );
 $res = OLIMC_Quarantine::rotate_token();
 $tok_new = OLIMC_Quarantine::token();
 $t( is_array( $res ) && 2 === $res['media'] && $tok_new !== $tok_old && preg_match( '/^[a-f0-9]{32}$/', $tok_new ), 'R2: the token is replaced and 2 trashed media are updated' );
-$t( ! is_dir( "$base/olimc-trash/$tok_old" ) && is_dir( "$base/olimc-trash/$tok_new/$id10/files" ), 'R2: the folder was renamed' );
+$t( ! is_dir( "$root/$tok_old" ) && is_dir( "$root/$tok_new/$id10/files" ), 'R2: the folder was renamed' );
 $m2 = OLIMC_Quarantine::map( $id10 );
-$mf = json_decode( (string) file_get_contents( "$base/olimc-trash/$tok_new/$id10/manifest.json" ), true );
+$mf = json_decode( (string) file_get_contents( "$root/$tok_new/$id10/manifest.json" ), true );
 $t( $m2['dir'] === "olimc-trash/$tok_new/$id10" && is_array( $mf ) && $mf['dir'] === $m2['dir'], 'R2: the map and manifest.json point to the new folder' );
 $t( false === strpos( (string) get_post_meta( $id10, '_olimc_trash_map', true ), $tok_old ), 'R2: the old token is nowhere in the map' );
 $t( '' === (string) get_option( OLIMC_Quarantine::OPT_ROTATE, '' ), 'R2: no rotation state left' );
@@ -269,7 +284,7 @@ $t( '' === (string) get_option( OLIMC_Quarantine::OPT_ROTATE, '' ), 'R2: no rota
 $tok_c   = bin2hex( random_bytes( 16 ) );
 $tok_b   = OLIMC_Quarantine::token();
 update_option( OLIMC_Quarantine::OPT_ROTATE, $tok_b . ':' . $tok_c, false );
-rename( "$base/olimc-trash/$tok_b", "$base/olimc-trash/$tok_c" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- simulates a crash.
+rename( "$root/$tok_b", "$root/$tok_c" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- simulates a crash.
 $res2 = OLIMC_Quarantine::rotate_token();
 $t( is_array( $res2 ) && $res2['new'] === $tok_c && OLIMC_Quarantine::token() === $tok_c && 2 === $res2['media'], 'R2: an interrupted rotation is resumed by running it again' );
 add_post_meta( $id10, OLIMC_Quarantine::META_LOCK, time(), true );
@@ -305,6 +320,65 @@ $t( $r['ok'] && $md5s( $dir11, [ 'm.jpg' ] ) === $before11, 'R2: and the restore
 remove_filter( 'olimc_quarantine_base_dir', $cf );
 $rm( dirname( $custom ) );
 
+
+// ── N1. An interrupted rotation closes the trash until it is run again ──
+$f12 = "olimc-sec-n1-$u";
+list( $id12, $dir12 ) = $make( $f12, [ 'n.jpg' => 'NNNN', 'n-150x150.jpg' => 'NNN2' ] );
+list( $id13, $dir13 ) = $make( $f12, [ 'o.jpg' => 'OOOO' ] );
+$names12  = [ 'n.jpg', 'n-150x150.jpg' ];
+$before12 = $md5s( $dir12, $names12 );
+$reset();
+OLIMC_Trash::trash( $id12 );
+$tok_o = OLIMC_Quarantine::token();
+$tok_n = bin2hex( random_bytes( 16 ) );
+update_option( OLIMC_Quarantine::OPT_ROTATE, $tok_o . ':' . $tok_n, false ); // The state a crash leaves...
+rename( "$root/$tok_o", "$root/$tok_n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- ...folder renamed, token not updated.
+$msg = 'The trash folder rotation was interrupted. Run wp olimc rotate-token again.';
+$r1  = OLIMC_Trash::trash( $id13 );
+$t( ! $r1['ok'] && 'inherit' === $st( $id13 ) && is_file( "$dir13/o.jpg" ) && $msg === $r1['detail'], 'N1: trashing is refused during an interrupted rotation, with the message, nothing moved' );
+$r2 = OLIMC_Trash::restore( $id12 );
+$t( ! $r2['ok'] && $msg === $r2['detail'] && OLIMC_Trash::is_in_trash( $id12 ), 'N1: restoring is refused too' );
+$r3 = OLIMC_Trash::purge( $id12 );
+$t( ! $r3['ok'] && null !== get_post( $id12 ), 'N1: so is a permanent deletion (and the emptying)' );
+$t( [] === glob( "$root/$tok_o/*" ), 'N1: nothing was written under the old (leaked) token' );
+ob_start();
+( new ReflectionMethod( 'OLIMC_Screen', 'render_standing_notices' ) )->invoke( null, 'review' );
+$html = (string) ob_get_clean();
+$t( false !== strpos( $html, 'olimc-rotation' ) && false !== strpos( $html, esc_html( $msg ) ), 'N1: the plugin screen shows an admin notice' );
+// Both folders exist (something was written under the old token after the crash): merged, nothing overwritten.
+wp_mkdir_p( "$root/$tok_o/990001" );
+file_put_contents( "$root/$tok_o/990001/stray.txt", 'stray' );
+file_put_contents( "$root/$tok_o/index.php", "<?php\n" );
+wp_mkdir_p( "$root/$tok_o/$id12" );
+file_put_contents( "$root/$tok_o/$id12/other.txt", 'conflict' );
+$res = OLIMC_Quarantine::rotate_token();
+$t( is_wp_error( $res ) && 'olimc_conflict' === $res->get_error_code() && is_file( "$root/$tok_o/$id12/other.txt" ) && is_file( "$root/$tok_n/$id12/manifest.json" ) && is_file( "$root/$tok_n/990001/stray.txt" ), 'N1: a conflict is reported and left in place; the other folders are merged' );
+$t( OLIMC_Quarantine::rotation_pending() && ! OLIMC_Trash::restore( $id12 )['ok'], 'N1: the trash stays closed while a conflict remains' );
+unlink( "$root/$tok_o/$id12/other.txt" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+rmdir( "$root/$tok_o/$id12" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rmdir_rmdir -- test fixture.
+$res = OLIMC_Quarantine::rotate_token();
+$t( is_array( $res ) && ! is_dir( "$root/$tok_o" ) && $res['new'] === $tok_n && OLIMC_Quarantine::token() === $tok_n && ! OLIMC_Quarantine::rotation_pending(), 'N1: run again, the merge ends and the trash opens' );
+$reset();
+$r4 = OLIMC_Trash::restore( $id12 );
+$t( $r4['ok'] && $md5s( $dir12, $names12 ) === $before12, 'N1: then the restore gives back the same bytes (MD5)' );
+$t( OLIMC_Trash::trash( $id13 )['ok'] && OLIMC_Trash::restore( $id13 )['ok'], 'N1: and trashing works again' );
+ob_start();
+( new ReflectionMethod( 'OLIMC_Screen', 'render_standing_notices' ) )->invoke( null, 'review' );
+$t( false === strpos( (string) ob_get_clean(), 'olimc-rotation' ), 'N1: the notice is gone' );
+
+// ── N2. A Windows-style path is not an absolute path on Linux ──
+if ( '/' === DIRECTORY_SEPARATOR ) {
+	foreach ( [ 'C:/x/olimc-trash', 'C:\\x\\olimc-trash', 'c:/olimc-trash' ] as $win ) {
+		$wf = function () use ( $win ) {
+			return $win;
+		};
+		add_filter( 'olimc_quarantine_base_dir', $wf, 20 );
+		$t( OLIMC_Quarantine::root_dir() === $base . '/olimc-trash', "N2: \"$win\" is ignored on Linux" );
+		remove_filter( 'olimc_quarantine_base_dir', $wf, 20 );
+	}
+}
+$t( OLIMC_Quarantine::root_dir() === $root_dir, 'N2: a real absolute path still works' );
+
 // ── F9. Unserialize without classes ──
 class OLIMC_Test_Gadget {
 	public static $woke = false;
@@ -335,7 +409,7 @@ foreach ( $created as $x ) {
 		wp_delete_attachment( $x, true );
 	}
 }
-foreach ( [ $f3, $f4, $f5, $f6, $f7, $f10 ] as $f ) {
+foreach ( [ $f3, $f4, $f5, $f6, $f7, $f10, $f12 ] as $f ) {
 	$rm( "$base/$f" );
 }
 if ( is_link( "$base/olimc-sec-link-$u" ) ) {
@@ -343,7 +417,8 @@ if ( is_link( "$base/olimc-sec-link-$u" ) ) {
 }
 $rm( $out );
 $rm( $out2 );
-$rm( $base . '/olimc-trash' );
+remove_filter( 'olimc_quarantine_base_dir', $global_f );
+$rm( dirname( $root_dir ) );
 $reset();
 echo $fail ? "\n$fail FAILED\n" : "\nAll quarantine security tests passed.\n";
 exit( $fail ? 1 : 0 );

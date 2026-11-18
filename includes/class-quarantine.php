@@ -173,8 +173,14 @@ class OLIMC_Quarantine {
 		if ( ! is_string( $custom ) || $custom === $default ) {
 			return $default;
 		}
+		$raw    = $custom;
 		$custom = rtrim( str_replace( '\\', '/', $custom ), '/' );
-		if ( ! preg_match( '#^(/|[A-Za-z]:/)#', $custom ) || false !== strpos( $custom, "\0" ) || preg_match( '#(^|/)\.\.?(/|$)#', $custom ) || self::FOLDER !== basename( $custom ) ) {
+		// Absolute for this system: "C:/x" is a relative path on Linux (it would land under the web root).
+		$absolute = path_is_absolute( $raw ) && ( '\\' === DIRECTORY_SEPARATOR || 0 === strpos( $custom, '/' ) );
+		if ( ! $absolute && '\\' === DIRECTORY_SEPARATOR && preg_match( '#^[A-Za-z]:/#', $custom ) ) {
+			$absolute = true;
+		}
+		if ( ! $absolute || false !== strpos( $custom, "\0" ) || preg_match( '#(^|/)\.\.?(/|$)#', $custom ) || self::FOLDER !== basename( $custom ) ) {
 			return $default;
 		}
 		return $custom;
@@ -403,6 +409,21 @@ class OLIMC_Quarantine {
 	// ─── Token rotation ───────────────────────────────────────────────
 
 	/**
+	 * @return bool True while a rotation of the token was started and not finished: nothing may be moved
+	 *              in or out of the trash until `wp olimc rotate-token` is run again.
+	 */
+	public static function rotation_pending() {
+		return '' !== (string) get_option( self::OPT_ROTATE, '' );
+	}
+
+	/**
+	 * @return string Message shown when an action is refused because a rotation was interrupted.
+	 */
+	public static function rotation_message() {
+		return __( 'The trash folder rotation was interrupted. Run wp olimc rotate-token again.', 'oli-media-cleaner' );
+	}
+
+	/**
 	 * Replace the random folder name (after a leak of the database, of an export or of a backup).
 	 * Renames the token folder, then points every media at the new one. Safe to run again if it was
 	 * interrupted: it resumes where it stopped. No screen: `wp olimc rotate-token`.
@@ -424,10 +445,30 @@ class OLIMC_Quarantine {
 			$new = bin2hex( random_bytes( 16 ) );
 			update_option( self::OPT_ROTATE, $old . ':' . $new, false );
 		}
-		$root = self::root_dir();
-		$from = $root . '/' . $old;
-		$to   = $root . '/' . $new;
-		if ( '' === $root || ( is_dir( $from ) && ! file_exists( $to ) && ! @rename( $from, $to ) ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
+		$root      = self::root_dir();
+		$from      = $root . '/' . $old;
+		$to        = $root . '/' . $new;
+		$conflicts = [];
+		if ( '' === $root ) {
+			return new WP_Error( 'olimc_move', 'The token folder could not be renamed.' );
+		}
+		if ( is_dir( $from ) && is_dir( $to ) ) {
+			// Both folders exist (an interrupted rotation, then a move): merge the media folders of the old one
+			// into the new one, never over something that is already there.
+			foreach ( (array) scandir( $from ) as $entry ) {
+				if ( ! preg_match( '/^\d+$/', $entry ) || ! is_dir( $from . '/' . $entry ) || is_link( $from . '/' . $entry ) ) {
+					continue;
+				}
+				if ( file_exists( $to . '/' . $entry ) ) {
+					$conflicts[] = (int) $entry;
+				} elseif ( ! @rename( $from . '/' . $entry, $to . '/' . $entry ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
+					$conflicts[] = (int) $entry;
+				}
+			}
+			if ( [] === $conflicts ) {
+				self::remove_tree( $from );
+			}
+		} elseif ( is_dir( $from ) && ! @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename
 			delete_option( self::OPT_ROTATE );
 			return new WP_Error( 'olimc_move', 'The token folder could not be renamed.' );
 		}
@@ -440,7 +481,7 @@ class OLIMC_Quarantine {
 		foreach ( (array) $ids as $id ) {
 			$id  = (int) $id;
 			$map = self::map( $id );
-			if ( null === $map || empty( $map['dir'] ) ) {
+			if ( null === $map || empty( $map['dir'] ) || in_array( $id, $conflicts, true ) ) {
 				continue;
 			}
 			$map['dir'] = self::FOLDER . '/' . $new . '/' . $id;
@@ -450,6 +491,10 @@ class OLIMC_Quarantine {
 				self::write_manifest( $dir, $map );
 			}
 			++$count;
+		}
+		if ( [] !== $conflicts ) {
+			// Left as it is, and the trash stays closed: someone has to look at these folders.
+			return new WP_Error( 'olimc_conflict', 'A media folder exists under both tokens and was left in place: ' . implode( ', ', $conflicts ) . '. Compare the folders ' . $old . ' and ' . $new . ' by hand, then run the command again.' );
 		}
 		delete_option( self::OPT_ROTATE );
 		OLIMC_Trash::log( 'rotate_token', [] );
@@ -473,6 +518,9 @@ class OLIMC_Quarantine {
 	 */
 	public static function move_in( $id ) {
 		$id = (int) $id;
+		if ( self::rotation_pending() ) {
+			return new WP_Error( 'olimc_rotating', self::rotation_message() );
+		}
 		if ( ! self::lock( $id ) ) {
 			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
 		}
@@ -843,6 +891,9 @@ class OLIMC_Quarantine {
 	 */
 	public static function move_back( $id ) {
 		$id = (int) $id;
+		if ( self::rotation_pending() ) {
+			return new WP_Error( 'olimc_rotating', self::rotation_message() );
+		}
 		if ( ! self::lock( $id ) ) {
 			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
 		}
@@ -1444,6 +1495,9 @@ class OLIMC_Trash_Quarantine_Backend implements OLIMC_Trash_Backend {
 	 */
 	public function purge( $id ) {
 		$id = (int) $id;
+		if ( OLIMC_Quarantine::rotation_pending() ) {
+			return new WP_Error( 'olimc_rotating', OLIMC_Quarantine::rotation_message() );
+		}
 		// The same lock as a move: a deletion cannot run while the media is being trashed or restored.
 		if ( ! OLIMC_Quarantine::acquire( $id ) ) {
 			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );

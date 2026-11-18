@@ -14,6 +14,10 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit( 1 );
 }
+if ( '1' !== getenv( 'OLIMC_TEST_OK' ) ) {
+	echo "Refusing to run: this test erases uploads/olimc-trash. Set OLIMC_TEST_OK=1 to confirm this is a throwaway test site.\n";
+	exit( 1 );
+}
 $fail = 0;
 $t    = function ( $c, $m ) use ( &$fail ) {
 	echo ( $c ? 'OK: ' : 'FAIL: ' ) . $m . "\n";
@@ -389,10 +393,9 @@ file_put_contents( "$dirv/olimc-q12-$uniq-300x200.jpg", 'mine' );
 $reset();
 update_option( 'olimc_protected_paths', 'x/*' );
 update_option( OLIMC_Trash::OPT_AUDIT, [ [ 'u' => 1, 'a' => 'trash', 'n' => 1, 'i' => [ 1 ], 't' => time() ] ], false );
-update_option( OLIMC_Quarantine::OPT_ROTATE, str_repeat( 'a', 32 ) . ':' . str_repeat( 'b', 32 ), false );
 define( 'WP_UNINSTALL_PLUGIN', 'oli-media-cleaner/oli-media-cleaner.php' );
 include OLIMC_PLUGIN_DIR . 'uninstall.php';
-$t( 0 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name IN (%s,%s)", OLIMC_Trash::OPT_AUDIT, OLIMC_Quarantine::OPT_ROTATE ) ), 'F8: the journal and a rotation state are removed with the plugin data' );
+$t( 0 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = %s", OLIMC_Trash::OPT_AUDIT ) ), 'F8: the journal is removed with the plugin data' );
 $t( $snap( $diru, $namesu ) === $beforeu && 'inherit' === $st( $idu ), 'uninstall: the media of the trash are restored byte for byte' );
 $t( 'inherit' === $st( $idv ) && 'mine' === file_get_contents( "$dirv/olimc-q12-$uniq-300x200.jpg" ), 'uninstall: a media that cannot be restored is shown again and nothing is overwritten' );
 $left = glob( $base . '/olimc-trash/*/' . $idv . '/files/*/*/*' ) ?: [];

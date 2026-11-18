@@ -43,6 +43,9 @@ function olimc_uninstall_site() {
 	if ( ! class_exists( 'OLIMC_Quarantine' ) ) {
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-quarantine.php';
 	}
+	if ( OLIMC_Quarantine::rotation_pending() ) {
+		OLIMC_Quarantine::rotate_token(); // Finish an interrupted rotation, so the files can be found.
+	}
 	OLIMC_Trash::restore_all();
 	// Whatever could not be put back is shown again and keeps its files in the quarantine folder.
 	foreach ( OLIMC_Trash::all_ids() as $olimc_left_id ) {
