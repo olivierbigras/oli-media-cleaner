@@ -96,9 +96,15 @@ On a multisite, each site has its own uploads folder (`wp-content/uploads/sites/
 
 For a custom uploads location, use the path of your uploads folder followed by `/olimc-trash/`. On Apache the plugin already creates a `.htaccess` in `wp-content/uploads/olimc-trash/`. To set the rule in the server configuration instead, `Require all denied` is only valid inside a container, for example `<Directory "/path/to/wp-content/uploads/olimc-trash">`, or inside a `.htaccess` placed in that folder:
 
-`<Directory "/path/to/wp-content/uploads/olimc-trash"> Require all denied </Directory>`
+    <Directory "/path/to/wp-content/uploads/olimc-trash">
+        Require all denied
+    </Directory>
 
 Hosts that manage the server for you can usually add the rule on request.
+
+= How do the scan and the live check count numeric keys and other options? =
+
+Other options count by value only, not by array key (lists and transients); the live check does not read them. Widgets, theme settings and custom fields also count by numeric array key, in the scan and in the live check.
 
 = Can I keep the trash outside the web root? =
 

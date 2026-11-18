@@ -214,6 +214,11 @@ OLIMC_Quarantine::release( $id7 );
 $r = OLIMC_Trash::purge( $id7 );
 $t( $r['ok'] && null === get_post( $id7 ), 'F6: without a lock the deletion goes through' );
 
+// P3-13: a refusal because the media is being processed gives that reason to the notice.
+$t( OLIMC_Quarantine::had_busy(), 'P3-13: the refusal above is remembered as "busy"' );
+$reason = new ReflectionMethod( 'OLIMC_Ajax', 'reason' );
+$t( __( 'This media is being processed.', 'oli-media-cleaner' ) === $reason->invoke( null ), 'P3-13: the reason sent to the notice is "This media is being processed."' );
+
 // ── F7. Automatic emptying skips a media that keeps failing ──
 $f7 = "olimc-sec-f7-$u";
 list( $id8, $dir8 ) = $make( $f7, [ 'a.jpg' => 'AAAA' ] );

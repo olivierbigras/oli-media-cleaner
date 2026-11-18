@@ -519,6 +519,9 @@ class OLIMC_Ajax {
 	 * @return string
 	 */
 	private static function reason() {
+		if ( OLIMC_Quarantine::had_busy() ) {
+			return __( 'This media is being processed.', 'oli-media-cleaner' );
+		}
 		$dir = wp_upload_dir( null, false );
 		if ( OLIMC_Quarantine::had_permission_error() || ( ! empty( $dir['basedir'] ) && ! wp_is_writable( $dir['basedir'] ) ) || ! OLIMC_Quarantine::is_writable() ) {
 			return __( 'The uploads folder is not writable.', 'oli-media-cleaner' );

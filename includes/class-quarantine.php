@@ -83,6 +83,28 @@ class OLIMC_Quarantine {
 	}
 
 	/**
+	 * Whether an action was refused in this request because another one holds the lock of the media.
+	 *
+	 * @var bool
+	 */
+	private static $busy_seen = false;
+
+	/**
+	 * @return bool True when an action was refused in this request because the media is being processed.
+	 */
+	public static function had_busy() {
+		return self::$busy_seen;
+	}
+
+	/**
+	 * @return WP_Error The error for a media that another request is working on.
+	 */
+	public static function busy_error() {
+		self::$busy_seen = true;
+		return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+	}
+
+	/**
 	 * @return bool True when a move was refused in this request for lack of write access.
 	 */
 	public static function had_permission_error() {
@@ -439,7 +461,7 @@ class OLIMC_Quarantine {
 		} else {
 			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(meta_value AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			if ( $busy > 0 ) {
-				return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+				return OLIMC_Quarantine::busy_error();
 			}
 			$old = self::token();
 			$new = bin2hex( random_bytes( 16 ) );
@@ -522,7 +544,7 @@ class OLIMC_Quarantine {
 			return new WP_Error( 'olimc_rotating', self::rotation_message() );
 		}
 		if ( ! self::lock( $id ) ) {
-			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+			return OLIMC_Quarantine::busy_error();
 		}
 		try {
 			return self::do_move_in( $id );
@@ -895,7 +917,7 @@ class OLIMC_Quarantine {
 			return new WP_Error( 'olimc_rotating', self::rotation_message() );
 		}
 		if ( ! self::lock( $id ) ) {
-			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+			return OLIMC_Quarantine::busy_error();
 		}
 		try {
 			return self::do_move_back( $id );
@@ -1500,7 +1522,7 @@ class OLIMC_Trash_Quarantine_Backend implements OLIMC_Trash_Backend {
 		}
 		// The same lock as a move: a deletion cannot run while the media is being trashed or restored.
 		if ( ! OLIMC_Quarantine::acquire( $id ) ) {
-			return new WP_Error( 'olimc_busy', __( 'This media is being processed.', 'oli-media-cleaner' ) );
+			return OLIMC_Quarantine::busy_error();
 		}
 		$deleted = wp_delete_attachment( $id, true );
 		if ( ! $deleted ) {
