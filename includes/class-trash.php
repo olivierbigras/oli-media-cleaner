@@ -156,6 +156,18 @@ class OLIMC_Trash {
 	public static function restore( $id, $check_caps = true ) {
 		$id = (int) $id;
 		if ( ! self::is_in_trash( $id ) ) {
+			// A trashing that was killed midway leaves the media in the library with part of its files in the
+			// quarantine: finish the rollback instead of answering "not in the trash".
+			if ( 'attachment' === get_post_type( $id ) && ( ! $check_caps || current_user_can( 'delete_post', $id ) ) ) {
+				$back = OLIMC_Quarantine::recover( $id );
+				if ( true === $back ) {
+					return self::result( true, 'ok', $id );
+				}
+				if ( is_wp_error( $back ) ) {
+					$code = 'olimc_exists' === $back->get_error_code() ? 'exists' : 'fail';
+					return self::result( false, $code, $id, $back->get_error_message() );
+				}
+			}
 			return self::result( false, 'not_trashed', $id );
 		}
 		if ( $check_caps && ! current_user_can( 'delete_post', $id ) ) {
@@ -210,7 +222,7 @@ class OLIMC_Trash {
 	 * Add one line to the journal: user, action, media IDs, time. Kept to the last AUDIT_MAX lines,
 	 * no personal data besides the user ID, removed at uninstall with the plugin data.
 	 *
-	 * @param string $action Action: trash, restore, delete, empty, auto_empty, rotate_token.
+	 * @param string $action Action: trash, restore, delete, empty, auto_empty, rotate_token, recover.
 	 * @param int[]  $ids    Media IDs concerned.
 	 */
 	public static function log( $action, array $ids ) {

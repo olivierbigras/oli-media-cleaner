@@ -459,7 +459,7 @@ class OLIMC_Quarantine {
 			$old = $m[1];
 			$new = $m[2];
 		} else {
-			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(meta_value AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$busy = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND CAST(SUBSTRING_INDEX(meta_value, ':', 1) AS UNSIGNED) > %d", self::META_LOCK, time() - self::LOCK_SECS ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			if ( $busy > 0 ) {
 				return self::busy_error();
 			}
@@ -584,26 +584,71 @@ class OLIMC_Quarantine {
 	}
 
 	/**
+	 * @return string Short identifier of this server (the lock tells which one holds it).
+	 */
+	private static function host_id() {
+		return substr( md5( function_exists( 'gethostname' ) ? (string) gethostname() : 'host' ), 0, 8 );
+	}
+
+	/**
+	 * What the lock of a media holds: when, which process, on which server.
+	 *
+	 * @return string
+	 */
+	private static function lock_value() {
+		return time() . ':' . (int) getmypid() . ':' . self::host_id();
+	}
+
+	/**
+	 * A lock whose process is certainly dead (killed): same server, and no such process any more.
+	 * Anything uncertain (another server, an old-format lock, no way to ask the system) is not an orphan.
+	 *
+	 * @param string $value Value of the lock.
+	 * @return bool
+	 */
+	private static function lock_is_orphan( $value ) {
+		if ( ! preg_match( '/^\d+:(\d+):([a-f0-9]{8})$/', (string) $value, $m ) || self::host_id() !== $m[2] ) {
+			return false;
+		}
+		$pid = (int) $m[1];
+		if ( $pid <= 0 || getmypid() === $pid ) {
+			return false;
+		}
+		if ( function_exists( 'posix_kill' ) && function_exists( 'posix_get_last_error' ) ) {
+			if ( @posix_kill( $pid, 0 ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				return false;
+			}
+			return 3 === posix_get_last_error(); // ESRCH: no such process (EPERM would mean it lives under another user).
+		}
+		if ( is_dir( '/proc/self' ) ) {
+			return ! file_exists( '/proc/' . $pid );
+		}
+		return false;
+	}
+
+	/**
 	 * @param int $id Attachment ID.
 	 * @return bool
 	 */
 	private static function lock( $id ) {
 		global $wpdb;
-		if ( add_post_meta( $id, self::META_LOCK, time(), true ) ) {
+		$mine = self::lock_value();
+		if ( add_post_meta( $id, self::META_LOCK, $mine, true ) ) {
 			return true;
 		}
 		// Read the lock from the database, not from the cache: another request may have changed it.
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s LIMIT 1", $id, self::META_LOCK ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( ! $row ) {
-			return (bool) add_post_meta( $id, self::META_LOCK, time(), true );
+			return (bool) add_post_meta( $id, self::META_LOCK, $mine, true );
 		}
 		$since = (int) $row->meta_value;
-		if ( $since > 0 && time() - $since < self::LOCK_SECS ) {
+		if ( $since > 0 && time() - $since < self::LOCK_SECS && ! self::lock_is_orphan( (string) $row->meta_value ) ) {
 			return false;
 		}
-		// Stale lock: take it with a compare-and-swap, so two requests cannot both succeed.
-		$new = max( time(), $since + 1 );
-		$won = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_id = %d AND meta_value = %s", (string) $new, (int) $row->meta_id, (string) $row->meta_value ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// Stale lock, or the lock of a process that was killed: take it with a compare-and-swap, so two
+		// requests cannot both succeed.
+		$new = max( time(), $since + 1 ) . substr( $mine, (int) strpos( $mine, ':' ) );
+		$won = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE meta_id = %d AND meta_value = %s", $new, (int) $row->meta_id, (string) $row->meta_value ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		wp_cache_delete( $id, 'post_meta' );
 		return 1 === (int) $won;
 	}
@@ -741,19 +786,22 @@ class OLIMC_Quarantine {
 	}
 
 	/**
-	 * A manifest in the state "moving" means the process died before the media was hidden:
-	 * every file listed that sits in the quarantine goes back to its original path
-	 * (never over an existing file).
+	 * A folder of the quarantine that belongs to a media which is not in the trash is what a killed
+	 * trashing leaves behind: every file listed that sits in the quarantine goes back to its original
+	 * path, never over an existing file. A file already back (same size and MD5) makes the copy in the
+	 * quarantine redundant: that copy is dropped.
 	 *
 	 * @param string $dir  Absolute media folder.
 	 * @param string $base Uploads base directory.
+	 * @return bool True when no file is left in the quarantine folder for this media.
 	 */
 	private static function recover_interrupted( $dir, $base ) {
 		$raw = is_file( $dir . '/manifest.json' ) ? file_get_contents( $dir . '/manifest.json' ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local file of the quarantine.
 		$map = json_decode( (string) $raw, true );
-		if ( ! is_array( $map ) || empty( $map['files'] ) || ! is_array( $map['files'] ) || 'moving' !== ( isset( $map['state'] ) ? $map['state'] : '' ) ) {
-			return;
+		if ( ! is_array( $map ) || empty( $map['files'] ) || ! is_array( $map['files'] ) ) {
+			return false;
 		}
+		$left = 0;
 		foreach ( $map['files'] as $f ) {
 			$rel = self::clean_rel( isset( $f['p'] ) ? $f['p'] : '' );
 			if ( '' === $rel ) {
@@ -762,9 +810,83 @@ class OLIMC_Quarantine {
 			$stored = self::stored_of( is_array( $f ) ? $f : [], $rel );
 			$from   = $dir . '/files/' . $stored;
 			$to     = $base . '/' . $rel;
-			if ( '' !== $stored && is_file( $from ) && ! file_exists( $to ) && ! is_link( $to ) && self::inside( $to, $base ) && self::inside( $from, $dir ) ) {
-				self::move_file( $from, $to, true );
+			if ( '' === $stored || ! is_file( $from ) || is_link( $from ) || ! self::inside( $to, $base ) || ! self::inside( $from, $dir ) ) {
+				continue;
 			}
+			if ( ! file_exists( $to ) && ! is_link( $to ) ) {
+				if ( true !== self::move_file( $from, $to, true ) ) {
+					++$left;
+				}
+				continue;
+			}
+			if ( is_file( $to ) && ! is_link( $to ) && isset( $f['s'], $f['m'] ) && olimc_filesize( $to ) === (int) $f['s'] && md5_file( $to ) === (string) $f['m'] && olimc_filesize( $from ) === (int) $f['s'] && md5_file( $from ) === (string) $f['m'] ) {
+				wp_delete_file( $from ); // Already back, byte for byte.
+				continue;
+			}
+			++$left; // Something else sits at the original path: it stays as it is, and so does the copy.
+		}
+		return 0 === $left;
+	}
+
+	/**
+	 * @param int $id Attachment ID.
+	 * @return string Absolute folder of the media in the quarantine when it holds a manifest, else ''.
+	 */
+	private static function leftover_dir( $id ) {
+		$dir = self::dir_from_map( [ 'dir' => self::dir_rel( (int) $id ) ] );
+		return ( '' !== $dir && is_dir( $dir ) && is_file( $dir . '/manifest.json' ) ) ? $dir : '';
+	}
+
+	/**
+	 * Media whose trashing was killed (SIGKILL, power cut, OOM kill): not in the trash, still showing in
+	 * the library, with part of their files in the quarantine. They leave their lock behind, which is
+	 * what is looked for: one indexed query.
+	 *
+	 * @return int[]
+	 */
+	public static function interrupted_ids() {
+		global $wpdb;
+		$rows = $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s ORDER BY post_id ASC LIMIT 50", self::META_LOCK ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$out  = [];
+		foreach ( (array) $rows as $id ) {
+			$id = (int) $id;
+			if ( 'attachment' === get_post_type( $id ) && ! OLIMC_Trash::is_in_trash( $id ) && '' !== self::leftover_dir( $id ) ) {
+				$out[] = $id;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Finish the rollback of a trashing that was killed: put the files back (never over an existing file)
+	 * and drop the folder. The lock of a dead process does not hold this back; a live one does.
+	 *
+	 * @param int $id Attachment ID.
+	 * @return true|false|WP_Error True when the files are back, false when there was nothing to recover.
+	 */
+	public static function recover( $id ) {
+		$id = (int) $id;
+		if ( $id <= 0 || OLIMC_Trash::is_in_trash( $id ) || '' === self::leftover_dir( $id ) ) {
+			return false;
+		}
+		if ( self::rotation_pending() ) {
+			return new WP_Error( 'olimc_rotating', self::rotation_message() );
+		}
+		if ( ! self::lock( $id ) ) {
+			return self::busy_error();
+		}
+		try {
+			$dir  = self::leftover_dir( $id );
+			$base = self::basedir();
+			if ( '' === $dir || '' === $base ) {
+				return false;
+			}
+			if ( ! self::recover_interrupted( $dir, $base ) || ! self::cleanup_dir( $dir ) ) {
+				return new WP_Error( 'olimc_exists', 'A file with the same name already exists.' );
+			}
+			return true;
+		} finally {
+			delete_post_meta( $id, self::META_LOCK );
 		}
 	}
 

@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Oli Media Cleaner 2.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/oli-media-cleaner\n"
-"POT-Creation-Date: 2026-11-18T15:15:07+00:00\n"
-"PO-Revision-Date: 2026-11-18 10:15\n"
+"POT-Creation-Date: 2026-11-18T16:57:42+00:00\n"
+"PO-Revision-Date: 2026-11-18 11:57\n"
 "Last-Translator: Olivier Bigras\n"
 "Language-Team: Olivier Bigras\n"
 "Language: fr_FR\n"
@@ -63,7 +63,7 @@ msgid "Keep this media (never report it as unused)"
 msgstr "Conserver ce média (ne jamais le signaler comme inutilisé)"
 
 #: includes/class-ajax.php:50 includes/class-screen.php:35
-#: includes/class-screen.php:204 includes/class-screen.php:643
+#: includes/class-screen.php:204 includes/class-screen.php:690
 #: assets/js/admin.js:688 assets/js/admin.js:782
 msgid "You do not have permission to clean the media library."
 msgstr "Vous n’avez pas la permission de nettoyer la médiathèque."
@@ -87,7 +87,11 @@ msgid "Only files in the trash can be deleted permanently."
 msgstr ""
 "Seuls les médias de la corbeille peuvent être supprimés définitivement."
 
-#: includes/class-ajax.php:524
+#: includes/class-ajax.php:523 includes/class-quarantine.php:104
+msgid "This media is being processed."
+msgstr "Ce média est en cours de traitement."
+
+#: includes/class-ajax.php:527
 msgid "The uploads folder is not writable."
 msgstr "Le dossier des téléversements n’est pas accessible en écriture."
 
@@ -119,20 +123,20 @@ msgstr "Mis à la corbeille le"
 msgid "Uploaded"
 msgstr "Téléversé le"
 
-#: includes/class-list-table.php:101 includes/class-screen.php:361
-#: includes/class-screen.php:473 includes/class-screen.php:657
+#: includes/class-list-table.php:101 includes/class-screen.php:408
+#: includes/class-screen.php:520 includes/class-screen.php:704
 msgid "To review"
 msgstr "À examiner"
 
-#: includes/class-list-table.php:102 includes/class-screen.php:362
-#: includes/class-screen.php:468 includes/class-screen.php:658
+#: includes/class-list-table.php:102 includes/class-screen.php:409
+#: includes/class-screen.php:515 includes/class-screen.php:705
 msgid "Kept"
 msgstr "Conservés"
 
 #. translators: %s: media name
 #: includes/class-list-table.php:103 includes/class-list-table.php:321
-#: includes/class-screen.php:363 includes/class-screen.php:471
-#: includes/class-screen.php:571 includes/class-screen.php:659
+#: includes/class-screen.php:410 includes/class-screen.php:518
+#: includes/class-screen.php:618 includes/class-screen.php:706
 msgid "Trash"
 msgstr "Corbeille"
 
@@ -168,7 +172,7 @@ msgstr[1] "%s éléments"
 msgid "No result for these filters."
 msgstr "Aucun résultat pour ces filtres."
 
-#: includes/class-list-table.php:194 includes/class-screen.php:401
+#: includes/class-list-table.php:194 includes/class-screen.php:448
 msgid "No unused media."
 msgstr "Aucun média inutilisé."
 
@@ -257,7 +261,7 @@ msgid "Matches the pattern: %s"
 msgstr "Correspond au motif : %s"
 
 #: includes/class-list-table.php:400 includes/class-list-table.php:403
-#: includes/class-screen.php:561
+#: includes/class-screen.php:608
 msgid "All types"
 msgstr "Tous les types"
 
@@ -309,17 +313,12 @@ msgstr "Filtrer"
 msgid "Reset filters"
 msgstr "Réinitialiser les filtres"
 
-#: includes/class-quarantine.php:423
+#: includes/class-quarantine.php:445
 msgid ""
 "The trash folder rotation was interrupted. Run wp olimc rotate-token again."
 msgstr ""
 "La rotation du dossier de corbeille a été interrompue. Relancez wp olimc "
 "rotate-token."
-
-#: includes/class-quarantine.php:442 includes/class-quarantine.php:525
-#: includes/class-quarantine.php:898 includes/class-quarantine.php:1503
-msgid "This media is being processed."
-msgstr "Ce média est en cours de traitement."
 
 #: includes/class-scan.php:37 assets/js/admin.js:305
 msgid "Preparing"
@@ -349,7 +348,7 @@ msgstr "fichiers du thème"
 msgid "widgets"
 msgstr "widgets"
 
-#: includes/class-screen.php:48 includes/class-screen.php:364
+#: includes/class-screen.php:48 includes/class-screen.php:411
 msgid "Settings"
 msgstr "Réglages"
 
@@ -362,7 +361,7 @@ msgstr "Nettoyeur de médias"
 msgid "Items per page"
 msgstr "Éléments par page"
 
-#: includes/class-screen.php:244
+#: includes/class-screen.php:245
 msgid ""
 "Back up your site before cleaning. The trash keeps your files, but it is not"
 " a backup."
@@ -370,38 +369,77 @@ msgstr ""
 "Faites une sauvegarde avant de nettoyer. La corbeille garde vos fichiers, "
 "mais elle ne remplace pas une sauvegarde."
 
-#: includes/class-screen.php:247
+#: includes/class-screen.php:248
 msgid "New in 2.0: the trash now sets files aside. Run a new scan."
 msgstr ""
 "Nouveau dans la 2.0 : la corbeille met maintenant les fichiers de côté. "
 "Relancez une analyse."
 
-#: includes/class-screen.php:279
+#. translators: %d: number of media
+#: includes/class-screen.php:282
+#, php-format
+msgid ""
+"The move to the trash of %d media was interrupted. Its files were put back."
+msgid_plural ""
+"The move to the trash of %d media was interrupted. Their files were put "
+"back."
+msgstr[0] ""
+"La mise en corbeille de %d média a été interrompue. Ses fichiers ont été "
+"remis en place."
+msgstr[1] ""
+"La mise en corbeille de %d médias a été interrompue. Leurs fichiers ont été "
+"remis en place."
+
+#. translators: %d: number of media
+#: includes/class-screen.php:291
+#, php-format
+msgid ""
+"The move to the trash of %d media was interrupted and its files are not all "
+"back yet (another action is working on it, or a file with the same name "
+"exists). Nothing is lost: the files are in the trash folder. Reload this "
+"page in a few minutes."
+msgid_plural ""
+"The move to the trash of %d media was interrupted and their files are not "
+"all back yet (another action is working on them, or a file with the same "
+"name exists). Nothing is lost: the files are in the trash folder. Reload "
+"this page in a few minutes."
+msgstr[0] ""
+"La mise en corbeille de %d média a été interrompue et ses fichiers ne sont "
+"pas tous revenus (une autre action le traite, ou un fichier du même nom "
+"existe). Rien n’est perdu : les fichiers sont dans le dossier de corbeille. "
+"Rechargez cette page dans quelques minutes."
+msgstr[1] ""
+"La mise en corbeille de %d médias a été interrompue et leurs fichiers ne "
+"sont pas tous revenus (une autre action les traite, ou un fichier du même "
+"nom existe). Rien n’est perdu : les fichiers sont dans le dossier de "
+"corbeille. Rechargez cette page dans quelques minutes."
+
+#: includes/class-screen.php:326
 msgid "Start scan"
 msgstr "Lancer l’analyse"
 
 #. translators: %s: date and time of the last scan
-#: includes/class-screen.php:282
+#: includes/class-screen.php:329
 #, php-format
 msgid "Last scan: %s"
 msgstr "Dernière analyse : %s"
 
-#: includes/class-screen.php:284
+#: includes/class-screen.php:331
 msgid "No scan yet"
 msgstr "Aucune analyse pour l’instant"
 
 #. translators: %s: list of the sources read by the scan
-#: includes/class-screen.php:297
+#: includes/class-screen.php:344
 #, php-format
 msgid "Sources read: %s."
 msgstr "Sources lues : %s."
 
-#: includes/class-screen.php:298 includes/class-screen.php:299
+#: includes/class-screen.php:345 includes/class-screen.php:346
 msgid "See details"
 msgstr "Voir le détail"
 
 #. translators: %s: list of plugins whose media the scan cannot read
-#: includes/class-screen.php:306
+#: includes/class-screen.php:353
 #, php-format
 msgid ""
 "Detected but not read: %s. Media used only by this plugin may be reported as"
@@ -410,15 +448,15 @@ msgstr ""
 "Détecté, mais non lu : %s. Les médias utilisés seulement par cette extension"
 " pourraient être signalés à tort."
 
-#: includes/class-screen.php:317
+#: includes/class-screen.php:364
 msgid "Post content and excerpts"
 msgstr "Contenu et extraits des publications"
 
-#: includes/class-screen.php:318
+#: includes/class-screen.php:365
 msgid "Featured images, site logo and site icon"
 msgstr "Images mises en avant, logo et icône du site"
 
-#: includes/class-screen.php:319
+#: includes/class-screen.php:366
 msgid ""
 "Custom fields (ACF fields, galleries, repeaters, flexible content, clones, "
 "options pages) and other metadata"
@@ -426,43 +464,43 @@ msgstr ""
 "Champs personnalisés (champs ACF, galeries, répéteurs, contenu flexible, "
 "clones, pages d’options) et autres métadonnées"
 
-#: includes/class-screen.php:320
+#: includes/class-screen.php:367
 msgid "WooCommerce galleries and variations, Elementor data"
 msgstr "Galeries et variations WooCommerce, données Elementor"
 
-#: includes/class-screen.php:321
+#: includes/class-screen.php:368
 msgid "Widgets, term thumbnails and term descriptions"
 msgstr "Widgets, vignettes et descriptions de termes"
 
-#: includes/class-screen.php:322
+#: includes/class-screen.php:369
 msgid "Theme files and CSS"
 msgstr "Fichiers du thème et CSS"
 
-#: includes/class-screen.php:340
+#: includes/class-screen.php:387
 msgid "Media"
 msgstr "Médias"
 
-#: includes/class-screen.php:341
+#: includes/class-screen.php:388
 msgid "Unused"
 msgstr "Inutilisés"
 
-#: includes/class-screen.php:342
+#: includes/class-screen.php:389
 msgid "Space to free"
 msgstr "Espace à libérer"
 
-#: includes/class-screen.php:343
+#: includes/class-screen.php:390
 msgid "In the trash"
 msgstr "Dans la corbeille"
 
-#: includes/class-screen.php:366
+#: includes/class-screen.php:413
 msgid "Media Cleaner sections"
 msgstr "Sections du nettoyeur de médias"
 
-#: includes/class-screen.php:397
+#: includes/class-screen.php:444
 msgid "No scan yet."
 msgstr "Aucune analyse pour l’instant."
 
-#: includes/class-screen.php:397
+#: includes/class-screen.php:444
 msgid ""
 "Run a scan to find the media your site no longer uses. Nothing is erased "
 "during a scan."
@@ -470,14 +508,14 @@ msgstr ""
 "Lancez une analyse pour trouver les médias que votre site n’utilise plus. "
 "Rien n’est supprimé pendant l’analyse."
 
-#: includes/class-screen.php:401
+#: includes/class-screen.php:448
 msgid ""
 "Your media library is clean. Run a new scan after your next big change."
 msgstr ""
 "Votre médiathèque est propre. Relancez une analyse après votre prochain gros"
 " changement."
 
-#: includes/class-screen.php:405 assets/js/admin.js:985
+#: includes/class-screen.php:452 assets/js/admin.js:985
 msgid ""
 "This list predates your latest changes (plugin, theme or a scan older than "
 "14 days). Run a new scan before moving files to the trash."
@@ -487,7 +525,7 @@ msgstr ""
 " médias à la corbeille."
 
 #. translators: %s: percentage of the media library reported as unused
-#: includes/class-screen.php:411
+#: includes/class-screen.php:458
 #, php-format
 msgid ""
 "%s of your media are reported. This often means a source cannot be read. "
@@ -496,7 +534,7 @@ msgstr ""
 "%s de vos médias sont signalés. C’est souvent le signe d’une source "
 "illisible pour l’analyse. Vérifiez quelques fichiers avant d’agir."
 
-#: includes/class-screen.php:416
+#: includes/class-screen.php:463
 msgid ""
 "These files are no longer served by your site and are not erased. A CDN or "
 "cache may keep serving a copy until it is purged. If your site still needs "
@@ -508,34 +546,34 @@ msgstr ""
 "a encore besoin, un fichier manquera : restaurez-le ici à tout moment. Vider"
 " la corbeille les supprime définitivement : vérifiez d’abord votre site."
 
-#: includes/class-screen.php:426
+#: includes/class-screen.php:473
 msgid "Search media"
 msgstr "Rechercher des médias"
 
-#: includes/class-screen.php:427
+#: includes/class-screen.php:474
 msgid "Search"
 msgstr "Rechercher"
 
-#: includes/class-screen.php:432
+#: includes/class-screen.php:479
 msgid "Restore all"
 msgstr "Tout restaurer"
 
-#: includes/class-screen.php:433 assets/js/admin.js:898
+#: includes/class-screen.php:480 assets/js/admin.js:898
 msgid "Empty the trash"
 msgstr "Vider la corbeille"
 
-#: includes/class-screen.php:452
+#: includes/class-screen.php:499
 msgid "Export as CSV"
 msgstr "Exporter en CSV"
 
 #. translators: %s: a number; the percent sign is part of the string, e.g. 42%
-#: includes/class-screen.php:484 assets/js/admin.js:26
+#: includes/class-screen.php:531 assets/js/admin.js:26
 #, php-format, js-format
 msgid "%s%%"
 msgstr "%s %%"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:503 assets/js/admin.js:380
+#: includes/class-screen.php:550 assets/js/admin.js:380
 #, php-format, js-format
 msgid ""
 "The scan stopped at %1$s (step %2$d of %3$d). No file was marked as unused."
@@ -543,115 +581,115 @@ msgstr ""
 "L’analyse s’est arrêtée à %1$s (étape %2$d sur %3$d). Aucun média n’a été "
 "marqué comme inutilisé."
 
-#: includes/class-screen.php:504 assets/js/admin.js:376
+#: includes/class-screen.php:551 assets/js/admin.js:376
 msgid "Scan stopped"
 msgstr "Analyse interrompue"
 
-#: includes/class-screen.php:506 includes/class-screen.php:516
+#: includes/class-screen.php:553 includes/class-screen.php:563
 #: assets/js/admin.js:385
 msgid "Resume scan"
 msgstr "Reprendre l’analyse"
 
-#: includes/class-screen.php:506 includes/class-screen.php:516
+#: includes/class-screen.php:553 includes/class-screen.php:563
 #: assets/js/admin.js:388
 msgid "Start over"
 msgstr "Recommencer"
 
-#: includes/class-screen.php:507 assets/js/admin.js:109 assets/js/admin.js:396
+#: includes/class-screen.php:554 assets/js/admin.js:109 assets/js/admin.js:396
 msgid "Technical details"
 msgstr "Détails techniques"
 
-#: includes/class-screen.php:512
+#: includes/class-screen.php:559
 msgid "Scan paused"
 msgstr "Analyse en pause"
 
-#: includes/class-screen.php:512
+#: includes/class-screen.php:559
 msgid "Scan in progress"
 msgstr "Analyse en cours"
 
 #. translators: %s: percentage reached when the scan paused
-#: includes/class-screen.php:515
+#: includes/class-screen.php:562
 #, php-format
 msgid "The scan is paused at %s. Resume it or start over."
 msgstr "L’analyse est en pause à %s. Reprenez-la ou recommencez."
 
 #. translators: 1: step number, 2: number of steps, 3: step name
-#: includes/class-screen.php:521 assets/js/admin.js:344
+#: includes/class-screen.php:568 assets/js/admin.js:344
 #, php-format, js-format
 msgid "Step %1$d of %2$d: %3$s"
 msgstr "Étape %1$d sur %2$d : %3$s"
 
 #. translators: 1: percentage, 2: step number, 3: number of steps
-#: includes/class-screen.php:523 assets/js/admin.js:345
+#: includes/class-screen.php:570 assets/js/admin.js:345
 #, php-format, js-format
 msgid "%1$s, step %2$d of %3$d"
 msgstr "%1$s, étape %2$d sur %3$d"
 
-#: includes/class-screen.php:524 assets/js/admin.js:542
+#: includes/class-screen.php:571 assets/js/admin.js:542
 msgid "Scan progress"
 msgstr "Progression de l’analyse"
 
-#: includes/class-screen.php:533
+#: includes/class-screen.php:580
 msgid "Nothing is marked as unused until the scan is finished."
 msgstr ""
 "Rien n’est marqué comme inutilisé tant que l’analyse n’est pas terminée."
 
-#: includes/class-screen.php:533
+#: includes/class-screen.php:580
 msgid "If you leave this page, the scan pauses. You can resume it later."
 msgstr ""
 "Si vous quittez cette page, l’analyse se met en pause. Vous pourrez la "
 "reprendre plus tard."
 
-#: includes/class-screen.php:534
+#: includes/class-screen.php:581
 msgid "Cancel scan"
 msgstr "Annuler l’analyse"
 
-#: includes/class-screen.php:545 assets/js/admin.js:544
+#: includes/class-screen.php:592 assets/js/admin.js:544
 msgid "Cancel"
 msgstr "Annuler"
 
-#: includes/class-screen.php:558
+#: includes/class-screen.php:605
 msgid "Scan"
 msgstr "Analyse"
 
-#: includes/class-screen.php:559
+#: includes/class-screen.php:606
 msgid "Attached media"
 msgstr "Médias joints"
 
-#: includes/class-screen.php:559
+#: includes/class-screen.php:606
 msgid "Count a file attached to a content item (“Uploaded to”) as used"
 msgstr ""
 "Considérer comme utilisé un média joint à un contenu (champ « Téléversé "
 "dans »)"
 
-#: includes/class-screen.php:559
+#: includes/class-screen.php:606
 msgid ""
 "Safer: some attached files are not displayed, but they will not be reported."
 msgstr ""
 "Plus prudent : certains médias joints ne sont pas affichés, mais ils ne "
 "seront pas signalés."
 
-#: includes/class-screen.php:560
+#: includes/class-screen.php:607
 msgid "Media types"
 msgstr "Types de médias"
 
-#: includes/class-screen.php:562
+#: includes/class-screen.php:609
 msgid "Images only"
 msgstr "Images seulement"
 
-#: includes/class-screen.php:565
+#: includes/class-screen.php:612
 msgid "Keep list"
 msgstr "Médias à conserver"
 
-#: includes/class-screen.php:565
+#: includes/class-screen.php:612
 msgid "Protected paths"
 msgstr "Chemins protégés"
 
-#: includes/class-screen.php:567
+#: includes/class-screen.php:614
 msgid "Test patterns"
 msgstr "Tester les motifs"
 
-#: includes/class-screen.php:568
+#: includes/class-screen.php:615
 msgid ""
 "One path, URL or pattern per line. * matches within one folder, ** across "
 "folders. Paths are relative to the uploads folder. Thumbnails and WebP/AVIF "
@@ -662,33 +700,33 @@ msgstr ""
 "téléversements. Les miniatures et les copies WebP/AVIF sont protégées avec "
 "l’original."
 
-#: includes/class-screen.php:571
+#: includes/class-screen.php:618
 msgid "Empty the trash automatically"
 msgstr "Vider la corbeille automatiquement"
 
-#: includes/class-screen.php:573
+#: includes/class-screen.php:620
 msgid "Never, I will empty it myself"
 msgstr "Jamais, je la vide moi-même"
 
-#: includes/class-screen.php:574
+#: includes/class-screen.php:621
 msgid "After 30 days"
 msgstr "Après 30 jours"
 
-#: includes/class-screen.php:575
+#: includes/class-screen.php:622
 msgid "After 90 days"
 msgstr "Après 90 jours"
 
-#: includes/class-screen.php:580
+#: includes/class-screen.php:627
 msgid "Automatic emptying permanently deletes files without asking again."
 msgstr ""
 "Le vidage automatique supprime définitivement les fichiers, sans nouvelle "
 "confirmation."
 
-#: includes/class-screen.php:582
+#: includes/class-screen.php:629
 msgid "Scheduled scan"
 msgstr "Analyse planifiée"
 
-#: includes/class-screen.php:584
+#: includes/class-screen.php:631
 msgid ""
 "WP-Cron is disabled on this site. The scheduled scan depends on a server "
 "task."
@@ -696,11 +734,11 @@ msgstr ""
 "WP-Cron est désactivé sur ce site. L’analyse planifiée dépend d’une tâche du"
 " serveur."
 
-#: includes/class-screen.php:587
+#: includes/class-screen.php:634
 msgid "Scan automatically on a schedule"
 msgstr "Analyser automatiquement selon un horaire"
 
-#: includes/class-screen.php:587
+#: includes/class-screen.php:634
 msgid ""
 "The scheduled scan only refreshes the list. Nothing is moved to the trash "
 "automatically."
@@ -708,35 +746,35 @@ msgstr ""
 "L’analyse planifiée ne fait que mettre la liste à jour. Rien n’est mis à la "
 "corbeille automatiquement."
 
-#: includes/class-screen.php:588
+#: includes/class-screen.php:635
 msgid "Frequency"
 msgstr "Fréquence"
 
-#: includes/class-screen.php:590
+#: includes/class-screen.php:637
 msgid "Daily"
 msgstr "Chaque jour"
 
-#: includes/class-screen.php:591
+#: includes/class-screen.php:638
 msgid "Twice daily"
 msgstr "Deux fois par jour"
 
-#: includes/class-screen.php:592
+#: includes/class-screen.php:639
 msgid "Weekly"
 msgstr "Chaque semaine"
 
-#: includes/class-screen.php:599
+#: includes/class-screen.php:646
 msgid "Next run"
 msgstr "Prochaine exécution"
 
-#: includes/class-screen.php:599
+#: includes/class-screen.php:646
 msgid "Not scheduled"
 msgstr "Non planifiée"
 
-#: includes/class-screen.php:602
+#: includes/class-screen.php:649
 msgid "Advanced"
 msgstr "Avancé"
 
-#: includes/class-screen.php:602
+#: includes/class-screen.php:649
 msgid ""
 "Careful mode (slow hosting): smaller batches and a short pause between "
 "requests"
@@ -744,19 +782,19 @@ msgstr ""
 "Mode prudent (hébergement lent) : lots plus petits et courte pause entre les"
 " requêtes"
 
-#: includes/class-screen.php:604
+#: includes/class-screen.php:651
 msgid "Data"
 msgstr "Données"
 
-#: includes/class-screen.php:604
+#: includes/class-screen.php:651
 msgid "Uninstall"
 msgstr "Désinstallation"
 
-#: includes/class-screen.php:604
+#: includes/class-screen.php:651
 msgid "Delete the plugin data when it is uninstalled"
 msgstr "Supprimer les données de l’extension à la désinstallation"
 
-#: includes/class-screen.php:604
+#: includes/class-screen.php:651
 msgid ""
 "Files in the trash are always restored to the media library first. They are "
 "never deleted. A file that cannot be restored stays in the uploads/olimc-"
@@ -766,52 +804,52 @@ msgstr ""
 "d’abord. Ils ne sont jamais supprimés. Un fichier qui ne peut pas être "
 "restauré reste dans le dossier uploads/olimc-trash."
 
-#: includes/class-screen.php:606 includes/class-screen.php:607
+#: includes/class-screen.php:653 includes/class-screen.php:654
 msgid "Diagnostics"
 msgstr "Diagnostic"
 
-#: includes/class-screen.php:608
+#: includes/class-screen.php:655
 msgid "Copy report"
 msgstr "Copier le rapport"
 
-#: includes/class-screen.php:608
+#: includes/class-screen.php:655
 msgid "The report stays on your site until you copy it yourself."
 msgstr ""
 "Le rapport reste sur votre site tant que vous ne le copiez pas vous-même."
 
-#: includes/class-screen.php:609
+#: includes/class-screen.php:656
 msgid "This plugin sends no data outside your site."
 msgstr "Cette extension n’envoie aucune donnée à l’extérieur de votre site."
 
-#: includes/class-screen.php:610
+#: includes/class-screen.php:657
 msgid "Save settings"
 msgstr "Enregistrer les réglages"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "Title"
 msgstr "Titre"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "File name"
 msgstr "Nom du fichier"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "MIME type"
 msgstr "Type MIME"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "Size (bytes)"
 msgstr "Taille (octets)"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "Readable size"
 msgstr "Taille lisible"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "Upload date"
 msgstr "Date de téléversement"
 
-#: includes/class-screen.php:688
+#: includes/class-screen.php:735
 msgid "Status"
 msgstr "Statut"
 

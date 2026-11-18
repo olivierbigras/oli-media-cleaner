@@ -240,11 +240,58 @@ class OLIMC_Screen {
 		if ( OLIMC_Quarantine::rotation_pending() ) {
 			echo '<div class="notice notice-error inline olimc-rotation"><p>' . esc_html( OLIMC_Quarantine::rotation_message() ) . '</p></div>';
 		}
+		self::render_interrupted_notice();
 		if ( ! get_user_meta( get_current_user_id(), 'olimc_backup_dismissed', true ) ) {
 			echo '<div class="notice notice-warning inline is-dismissible olimc-dismissible" data-olimc-dismiss="backup"><p>' . esc_html__( 'Back up your site before cleaning. The trash keeps your files, but it is not a backup.', 'oli-media-cleaner' ) . '</p></div>';
 		}
 		if ( '1' === get_option( 'olimc_migr_notice' ) ) {
 			echo '<div class="notice notice-info inline is-dismissible olimc-dismissible" data-olimc-dismiss="migr"><p>' . esc_html__( 'New in 2.0: the trash now sets files aside. Run a new scan.', 'oli-media-cleaner' ) . '</p></div>';
+		}
+	}
+
+	/**
+	 * Media whose trashing was killed midway (server restart, out of memory): their files are put back, and the
+	 * notice says so; when that is not possible yet (another action is working on them, a file with the same name
+	 * exists) it says that too. The files are never deleted.
+	 */
+	private static function render_interrupted_notice() {
+		$ids = OLIMC_Quarantine::interrupted_ids();
+		if ( [] === $ids ) {
+			return;
+		}
+		$done = 0;
+		$left = 0;
+		$back = [];
+		foreach ( $ids as $i => $id ) {
+			if ( $i >= 10 ) {
+				++$left;
+				continue;
+			}
+			if ( true === OLIMC_Quarantine::recover( $id ) ) {
+				$back[] = $id;
+				++$done;
+			} else {
+				++$left;
+			}
+		}
+		if ( $done > 0 ) {
+			OLIMC_Trash::log( 'recover', $back );
+			echo '<div class="notice notice-success inline olimc-recovered"><p>' . esc_html(
+				sprintf(
+					/* translators: %d: number of media */
+					_n( 'The move to the trash of %d media was interrupted. Its files were put back.', 'The move to the trash of %d media was interrupted. Their files were put back.', $done, 'oli-media-cleaner' ),
+					$done
+				)
+			) . '</p></div>';
+		}
+		if ( $left > 0 ) {
+			echo '<div class="notice notice-warning inline olimc-interrupted"><p>' . esc_html(
+				sprintf(
+					/* translators: %d: number of media */
+					_n( 'The move to the trash of %d media was interrupted and its files are not all back yet (another action is working on it, or a file with the same name exists). Nothing is lost: the files are in the trash folder. Reload this page in a few minutes.', 'The move to the trash of %d media was interrupted and their files are not all back yet (another action is working on them, or a file with the same name exists). Nothing is lost: the files are in the trash folder. Reload this page in a few minutes.', $left, 'oli-media-cleaner' ),
+					$left
+				)
+			) . '</p></div>';
 		}
 	}
 
