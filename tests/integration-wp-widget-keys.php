@@ -1,7 +1,8 @@
 <?php
 /**
- * WordPress integration test: an array KEY that equals a media ID is not a use of that media,
- * while a real ID stored as a value (widget, theme mod) still protects it.
+ * WordPress integration test (decision D25): a numeric array KEY that equals a media ID still counts
+ * as "in use" in widget_* and theme_mods_* options (the media stays protected, as before 932bf3d),
+ * and so does a real ID stored as a value (widget, theme mod).
  *
  * Usage (from a test site with the plugin active):
  *   wp eval-file wp-content/plugins/oli-media-cleaner/tests/integration-wp-widget-keys.php
@@ -36,7 +37,7 @@ $used = function ( $id ) {
 	return ( new OLIMC_Scanner() )->is_attachment_in_use_now( $id );
 };
 
-$k1 = $make( 'key-widget' );   // Only an array key in a widget option.
+$k1 = $make( 'key-widget' );   // Only an array key in a widget option: protected.
 $k2 = $make( 'key-theme' );    // Only an array key in a theme mod.
 $v1 = $make( 'media-widget' ); // Core media widget: attachment_id.
 $v2 = $make( 'plugin-widget' ); // Plugin widget: ID as a plain integer value.
@@ -50,14 +51,15 @@ update_option( "widget_olimc_wk_b_$uniq", [ 4 => [ 'title' => 'p', 'image' => $v
 update_option( "theme_mods_olimc_wk2_$uniq", [ 'header_pic' => $v3 ], false );
 update_option( "widget_media_gallery_$uniq", [ 5 => [ 'ids' => [ $v5 ] ], '_multiwidget' => 1 ], false );
 
-$t( false === $used( $k1 ), 'an ID that is only a widget array key is not "in use"' );
-$t( false === $used( $k2 ), 'an ID that is only a theme-mod array key is not "in use"' );
+$t( true === $used( $k1 ), 'an ID that is only a widget array key stays protected (D25)' );
+$t( true === $used( $k2 ), 'an ID that is only a theme-mod array key stays protected (D25)' );
 $t( true === $used( $v1 ), 'a core media widget attachment_id keeps the media protected' );
 $t( true === $used( $v2 ), 'a plugin widget holding the ID as a value keeps the media protected' );
 $t( true === $used( $v3 ), 'a theme mod holding the ID as a value keeps the media protected' );
 $t( true === $used( $v5 ), 'a media gallery widget ids list keeps the media protected' );
-$t( OLIMC_Trash::trash( $k1 )['ok'], 'the key-only media can be moved to the trash' );
-OLIMC_Trash::restore( $k1 );
+$r = OLIMC_Trash::trash( $k1 );
+$t( ! $r['ok'] && 'used' === $r['code'], 'the key-only media is refused for the trash ("used"), nothing is moved' );
+$t( null !== ( new OLIMC_Scanner() )->is_attachment_in_use_now( $k1 ), 'and the check answered' );
 
 foreach ( [ "widget_olimc_wk_a_$uniq", "theme_mods_olimc_wk_$uniq", "widget_media_image_$uniq", "widget_olimc_wk_b_$uniq", "theme_mods_olimc_wk2_$uniq", "widget_media_gallery_$uniq" ] as $o ) {
 	delete_option( $o );

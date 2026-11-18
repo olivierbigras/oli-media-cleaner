@@ -137,7 +137,6 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * NEW: Settings: kept paths with a "Test patterns" button, automatic emptying (never, 30 or 90 days), scheduled scan (analysis only), careful mode, data removal on uninstall, diagnostics report.
 * NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
 * CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
-* CHANGE: A number that is only an array key in a widget or theme setting no longer counts as a use of the media with that ID (a real ID stored as a value still protects it).
 * CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).
 * CHANGE: Requires WordPress 5.8 (was 6.2).
 * REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.

@@ -21,7 +21,6 @@ All notable changes to Oli Media Cleaner will be documented in this file.
 - Permanent deletion only from the trash, checked on the server (capability per media, nonce, media must be in the trash; otherwise HTTP 400 and nothing is deleted).
 - Requires WordPress 5.8 (was 6.2): `%i` and `wp_filesize()` are provided by small compatibility helpers.
 - The scheduled scan only analyses. It never moves or deletes anything.
-- A number that is only an array key in a widget option or a theme setting no longer counts as a use of the media with that ID; a real ID stored as a value still protects it (`tests/integration-wp-widget-keys.php`).
 - Uninstall always restores trashed media (their files go back to their paths), whether or not "Delete the plugin data" is checked, then (if checked) removes options, post/user meta, the results table and scheduled events. A media that cannot be restored is shown again and keeps its files in `uploads/olimc-trash/` with its manifest and a README.
 
 ### Removed
