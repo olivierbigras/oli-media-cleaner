@@ -2105,7 +2105,7 @@ class OLIMC_Scanner {
      * @return string[]|null Null when the lookup failed (callers must not move or delete anything).
      */
     public function relative_upload_paths( $id ) {
-        return $this->attachment_relative_paths((int) $id);
+        return $this->attachment_relative_paths( (int) $id );
     }
 
     /**
@@ -2136,7 +2136,7 @@ class OLIMC_Scanner {
             return false;
         }
         foreach (array_keys(self::$stem_index_cache[ $stem ]) as $owner) {
-            if ((int) $owner !== (int) $id) {
+            if ( (int) $owner !== (int) $id ) {
                 return true;
             }
         }

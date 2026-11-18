@@ -9,7 +9,8 @@ All notable changes to Oli Media Cleaner will be documented in this file.
 - Five-step scan (preparing, ACF, other metadata, content/theme/widgets, sorting) with progress bar, counter, elapsed time, pause/resume/cancel. The former "auxiliary" phase is split into one step per source so the bar never stalls.
 - Results stored in `{prefix}olimc_results` (keyed by scan), published only when the scan is complete.
 - Stale list detection (plugin set or versions, theme, media count/latest change, or older than 14 days) and a live re-check of each file before it is moved (unknown counts as used).
-- Trash backend interface (`OLIMC_Trash_Backend`). The provisional backend flags media with `_olimc_trashed`; the former WordPress trash is still read and restored.
+- Real trash (quarantine): trashing moves the original, `-scaled`, original image, every size, backup sizes and WebP/AVIF copies to `uploads/olimc-trash/<random token>/<ID>/files/…` with a manifest (original path, size, MD5), hides the media from the Media Library (internal status `olimc-trash`, never purged by WordPress), and restoring puts the exact bytes back at the exact paths. Nothing is overwritten (a file at the old path stops that restore), a failed move puts the media's files back, an unwritable uploads folder is refused, files shared with another media stay in place, each site of a multisite has its own folder. The folder is protected by an empty `index.php`, an `.htaccess` and a random name; previews in the Trash tab go through an admin-only endpoint.
+- Trash backend interface (`OLIMC_Trash_Backend`), default backend `OLIMC_Trash_Quarantine_Backend`; the former WordPress trash is still read and restored. Filters `olimc_trash_backend` and `olimc_quarantine_allow_move`.
 - Dialogs with `<dialog>`/`showModal()`, required checkbox for large selections ("all results", 100+ files or 30%+ of the library) and for emptying the trash.
 - "Select all results" across pages, CSV export with formula-injection protection and UTF-8 BOM, "Test patterns", diagnostics report, per-user screen option for the page size.
 - `wp.i18n` + `wp_set_script_translations`, `wp.a11y.speak` announcements, ARIA roles and labels, 44 px targets, reduced-motion.
@@ -20,7 +21,7 @@ All notable changes to Oli Media Cleaner will be documented in this file.
 - Permanent deletion only from the trash, checked on the server (capability per media, nonce, media must be in the trash; otherwise HTTP 400 and nothing is deleted).
 - Requires WordPress 5.8 (was 6.2): `%i` and `wp_filesize()` are provided by small compatibility helpers.
 - The scheduled scan only analyses. It never moves or deletes anything.
-- Uninstall restores trashed media, then removes options, post/user meta, the results table and scheduled events.
+- Uninstall restores trashed media (their files go back to their paths), then removes options, post/user meta, the results table and scheduled events. A media that cannot be restored is shown again and keeps its files in `uploads/olimc-trash/` with its manifest and a README.
 
 ### Removed
 - Donation notice and its inline script, "Donate" action link, footer line (the donation link stays in the readme and the plugin meta line).

@@ -17,9 +17,19 @@ Find unused media, move them to a safe trash, restore anytime. Local only: no ad
 
 1. **Scan.** Nothing is changed during a scan. It runs in small steps, shows a progress bar, and can be paused and resumed.
 2. **Review.** Look at the list (search, filters, sort, CSV export). Keep any file you want to protect.
-3. **Trash.** Move the files you do not need to the plugin's trash. Your site is checked again, file by file, just before each move.
-4. **Restore.** Changed your mind, or an image is missing on your site? Restore it from the trash in one click.
-5. **Empty the trash.** Only files in the trash can be deleted permanently, and the plugin asks for confirmation first.
+3. **Trash.** Move the files you do not need to the plugin's trash. Your site is checked again, file by file, just before each move. The files really leave your site: they are moved into a protected folder, so an image your site still needs shows up as missing and you can see it.
+4. **Restore.** Changed your mind, or an image is missing on your site? Restore it from the trash in one click. The files go back to the same paths, byte for byte. You can restore at any time: nothing in the trash is ever deleted by WordPress or by this plugin on its own.
+5. **Empty the trash.** Only files in the trash can be deleted permanently, and the plugin asks for confirmation first. Emptying the trash is the only step that erases files.
+
+= How the trash works =
+
+* **Moved, not flagged.** Trashing a media moves its original file, the "-scaled" version, the original image, every generated size, the backup sizes and the `.webp` and `.avif` copies that exist on disk to `wp-content/uploads/olimc-trash/`. The media disappears from the Media Library while it is in the trash.
+* **Exact restore.** A manifest keeps the original path, size and MD5 of each moved file. Restoring checks the files, puts them back at the same paths and shows the media again. If a file with the same name was created in the meantime, nothing is overwritten and you get a clear message.
+* **All or nothing for each media.** If one file cannot be moved, the files already moved for that media are put back. If the uploads folder is not writable, the media is left as it is and you are told.
+* **Shared files stay.** A file that another media entry also uses is left in place, and the plugin never deletes it while the other one needs it.
+* **Protected folder.** The trash folder has an empty `index.php`, an `.htaccess` that denies access, and a random name that cannot be guessed. Nginx ignores `.htaccess`: there, the random name is the protection. The Trash tab shows previews through an admin-only address; the real location is never written in the page.
+* **Empty = permanent.** Emptying the trash deletes the media and its files for good, after a last live check of your site.
+* **Multisite.** Each site has its own trash folder, inside its own uploads folder.
 
 = What is read during a scan =
 
@@ -42,6 +52,7 @@ Back up your site before cleaning. The trash keeps your files, but it is not a b
 * No ads, no upsell, no rating request, no tracking, no remote call: nothing leaves your site.
 * Native WordPress screens (list table, tabs, notices), keyboard friendly, readable with a screen reader, usable on a phone.
 * The scheduled scan only refreshes the list. It never moves or deletes anything.
+* WordPress never purges the trash of this plugin (no 30-day countdown, `EMPTY_TRASH_DAYS` has no effect on it).
 * A file used by two media entries is never deleted while the other one needs it.
 * Fully translated: French (Canada and France).
 
@@ -55,11 +66,35 @@ Back up your site before cleaning. The trash keeps your files, but it is not a b
 
 = Is it safe? =
 
-Nothing is changed during a scan. Files you trash are set aside, not erased, and you can restore them. Make a backup before cleaning anyway: the trash is not a backup.
+Nothing is changed during a scan. Files you trash are moved offline into a protected folder, not erased, and you can restore them at any time. Make a backup before cleaning anyway: the trash is not a backup.
 
 = Why is an image missing on my site after I used the trash? =
 
-The file was used by something the scan could not read. Open the **Trash** tab and restore it. Then tell us what plugin or theme uses it so we can read it in a future version.
+Trashed files are really offline, so a file your site still used shows up as missing. This is on purpose: you see the problem. The file was used by something the scan could not read. Open the **Trash** tab and restore it, and it is back at the same path. Then tell us what plugin or theme uses it so we can read it in a future version.
+
+= Where are the trashed files? =
+
+In `wp-content/uploads/olimc-trash/`, in a folder with a random name, then one folder per media (its ID). Each one holds the files with their original relative path and a `manifest.json` (original path, size, MD5). Do not edit that folder by hand: use the **Trash** tab.
+
+= Can a restore overwrite something? =
+
+No. If a file already exists at the old path (for example you uploaded a new image with the same name), the restore of that media stops, nothing is moved and nothing is overwritten. Rename or remove the new file, then restore again.
+
+= What if the uploads folder is not writable? =
+
+Trashing is refused with a message and nothing is changed. Fix the permissions of `wp-content/uploads`, then try again.
+
+= Does WordPress delete the trash after 30 days? =
+
+No. The plugin uses its own folder and its own hidden status, so WordPress never purges it. Files leave the trash only when you restore them or empty the trash. You can also choose to empty it automatically after 30 or 90 days in **Settings**.
+
+= What happens if I deactivate the plugin? =
+
+Trashed files stay in the trash folder and the media stay hidden. Activate the plugin again to restore them. If you delete the plugin, they are restored first (see below).
+
+= What scheduled events does it use? =
+
+Two, both optional and visible in WP-Cron: `olimc_scheduled_cleanup` runs a scan and only refreshes the list (nothing is moved or deleted), and `olimc_auto_empty_trash` runs once a day, only if you choose to empty the trash automatically, and permanently deletes media that have been in the trash longer than 30 or 90 days (kept media are restored instead). Both are removed when you deactivate or uninstall the plugin. If `DISABLE_WP_CRON` is set, trigger WP-Cron from your server.
 
 = Which sources does the scan read? =
 
@@ -67,7 +102,7 @@ Content, featured images, custom fields (including ACF), WooCommerce, Elementor,
 
 = What happens when I uninstall the plugin? =
 
-Media in the trash are restored to the media library first, then the plugin data is removed. No media file is ever deleted by the uninstall. You can keep the data by unchecking the option in **Settings**.
+Media in the trash are restored first (their files go back to their original paths), then the plugin data is removed, on every site of a multisite. No media file is ever deleted by the uninstall. A media that cannot be restored (a file with the same name exists, or the folder is not writable) is shown again in the Media Library and its files stay in `uploads/olimc-trash/` with their manifest and a README, so nothing is lost silently. You can keep everything by unchecking the option in **Settings**: nothing is touched then, and the trash is still there if you install the plugin again.
 
 = Does the plugin send my data anywhere? =
 
@@ -95,6 +130,7 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 = 2.0.0 =
 * NEW: Redesigned screen on native WordPress components: tabs "To review", "Kept", "Trash" and "Settings", WordPress list table with screen options, notices instead of pop-ups.
 * NEW: The scan runs in five visible steps with a progress bar, a counter and an elapsed time. It can be paused, resumed or cancelled. Nothing is marked as unused until it is complete.
+* NEW: Real trash. Files are moved out of their public place into `uploads/olimc-trash/` (original, scaled, original image, every size, backup sizes, WebP/AVIF copies), with a manifest for an exact restore. The media is hidden from the Media Library while it is in the trash, and WordPress never purges it. Nothing is overwritten on restore; a failed move puts the media's files back; shared files stay in place.
 * NEW: Single trash with "Undo". Grouped actions and permanent deletion ask for confirmation in an accessible dialog. A checkbox is required for large selections and for emptying the trash.
 * NEW: "Select all results" across pages, and results stored in a dedicated table for large libraries.
 * NEW: The list is flagged as out of date after a change of plugin, theme or media, or after 14 days; every file is checked again live before it is moved.
