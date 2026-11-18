@@ -25,7 +25,7 @@ Find unused media, move them to a safe trash, restore anytime. Local only: no ad
 - **Restore.** Checks first (file present, size and MD5 equal, nothing at the destination), then moves with a no-clobber link; any failure puts the already moved files back. A file at the destination gives the code `exists` and nothing is overwritten.
 - **Trash.** All or nothing per media: if one move fails (or the `olimc_quarantine_allow_move` filter refuses it), the files already moved go back and the media keeps its status. An unwritable uploads folder is refused before anything moves.
 - **Empty.** `wp_delete_attachment()` with the existing guards (kept, shared, live usage re-check); the quarantine folder of the media is then erased. A file found at an original path is never unlinked.
-- **Uninstall.** Restores every trashed media first. One that cannot be restored is shown again; its files stay in `uploads/olimc-trash/` with the manifest and a README. Unchecking "Delete the plugin data" leaves everything as it is.
+- **Uninstall.** Restores every trashed media first. One that cannot be restored is shown again; its files stay in `uploads/olimc-trash/` with the manifest and a README. Unchecking "Delete the plugin data" keeps your settings and your list of kept files; the trash is restored either way.
 
 ## Hooks and cron
 
@@ -47,7 +47,7 @@ Download the ZIP from the [releases](https://github.com/olivierbigras/oli-media-
 
 ## Privacy
 
-The plugin makes no remote request and loads no external resource. It stores its data in your database: a few options (including the random name of the trash folder), post meta keys (`_olimc_protected`, `_olimc_trashed`, `_olimc_trash_map`, `_olimc_prev_status`) and one table (`{prefix}olimc_results`). Everything is removed on uninstall (media in the trash are restored first, never deleted; one that cannot be restored keeps its files in the trash folder), unless you turn that option off.
+The plugin makes no remote request and loads no external resource. It stores its data in your database: a few options (including the random name of the trash folder), post meta keys (`_olimc_protected`, `_olimc_trashed`, `_olimc_trash_map`, `_olimc_prev_status`) and one table (`{prefix}olimc_results`). The media in the trash are always restored on uninstall (never deleted; one that cannot be restored keeps its files in the trash folder). The rest is removed unless you turn the "Delete the plugin data" option off.
 
 ## Development
 

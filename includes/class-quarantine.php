@@ -361,6 +361,7 @@ class OLIMC_Quarantine {
 				return new WP_Error( 'olimc_dir', 'A previous quarantine folder for this media is not empty.' );
 			}
 		}
+		self::ensure_guards();
 		if ( ! self::mkdir_protected( $dir, $base ) ) {
 			return self::perm_error( 'The uploads folder is not writable.' );
 		}
@@ -932,6 +933,35 @@ class OLIMC_Quarantine {
 	// ─── Files ────────────────────────────────────────────────────────
 
 	/**
+	 * @return string Rules of the .htaccess at the quarantine root.
+	 */
+	private static function htaccess_rules() {
+		return "# Oli Media Cleaner: no direct access to the trash.\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder allow,deny\nDeny from all\n</IfModule>\nOptions -Indexes\n";
+	}
+
+	/**
+	 * The quarantine root and the token folder may exist without their guard files (removed by hand,
+	 * older build): write them again before anything is moved in.
+	 */
+	private static function ensure_guards() {
+		$root = self::root_dir();
+		if ( '' === $root || ! is_dir( $root ) ) {
+			return;
+		}
+		$silent = "<?php\n// Silence is golden.\n";
+		if ( ! file_exists( $root . '/index.php' ) ) {
+			file_put_contents( $root . '/index.php', $silent ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		}
+		if ( ! file_exists( $root . '/.htaccess' ) ) {
+			file_put_contents( $root . '/.htaccess', self::htaccess_rules() ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		}
+		$token_dir = $root . '/' . self::token();
+		if ( is_dir( $token_dir ) && ! file_exists( $token_dir . '/index.php' ) ) {
+			file_put_contents( $token_dir . '/index.php', $silent ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		}
+	}
+
+	/**
 	 * Create a folder (and the missing parents up to $stop) with an empty index.php in each.
 	 * The quarantine root also gets an .htaccess that denies direct access. Nginx ignores
 	 * it: the random folder name and the empty index files are the protection there.
@@ -958,7 +988,7 @@ class OLIMC_Quarantine {
 				file_put_contents( $path . '/index.php', "<?php\n// Silence is golden.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			}
 			if ( basename( $path ) === self::FOLDER && ! file_exists( $path . '/.htaccess' ) ) {
-				file_put_contents( $path . '/.htaccess', "# Oli Media Cleaner: no direct access to the trash.\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder allow,deny\nDeny from all\n</IfModule>\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+				file_put_contents( $path . '/.htaccess', self::htaccess_rules() ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 			}
 		}
 		return is_dir( $dir );

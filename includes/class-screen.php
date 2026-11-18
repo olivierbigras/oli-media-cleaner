@@ -397,7 +397,7 @@ class OLIMC_Screen {
 		}
 
 		if ( 'trash' === $tab ) {
-			self::notice( 'info', esc_html__( 'These files are offline, not erased. If your site still needs one, an image will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
+			self::notice( 'info', esc_html__( 'These files are offline, not erased. If your site still needs one, a file will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first.', 'oli-media-cleaner' ), false, 'olimc-trash-note' );
 		}
 
 		require_once OLIMC_PLUGIN_DIR . 'includes/class-list-table.php';
@@ -585,7 +585,7 @@ class OLIMC_Screen {
 
 		echo '<details class="olimc-advanced"><summary>' . esc_html__( 'Advanced', 'oli-media-cleaner' ) . '</summary><table class="form-table" role="presentation"><tbody><tr><th scope="row">' . esc_html__( 'Advanced', 'oli-media-cleaner' ) . '</th><td><label><input type="checkbox" name="olimc_careful" value="1"' . checked( '1', $v( 'olimc_careful' ), false ) . '> ' . esc_html__( 'Careful mode (slow hosting): smaller batches and a short pause between requests', 'oli-media-cleaner' ) . '</label></td></tr></tbody></table></details>';
 
-		echo '<h2 class="title">' . esc_html__( 'Data', 'oli-media-cleaner' ) . '</h2><table class="form-table" role="presentation"><tbody><tr><th scope="row">' . esc_html__( 'Uninstall', 'oli-media-cleaner' ) . '</th><td><label><input type="checkbox" name="olimc_delete_data" value="1"' . checked( '1', $v( 'olimc_delete_data' ), false ) . '> ' . esc_html__( 'Delete the plugin data when it is uninstalled', 'oli-media-cleaner' ) . '</label><p class="description">' . esc_html__( 'Files in the trash are restored to the media library first. They are never deleted. A file that cannot be restored stays in the uploads/olimc-trash folder.', 'oli-media-cleaner' ) . '</p></td></tr></tbody></table>';
+		echo '<h2 class="title">' . esc_html__( 'Data', 'oli-media-cleaner' ) . '</h2><table class="form-table" role="presentation"><tbody><tr><th scope="row">' . esc_html__( 'Uninstall', 'oli-media-cleaner' ) . '</th><td><label><input type="checkbox" name="olimc_delete_data" value="1"' . checked( '1', $v( 'olimc_delete_data' ), false ) . '> ' . esc_html__( 'Delete the plugin data when it is uninstalled', 'oli-media-cleaner' ) . '</label><p class="description">' . esc_html__( 'Files in the trash are always restored to the media library first. They are never deleted. A file that cannot be restored stays in the uploads/olimc-trash folder.', 'oli-media-cleaner' ) . '</p></td></tr></tbody></table>';
 
 		echo '<h2 class="title">' . esc_html__( 'Diagnostics', 'oli-media-cleaner' ) . '</h2>';
 		echo '<p><label class="screen-reader-text" for="olimc-diag">' . esc_html__( 'Diagnostics', 'oli-media-cleaner' ) . '</label><textarea id="olimc-diag" readonly rows="8" cols="60" class="large-text code">' . esc_textarea( self::diagnostic_report() ) . '</textarea></p>';

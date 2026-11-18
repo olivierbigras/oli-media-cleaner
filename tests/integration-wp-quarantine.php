@@ -411,6 +411,26 @@ foreach ( [ $id, $idu, $idv ] as $x ) {
 	}
 }
 
+// ── 11b. Guard files that went missing are written again ─────────────
+list( $idg1, $dirg1, $namesg1 ) = $make( "olimc-q16-$uniq" );
+list( $idg2, $dirg2, $namesg2 ) = $make( "olimc-q17-$uniq" );
+$beforeg = $snap( $dirg2, $namesg2 );
+$reset();
+OLIMC_Trash::trash( $idg1 );
+$rootg = $base . '/olimc-trash';
+$tokg  = $rootg . '/' . OLIMC_Quarantine::token();
+unlink( $rootg . '/.htaccess' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+unlink( $rootg . '/index.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+unlink( $tokg . '/index.php' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- test fixture.
+$reset();
+OLIMC_Trash::trash( $idg2 );
+$t( is_file( $rootg . '/.htaccess' ) && is_file( $rootg . '/index.php' ) && is_file( $tokg . '/index.php' ), 'root .htaccess and index.php files that were missing are written again at the next trash' );
+$t( false !== strpos( (string) file_get_contents( $rootg . '/.htaccess' ), 'Deny from all' ), 'and the rules deny access' );
+$reset();
+OLIMC_Trash::restore( $idg1 );
+OLIMC_Trash::restore( $idg2 );
+$t( $snap( $dirg2, $namesg2 ) === $beforeg, 'both restored exactly' );
+
 // ── 12. Uninstall with an empty trash removes the folder ─────────────
 list( $idw, $dirw, $namesw ) = $make( "olimc-q13-$uniq" );
 $beforew = $snap( $dirw, $namesw );

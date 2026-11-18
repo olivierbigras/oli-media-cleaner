@@ -878,6 +878,59 @@ class OLIMC_Scanner {
     }
 
     /**
+     * Whether an integer VALUE of this array (any depth) is the attachment ID. Array keys are ignored:
+     * a serialized array holds "i:2;" for the key 2 as well as for the value 2.
+     *
+     * @param mixed $data Unserialized value.
+     * @param int   $id   Attachment ID.
+     * @return bool
+     */
+    private static function array_has_int_value( $data, $id ) {
+        if ( ! is_array($data)) {
+            return false;
+        }
+        foreach ($data as $item) {
+            if (is_array($item)) {
+                if (self::array_has_int_value($item, $id)) {
+                    return true;
+                }
+            } elseif (is_int($item) && $item === (int) $id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Options of a family (name prefix) that hold the ID as an integer value.
+     *
+     * The SQL pre-filter "i:N;" also matches array keys, so every candidate is unserialized and only
+     * values count. A candidate that cannot be read counts as a hit (never a false negative).
+     *
+     * @param string $prefix Option name prefix, e.g. "widget_".
+     * @param int    $id     Attachment ID.
+     * @return bool|null Null on a database error.
+     */
+    private function options_have_int_value( $prefix, $id ) {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value LIKE %s",
+            $wpdb->esc_like($prefix) . '%',
+            '%' . $wpdb->esc_like('i:' . (int) $id . ';') . '%'
+        ));
+        if ( ! empty($wpdb->last_error) || ! is_array($rows)) {
+            return null;
+        }
+        foreach ($rows as $row) {
+            $data = maybe_unserialize($row->option_value);
+            if ( ! is_array($data) || self::array_has_int_value($data, $id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Attachment IDs stored in serialized widget / theme_mod payloads.
      *
      * @param string $serialized Serialized PHP.
@@ -922,7 +975,11 @@ class OLIMC_Scanner {
             return true;
         }
         if (preg_match('/i:' . $id . ';/', $value)) {
-            return true;
+            // The pattern also matches an array key: when the value reads as an array, only values count.
+            $parsed = function_exists('maybe_unserialize') ? maybe_unserialize($value) : @unserialize($value); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
+            if ( ! is_array($parsed) || self::array_has_int_value($parsed, $id)) {
+                return true;
+            }
         }
         if (preg_match('/s:\d+:"' . $id . '"/', $value)) {
             return true;
@@ -1455,7 +1512,6 @@ class OLIMC_Scanner {
         $needles = [
             'custom_logo";i:' . $id . ';',
             's:' . strlen( (string) $id) . ':"' . $id . '"',
-            'i:' . $id . ';',
         ];
         $paths = $this->attachment_relative_paths($id);
         if ($paths === null) {
@@ -1474,6 +1530,15 @@ class OLIMC_Scanner {
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
         $this->finish_usage_query($hit);
+        if ($this->usage_check_hit || $this->usage_check_failed) {
+            return;
+        }
+        $by_value = $this->options_have_int_value('theme_mods_', $id);
+        if ($by_value === null) {
+            $this->usage_check_failed = true;
+        } elseif ($by_value) {
+            $this->usage_check_hit = true;
+        }
     }
 
     private function collect_woocommerce_gallery() {
@@ -1662,7 +1727,6 @@ class OLIMC_Scanner {
             return;
         }
         $needles[] = '"attachment_id";i:' . $id . ';';
-        $needles[] = 'i:' . $id . ';';
         $like_sql = $this->prepared_like_or([ 'option_value' ], $needles);
         if ($like_sql === null) {
             return;
@@ -1674,6 +1738,16 @@ class OLIMC_Scanner {
             "SELECT option_id FROM {$wpdb->options} WHERE {$where_sql} LIMIT 1" // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql is $wpdb->prepare() fragments.
         );
         $this->finish_usage_query($hit);
+        if ($this->usage_check_hit || $this->usage_check_failed) {
+            return;
+        }
+        // An ID stored as a plain integer value (plugin widgets), not as an array key.
+        $by_value = $this->options_have_int_value('widget_', $id);
+        if ($by_value === null) {
+            $this->usage_check_failed = true;
+        } elseif ($by_value) {
+            $this->usage_check_hit = true;
+        }
     }
 
     private function collect_elementor_images() {

@@ -102,7 +102,7 @@ Content, featured images, custom fields (including ACF), WooCommerce, Elementor,
 
 = What happens when I uninstall the plugin? =
 
-Media in the trash are restored first (their files go back to their original paths), then the plugin data is removed, on every site of a multisite. No media file is ever deleted by the uninstall. A media that cannot be restored (a file with the same name exists, or the folder is not writable) is shown again in the Media Library and its files stay in `uploads/olimc-trash/` with their manifest and a README, so nothing is lost silently. You can keep everything by unchecking the option in **Settings**: nothing is touched then, and the trash is still there if you install the plugin again.
+Media in the trash are always restored first (their files go back to their original paths), whether or not the option below is checked, on every site of a multisite. Then the plugin data is removed if the option is checked. No media file is ever deleted by the uninstall. A media that cannot be restored (a file with the same name exists, or the folder is not writable) is shown again in the Media Library and its files stay in `uploads/olimc-trash/` with their manifest and a README, so nothing is lost silently. Unchecking **Delete the plugin data when it is uninstalled** in **Settings** keeps your settings and your list of kept files; the trash is restored either way.
 
 = Does the plugin send my data anywhere? =
 
@@ -137,6 +137,7 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 * NEW: Settings: kept paths with a "Test patterns" button, automatic emptying (never, 30 or 90 days), scheduled scan (analysis only), careful mode, data removal on uninstall, diagnostics report.
 * NEW: Keyboard and screen reader support throughout, 44 px targets, mobile layout, reduced motion.
 * CHANGE: "Whitelist" becomes "Keep" (one concept). Your previous list is migrated. Existing results are dropped: run a new scan.
+* CHANGE: A number that is only an array key in a widget or theme setting no longer counts as a use of the media with that ID (a real ID stored as a value still protects it).
 * CHANGE: Permanent deletion is only possible from the trash and is checked on the server (capability, nonce, and the media must be in the trash).
 * CHANGE: Requires WordPress 5.8 (was 6.2).
 * REMOVED: Donation notice and its inline script, "Donate" action link, footer line, browser pop-ups (confirm) and toasts, home-made pagination.

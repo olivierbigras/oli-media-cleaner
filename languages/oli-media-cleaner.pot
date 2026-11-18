@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-18T12:59:39+00:00\n"
+"POT-Creation-Date: 2026-11-18T14:08:20+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: oli-media-cleaner\n"
@@ -64,7 +64,7 @@ msgstr ""
 #: includes/class-screen.php:191
 #: includes/class-screen.php:627
 #: assets/js/admin.js:685
-#: assets/js/admin.js:760
+#: assets/js/admin.js:779
 msgid "You do not have permission to clean the media library."
 msgstr ""
 
@@ -85,7 +85,7 @@ msgstr ""
 msgid "Only files in the trash can be deleted permanently."
 msgstr ""
 
-#: includes/class-ajax.php:481
+#: includes/class-ajax.php:489
 msgid "The uploads folder is not writable."
 msgstr ""
 
@@ -142,7 +142,7 @@ msgid "Trash"
 msgstr ""
 
 #: includes/class-list-table.php:120
-#: assets/js/admin.js:853
+#: assets/js/admin.js:886
 msgid "Move to trash"
 msgstr ""
 
@@ -161,7 +161,7 @@ msgstr ""
 #. translators: %s: media name
 #: includes/class-list-table.php:129
 #: includes/class-list-table.php:331
-#: assets/js/admin.js:859
+#: assets/js/admin.js:892
 msgid "Delete permanently"
 msgstr ""
 
@@ -460,7 +460,7 @@ msgid "Your media library is clean. Run a new scan after your next big change."
 msgstr ""
 
 #: includes/class-screen.php:389
-#: assets/js/admin.js:949
+#: assets/js/admin.js:982
 msgid "This list predates your latest changes (plugin, theme or a scan older than 14 days). Run a new scan before moving files to the trash."
 msgstr ""
 
@@ -471,7 +471,7 @@ msgid "%s of your media are reported. This often means a source cannot be read. 
 msgstr ""
 
 #: includes/class-screen.php:400
-msgid "These files are offline, not erased. If your site still needs one, an image will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first."
+msgid "These files are offline, not erased. If your site still needs one, a file will be missing: restore it here at any time. Emptying the trash deletes them for good, so check your site first."
 msgstr ""
 
 #: includes/class-screen.php:410
@@ -487,7 +487,7 @@ msgid "Restore all"
 msgstr ""
 
 #: includes/class-screen.php:417
-#: assets/js/admin.js:862
+#: assets/js/admin.js:895
 msgid "Empty the trash"
 msgstr ""
 
@@ -703,7 +703,7 @@ msgid "Delete the plugin data when it is uninstalled"
 msgstr ""
 
 #: includes/class-screen.php:588
-msgid "Files in the trash are restored to the media library first. They are never deleted. A file that cannot be restored stays in the uploads/olimc-trash folder."
+msgid "Files in the trash are always restored to the media library first. They are never deleted. A file that cannot be restored stays in the uploads/olimc-trash folder."
 msgstr ""
 
 #: includes/class-screen.php:590
@@ -761,7 +761,7 @@ msgstr ""
 
 #. translators: %s: the URL that was refused.
 #: includes/class-settings.php:161
-#: assets/js/admin.js:1112
+#: assets/js/admin.js:1145
 #, php-format,js-format
 msgid "The address %s is not on this site and was not saved."
 msgstr ""
@@ -854,7 +854,7 @@ msgstr[1] ""
 
 #. translators: %1$s: number of items done, %2$s: total number of items
 #: assets/js/admin.js:580
-#: assets/js/admin.js:775
+#: assets/js/admin.js:794
 #, js-format
 msgid "%1$s of %2$s files moved"
 msgstr ""
@@ -878,7 +878,7 @@ msgid "“%s” is now in use and was not moved. Run a new scan."
 msgstr ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:701
+#: assets/js/admin.js:702
 #, js-format
 msgid "%s file could not be restored. A file with the same name already exists."
 msgid_plural "%s files could not be restored. Files with the same name already exist."
@@ -886,7 +886,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:715
+#: assets/js/admin.js:717
 #, js-format
 msgid "%s file could not be restored."
 msgid_plural "%s files could not be restored."
@@ -894,7 +894,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:731
+#: assets/js/admin.js:734
 #, js-format
 msgid "%s kept file was restored instead of deleted."
 msgid_plural "%s kept files were restored instead of deleted."
@@ -902,7 +902,15 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:748
+#: assets/js/admin.js:749
+#, js-format
+msgid "%s kept file could not be restored and stays in the trash."
+msgid_plural "%s kept files could not be restored and stay in the trash."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of files
+#: assets/js/admin.js:767
 #, js-format
 msgid "%s file could not be deleted because your site still uses it."
 msgid_plural "%s files could not be deleted because your site still uses them."
@@ -910,7 +918,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:769
+#: assets/js/admin.js:788
 #, js-format
 msgid "%s file is no longer kept."
 msgid_plural "%s files are no longer kept."
@@ -918,7 +926,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:852
+#: assets/js/admin.js:885
 #, js-format
 msgid "Move %s file to the trash?"
 msgid_plural "Move %s files to the trash?"
@@ -926,44 +934,44 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:858
+#: assets/js/admin.js:891
 #, js-format
 msgid "Permanently delete %s file?"
 msgid_plural "Permanently delete %s files?"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:862
+#: assets/js/admin.js:895
 msgid "Empty the trash?"
 msgstr ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:890
+#: assets/js/admin.js:923
 msgid "This file goes offline and is removed from the Media Library. If your site still uses it, it will appear as missing: restore it from the trash at any time. Emptying the trash deletes it for good."
 msgid_plural "These %s files go offline and are removed from the Media Library. If your site still uses them, they will appear as missing: restore them from the trash at any time. Emptying the trash deletes them for good."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:898
+#: assets/js/admin.js:931
 msgid "The files and their thumbnails will be erased from the server. This cannot be undone. A recent backup is recommended."
 msgstr ""
 
-#: assets/js/admin.js:901
+#: assets/js/admin.js:934
 msgid "I checked some examples in the list and I have a recent backup."
 msgstr ""
 
-#: assets/js/admin.js:903
+#: assets/js/admin.js:936
 msgid "I understand that this is permanent."
 msgstr ""
 
 #. translators: %s: total size of the selected files, already formatted (e.g. 21.6 KB)
-#: assets/js/admin.js:908
+#: assets/js/admin.js:941
 #, js-format
 msgid "Total size: %s"
 msgstr ""
 
 #. translators: %s: number of other files
-#: assets/js/admin.js:910
+#: assets/js/admin.js:943
 #, js-format
 msgid "and %s more"
 msgid_plural "and %s more"
@@ -971,17 +979,17 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of results
-#: assets/js/admin.js:975
+#: assets/js/admin.js:1008
 #, js-format
 msgid "All %s results are selected."
 msgstr ""
 
-#: assets/js/admin.js:976
+#: assets/js/admin.js:1009
 msgid "Clear selection"
 msgstr ""
 
 #. translators: %s: number of files
-#: assets/js/admin.js:990
+#: assets/js/admin.js:1023
 #, js-format
 msgid "%s file is selected on this page."
 msgid_plural "%s files are selected on this page."
@@ -989,23 +997,23 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of results
-#: assets/js/admin.js:992
+#: assets/js/admin.js:1025
 #, js-format
 msgid "Select all %s results"
 msgstr ""
 
 #. translators: %s: number of files that match the patterns
-#: assets/js/admin.js:1102
+#: assets/js/admin.js:1135
 #, js-format
 msgid "%s file matches."
 msgid_plural "%s files match."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:1108
+#: assets/js/admin.js:1141
 msgid "No match. Check the spelling."
 msgstr ""
 
-#: assets/js/admin.js:1122
+#: assets/js/admin.js:1155
 msgid "Report copied."
 msgstr ""
