@@ -49,11 +49,38 @@ class OLIMC_Quarantine {
 	private static $pending = [];
 
 	/**
+	 * Moves in progress, so a fatal error or a time-out puts the files back.
+	 *
+	 * @var array<int, array{moved: array, dir: string}>
+	 */
+	private static $inflight = [];
+
+	/**
+	 * @var bool
+	 */
+	private static $shutdown_registered = false;
+
+	/**
 	 * Whether a move was refused in this request because a folder was not writable.
 	 *
 	 * @var bool
 	 */
 	private static $perm_failed = false;
+
+	/**
+	 * Shutdown: a move that did not finish (fatal error, memory or time limit) is undone,
+	 * so a media is never left with only some of its files moved.
+	 */
+	public static function undo_unfinished() {
+		foreach ( self::$inflight as $id => $job ) {
+			self::rollback_in( $job['moved'] );
+			if ( '' !== $job['dir'] ) {
+				self::remove_tree( $job['dir'] );
+			}
+			delete_post_meta( $id, self::META_LOCK );
+		}
+		self::$inflight = [];
+	}
 
 	/**
 	 * @return bool True when a move was refused in this request for lack of write access.
@@ -323,7 +350,8 @@ class OLIMC_Quarantine {
 		$map['dir'] = self::dir_rel( $id );
 		$dir        = $base . '/' . $map['dir'];
 		if ( is_dir( $dir ) ) {
-			// Left by an interrupted move of this same media: nothing to resume, start clean.
+			// Left by a move of this same media that was killed midway: put its files back first.
+			self::recover_interrupted( $dir, $base );
 			if ( ! self::cleanup_dir( $dir ) ) {
 				return new WP_Error( 'olimc_dir', 'A previous quarantine folder for this media is not empty.' );
 			}
@@ -347,10 +375,19 @@ class OLIMC_Quarantine {
 		}
 
 		$moved = [];
+		self::$inflight[ $id ] = [
+			'moved' => &$moved,
+			'dir'   => $dir,
+		];
+		if ( ! self::$shutdown_registered ) {
+			self::$shutdown_registered = true;
+			register_shutdown_function( [ __CLASS__, 'undo_unfinished' ] );
+		}
 		foreach ( $plan['move'] as $rel => $info ) {
 			$dest = $dir . '/files/' . $rel;
 			if ( ! self::mkdir_protected( dirname( $dest ), $dir ) || ! self::may_move( $info['abs'], $dest ) || true !== self::move_file( $info['abs'], $dest ) ) {
 				self::rollback_in( $moved );
+				unset( self::$inflight[ $id ] );
 				self::remove_tree( $dir );
 				return new WP_Error( 'olimc_move', 'A file could not be moved.' );
 			}
@@ -360,11 +397,40 @@ class OLIMC_Quarantine {
 		unset( $map['state'] );
 		if ( ! self::write_manifest( $dir, $map ) ) {
 			self::rollback_in( $moved );
+			unset( self::$inflight[ $id ] );
 			self::remove_tree( $dir );
 			return self::perm_error( 'The manifest could not be written.' );
 		}
 		self::finalize( $id, $map );
+		unset( self::$inflight[ $id ] );
 		return true;
+	}
+
+	/**
+	 * A manifest in the state "moving" means the process died before the media was hidden:
+	 * every file listed that sits in the quarantine goes back to its original path
+	 * (never over an existing file).
+	 *
+	 * @param string $dir  Absolute media folder.
+	 * @param string $base Uploads base directory.
+	 */
+	private static function recover_interrupted( $dir, $base ) {
+		$raw = is_file( $dir . '/manifest.json' ) ? file_get_contents( $dir . '/manifest.json' ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local file of the quarantine.
+		$map = json_decode( (string) $raw, true );
+		if ( ! is_array( $map ) || empty( $map['files'] ) || ! is_array( $map['files'] ) || 'moving' !== ( isset( $map['state'] ) ? $map['state'] : '' ) ) {
+			return;
+		}
+		foreach ( $map['files'] as $f ) {
+			$rel = self::clean_rel( isset( $f['p'] ) ? $f['p'] : '' );
+			if ( '' === $rel ) {
+				continue;
+			}
+			$from = $dir . '/files/' . $rel;
+			$to   = $base . '/' . $rel;
+			if ( is_file( $from ) && ! file_exists( $to ) ) {
+				self::move_file( $from, $to, true );
+			}
+		}
 	}
 
 	/**
@@ -552,10 +618,13 @@ class OLIMC_Quarantine {
 				return new WP_Error( 'olimc_integrity', 'The manifest is not valid.' );
 			}
 			$from = $dir . '/files/' . $rel;
+			$to   = $base . '/' . $rel;
+			if ( ! file_exists( $from ) && is_file( $to ) && olimc_filesize( $to ) === (int) $f['s'] && md5_file( $to ) === (string) $f['m'] ) {
+				continue; // Already back (a former restore of this media was interrupted): nothing to do for this file.
+			}
 			if ( ! is_file( $from ) || olimc_filesize( $from ) !== (int) $f['s'] || md5_file( $from ) !== (string) $f['m'] ) {
 				return new WP_Error( 'olimc_integrity', 'A file in the quarantine is missing or was changed.' );
 			}
-			$to = $base . '/' . $rel;
 			if ( file_exists( $to ) || is_link( $to ) ) {
 				return new WP_Error( 'olimc_exists', 'A file with the same name already exists.' );
 			}

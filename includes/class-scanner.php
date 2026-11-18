@@ -2121,21 +2121,11 @@ class OLIMC_Scanner {
         if ($index === null) {
             return null;
         }
-        if (self::$stem_index_cache === null) {
-            $stems = [];
-            foreach ($index as $path => $ids) {
-                $stem = preg_replace('/\.[^.\/]+$/', '', (string) $path);
-                foreach ($ids as $owner) {
-                    $stems[ $stem ][ (int) $owner ] = true;
-                }
-            }
-            self::$stem_index_cache = $stems;
-        }
         $stem = preg_replace('/\.[^.\/]+$/', '', (string) $rel);
         if ( ! isset(self::$stem_index_cache[ $stem ])) {
             return false;
         }
-        foreach (array_keys(self::$stem_index_cache[ $stem ]) as $owner) {
+        foreach ( (array) self::$stem_index_cache[ $stem ] as $owner ) {
             if ( (int) $owner !== (int) $id ) {
                 return true;
             }
@@ -2159,7 +2149,7 @@ class OLIMC_Scanner {
     }
 
     /**
-     * @var array<string, int[]>|null
+     * @var array<string, int[]>|null Shared paths only.
      */
     private static $upload_path_index_cache = null;
 
@@ -2181,50 +2171,104 @@ class OLIMC_Scanner {
         }
         global $wpdb;
         $wpdb->last_error = '';
-        $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s, %s) AND meta_value != ''",
+        $failed = static function () use ( $wpdb ) {
+            return ! empty($wpdb->last_error);
+        };
+        // Small values first (file names, backups), then the large serialized metadata in pages,
+        // so the raw rows never sit in memory all at once.
+        $files   = [];
+        $backups = [];
+        $small   = $wpdb->get_results($wpdb->prepare(
+            "SELECT post_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s) AND meta_value != ''",
             '_wp_attached_file',
-            '_wp_attachment_metadata',
             '_wp_attachment_backup_sizes'
         ));
-        if ( ! empty($wpdb->last_error) || ! is_array($rows)) {
+        if ($failed() || ! is_array($small)) {
             self::$upload_path_index_cache = null;
             self::$upload_path_index_ready = true;
             return null;
         }
-
-        $by_id = [];
-        foreach ($rows as $row) {
-            $id = (int) $row->post_id;
-            if ( ! isset($by_id[ $id ])) {
-                $by_id[ $id ] = [
-                    'file' => '',
-                    'meta' => '',
-                    'backup' => '',
-                ];
-            }
-            $key = isset($row->meta_key) ? (string) $row->meta_key : '';
-            if ($key === '_wp_attached_file') {
-                $by_id[ $id ]['file'] = (string) $row->meta_value;
-            } elseif ($key === '_wp_attachment_metadata') {
-                $by_id[ $id ]['meta'] = $row->meta_value;
-            } elseif ($key === '_wp_attachment_backup_sizes') {
-                $by_id[ $id ]['backup'] = $row->meta_value;
+        foreach ($small as $row) {
+            if ($row->meta_key === '_wp_attached_file') {
+                $files[ (int) $row->post_id ] = (string) $row->meta_value;
+            } else {
+                $backups[ (int) $row->post_id ] = $row->meta_value;
             }
         }
+        unset($small);
+        $all    = [];
+        $stems  = [];
+        $seen   = [];
+        $last   = 0;
+        $handle = function ( $id, $file, $meta, $backup ) use ( &$all, &$stems ) {
+            foreach ($this->relative_paths_for_attachment_row($file, $meta, $backup) as $path) {
+                self::add_owner($all, $path, $id);
+                self::add_owner($stems, preg_replace('/\.[^.\/]+$/', '', (string) $path), $id);
+            }
+        };
+        do {
+            $page = $wpdb->get_results($wpdb->prepare(
+                "SELECT meta_id, post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != '' AND meta_id > %d ORDER BY meta_id ASC LIMIT 2000",
+                '_wp_attachment_metadata',
+                $last
+            ));
+            if ($failed() || ! is_array($page)) {
+                self::$upload_path_index_cache = null;
+                self::$upload_path_index_ready = true;
+                return null;
+            }
+            foreach ($page as $row) {
+                $last = (int) $row->meta_id;
+                $id   = (int) $row->post_id;
+                if (isset($seen[ $id ])) {
+                    continue;
+                }
+                $seen[ $id ] = true;
+                $handle($id, isset($files[ $id ]) ? $files[ $id ] : '', $row->meta_value, isset($backups[ $id ]) ? $backups[ $id ] : '');
+            }
+            $count = count($page);
+            unset($page);
+        } while ($count === 2000);
+        foreach ($files as $id => $file) {
+            if ( ! isset($seen[ $id ])) {
+                $handle($id, $file, '', isset($backups[ $id ]) ? $backups[ $id ] : '');
+                $seen[ $id ] = true;
+            }
+        }
+        foreach ($backups as $id => $backup) {
+            if ( ! isset($seen[ $id ])) {
+                $handle($id, '', '', $backup);
+            }
+        }
+        unset($files, $backups, $seen);
         $index = [];
-        foreach ($by_id as $id => $parts) {
-            $paths = $this->relative_paths_for_attachment_row($parts['file'], $parts['meta'], $parts['backup']);
-            foreach ($paths as $path) {
-                $index[ $path ][] = (int) $id;
+        foreach ($all as $path => $owners) {
+            if (is_array($owners)) {
+                $index[ $path ] = $owners;
             }
         }
-        foreach ($index as $path => $list) {
-            $index[ $path ] = array_values(array_unique($list));
-        }
+        unset($all);
+        self::$stem_index_cache = $stems;
         self::$upload_path_index_cache = $index;
         self::$upload_path_index_ready = true;
         return $index;
+    }
+
+    /**
+     * @param array<string, int|int[]> $map   Key => owner ID, or list of owner IDs.
+     * @param string                   $key   Key.
+     * @param int                      $owner Attachment ID.
+     */
+    private static function add_owner( array &$map, $key, $owner ) {
+        if ( ! isset($map[ $key ])) {
+            $map[ $key ] = $owner;
+        } elseif (is_int($map[ $key ])) {
+            if ($map[ $key ] !== $owner) {
+                $map[ $key ] = [ $map[ $key ], $owner ];
+            }
+        } elseif ( ! in_array($owner, $map[ $key ], true)) {
+            $map[ $key ][] = $owner;
+        }
     }
 
     /**

@@ -622,7 +622,7 @@ foreach ( $share_db->queries as $sql ) {
 	}
 }
 olimc_scan_assert( $share_likes === 0, 'shared-file lookup uses no LIKE (' . count( $share_db->queries ) . ' queries)' );
-olimc_scan_assert( count( $share_db->queries ) === 1, 'shared-file lookup is one indexed meta_key query' );
+olimc_scan_assert( count( $share_db->queries ) === 2, 'shared-file lookup is two indexed meta_key queries (file names, then one page of metadata)' );
 $shared_paths = $share_scanner->shared_relative_upload_paths( 59384 );
 olimc_scan_assert( $shared_paths === [ $badge ], 'delete keeps the file still referenced by attachment 61216' );
 olimc_scan_assert( $share_scanner->shared_relative_upload_paths( 80001 ) === [], 'a unique file may be deleted' );

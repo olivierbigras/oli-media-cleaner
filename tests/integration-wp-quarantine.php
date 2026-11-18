@@ -221,6 +221,44 @@ $t( ! $r['ok'] && 'fail' === $r['code'], 'trash() with a failing move reports a 
 $t( $snap( $dir, $names ) === $before, 'the 2 files already moved were put back: same paths, same MD5' );
 $t( ! OLIMC_Trash::is_in_trash( $id ) && 'inherit' === $st( $id ) && null === OLIMC_Quarantine::map( $id ), 'the media is not in the trash and keeps its status' );
 $t( ! is_dir( $base . '/olimc-trash/' . OLIMC_Quarantine::token() . '/' . $id ), 'the half-built quarantine folder is removed' );
+// A move killed midway (no shutdown, no rollback): the next trash puts the files back first, then moves all.
+$reset();
+$qd = $base . '/olimc-trash/' . OLIMC_Quarantine::token() . '/' . $id;
+mkdir( $qd . '/files/' . $sub, 0755, true );
+$forged = [];
+foreach ( array_slice( $names, 0, 3 ) as $nm ) {
+	$rel = $sub . '/' . $nm;
+	$forged[] = [ 'p' => $rel, 's' => filesize( "$dir/$nm" ), 'm' => md5_file( "$dir/$nm" ) ];
+	rename( "$dir/$nm", $qd . '/files/' . $rel );
+}
+file_put_contents( $qd . '/manifest.json', wp_json_encode( [ 'state' => 'moving', 'files' => $forged ] ) );
+$r = OLIMC_Trash::trash( $id );
+$t( $r['ok'], 'trash() after a killed move succeeds (' . $r['code'] . ')' );
+$reset();
+$t( OLIMC_Trash::restore( $id )['ok'] && $snap( $dir, $names ) === $before, 'and the media comes back exact (no file lost by the killed move)' );
+// A restore killed midway: files already back are recognised, the rest follows.
+$reset();
+OLIMC_Trash::trash( $id );
+$map = OLIMC_Quarantine::map( $id );
+foreach ( array_slice( $map['files'], 0, 3 ) as $f ) {
+	rename( $base . '/' . $map['dir'] . '/files/' . $f['p'], $base . '/' . $f['p'] );
+}
+$reset();
+$r = OLIMC_Trash::restore( $id );
+$t( $r['ok'] && $snap( $dir, $names ) === $before && ! OLIMC_Trash::is_in_trash( $id ), 'restore after an interrupted restore finishes the job, same paths and MD5' );
+// Unfinished move at shutdown: files go back.
+$reset();
+$ghost = [ $dir . '/' . $names[0], $qd . '/files/x' ];
+$orig_md5 = md5_file( $ghost[0] );
+mkdir( $qd . '/files', 0755, true );
+rename( $ghost[0], $ghost[1] );
+$ref = new ReflectionClass( 'OLIMC_Quarantine' );
+$prop = $ref->getProperty( 'inflight' );
+$prop->setAccessible( true );
+$prop->setValue( null, [ $id => [ 'moved' => [ 'x' => $ghost ], 'dir' => $qd ] ] );
+OLIMC_Quarantine::undo_unfinished();
+$t( is_file( $ghost[0] ) && md5_file( $ghost[0] ) === $orig_md5 && ! is_dir( $qd ), 'shutdown handler of an unfinished move puts the file back and removes the folder' );
+$reset();
 // Failure while restoring: the files moved back so far return to the quarantine.
 $reset();
 OLIMC_Trash::trash( $id );
