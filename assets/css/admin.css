@@ -53,5 +53,6 @@
 .olimc-panel{padding:12px}
 .olimc-dlg-actions .button{flex:1 1 100%}
 .olimc-steps li{display:block}
+.wp-list-table.olimc-table tr:not(.inline-edit-row):not(.no-items) td.column-preview::before{content:none}
 }
 @media (prefers-reduced-motion:reduce){.olimc-bar>span{transition:none}}
