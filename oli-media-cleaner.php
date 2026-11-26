@@ -3,7 +3,7 @@
  * Plugin Name: Oli Media Cleaner
  * Plugin URI: https://github.com/olivierbigras/oli-media-cleaner
  * Description: Find unused media, move them to a safe trash, restore anytime. Local only: no ads, no tracking, nothing sent out.
- * Version: 2.0.0
+ * Version: 2.0.1
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Author: Olivier Bigras
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'OLIMC_VERSION', '2.0.0' );
+define( 'OLIMC_VERSION', '2.0.1' );
 define( 'OLIMC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'OLIMC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'OLIMC_BASENAME', plugin_basename( __FILE__ ) );

@@ -5,7 +5,7 @@ Tags: unused media, media library, cleanup, trash, images
 Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -174,6 +174,9 @@ Yes, one: `{prefix}olimc_results`, which holds the list of the last scan so that
 6. The same list on a phone
 
 == Changelog ==
+
+= 2.0.1 =
+* FIX: On a narrow screen, hide the "Preview" column label that WordPress draws over the thumbnail (it was truncated to "Pr…", or "Ap…" in French).
 
 = 2.0.0 =
 * NEW: Redesigned screen on native WordPress components: tabs "To review", "Kept", "Trash" and "Settings", WordPress list table with screen options, notices instead of pop-ups.
